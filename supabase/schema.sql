@@ -254,6 +254,10 @@ alter table public.notes enable row level security;
 alter table public.goals enable row level security;
 alter table public.activity_log enable row level security;
 
+drop policy if exists "profiles_read_all_authenticated" on public.profiles;
+drop policy if exists "profiles_update_own" on public.profiles;
+drop policy if exists "activity_log_read_authenticated" on public.activity_log;
+
 create policy "profiles_read_all_authenticated" on public.profiles for select to authenticated using (true);
 create policy "profiles_update_own" on public.profiles for update to authenticated using (auth.uid() = id);
 create policy "activity_log_read_authenticated" on public.activity_log for select to authenticated using (true);
@@ -264,6 +268,7 @@ declare
 begin
   foreach t in array array['ad_spend','leads','conversations','invites','calls','sales','referrals','content_ideas','active_clients','tasks','comments','calendar_entries','notes','goals']
   loop
+    execute format('drop policy if exists "%1$s_full_access_authenticated" on public.%1$s;', t);
     execute format('create policy "%1$s_full_access_authenticated" on public.%1$s for all to authenticated using (true) with check (true);', t);
   end loop;
 end $$;
@@ -271,4 +276,9 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- Realtime (opcional, para que los cambios se vean en vivo entre las dos cuentas)
 -- ---------------------------------------------------------------------------
-alter publication supabase_realtime add table public.leads, public.conversations, public.invites, public.calls, public.sales, public.ad_spend, public.referrals, public.content_ideas, public.active_clients, public.tasks, public.comments, public.calendar_entries, public.notes, public.goals, public.activity_log;
+do $$
+begin
+  alter publication supabase_realtime add table public.leads, public.conversations, public.invites, public.calls, public.sales, public.ad_spend, public.referrals, public.content_ideas, public.active_clients, public.tasks, public.comments, public.calendar_entries, public.notes, public.goals, public.activity_log;
+exception
+  when duplicate_object then null;
+end $$;
