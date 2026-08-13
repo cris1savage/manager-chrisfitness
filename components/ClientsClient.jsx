@@ -79,8 +79,11 @@ export default function ClientsClient() {
         <div className="text-muted text-xs">Las renovaciones en los próximos 7 días se marcan en ámbar; las vencidas en rojo.</div>
       </div>
 
-      <Card>
-        <div className="grid gap-2 items-end" style={{ gridTemplateColumns: `repeat(${FIELDS.length}, minmax(120px,1fr)) auto` }}>
+      <Card className="!p-0 overflow-x-auto">
+        <div
+          className="grid gap-2 items-end p-4"
+          style={{ gridTemplateColumns: `repeat(${FIELDS.length}, minmax(130px,1fr)) auto`, minWidth: 130 * FIELDS.length + 100 }}
+        >
           {FIELDS.map((f) => (
             <div key={f.key}>
               <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">{f.label}</div>
@@ -101,18 +104,20 @@ export default function ClientsClient() {
           return (
             <Card
               key={c.id}
-              className="grid gap-2 items-center"
-              style={{
-                gridTemplateColumns: `repeat(${FIELDS.length}, minmax(120px,1fr)) auto`,
-                borderColor: overdue ? '#F87171' : dueSoon ? '#FBBF24' : undefined,
-              }}
+              className="!p-0 overflow-x-auto"
+              style={{ borderColor: overdue ? '#F87171' : dueSoon ? '#FBBF24' : undefined }}
             >
-              {FIELDS.map((f) => (
-                <Field2 key={f.key} f={f} value={c[f.key]} onChange={(v) => update(c.id, f.key, v)} />
-              ))}
-              <div className="flex items-center gap-2 shrink-0">
-                <AuthorBadge profile={profiles?.[c.created_by]} />
-                <button onClick={() => remove(c.id)} className="p-2 rounded-lg text-red"><Trash2 size={16} /></button>
+              <div
+                className="grid gap-2 items-center p-4"
+                style={{ gridTemplateColumns: `repeat(${FIELDS.length}, minmax(130px,1fr)) auto`, minWidth: 130 * FIELDS.length + 100 }}
+              >
+                {FIELDS.map((f) => (
+                  <Field2 key={f.key} f={f} value={c[f.key]} onChange={(v) => update(c.id, f.key, v)} />
+                ))}
+                <div className="flex items-center gap-2 shrink-0">
+                  <AuthorBadge profile={profiles?.[c.created_by]} />
+                  <button onClick={() => remove(c.id)} className="p-2 rounded-lg text-red"><Trash2 size={16} /></button>
+                </div>
               </div>
             </Card>
           );

@@ -20,7 +20,7 @@ export default async function AppLayout({ children }) {
     <div className="min-h-screen flex">
       <Sidebar nav={NAV} profile={profiles[user.id]} />
       <ProfilesProvider profiles={profiles}>
-        <main className="flex-1 p-4 md:p-6 max-w-6xl">{children}</main>
+        <main className="flex-1 p-4 md:p-6 mt-12 md:mt-0 max-w-6xl">{children}</main>
       </ProfilesProvider>
     </div>
   );

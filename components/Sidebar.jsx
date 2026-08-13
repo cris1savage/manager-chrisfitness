@@ -91,7 +91,6 @@ export default function Sidebar({ nav, profile }) {
           </button>
         </div>
       )}
-      <div className="md:hidden h-12" />
     </>
   );
 }

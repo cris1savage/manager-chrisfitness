@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, X, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { todayISO } from '@/lib/config';
 
@@ -95,6 +95,89 @@ function DayCell({ dateISO, entries, onAdd, onToggle, onDelete, compact }) {
   );
 }
 
+function DayView({ dateISO, entries, onAdd, onToggle, onDelete }) {
+  const [type, setType] = useState('reel');
+  const [title, setTitle] = useState('');
+  const isToday = dateISO === todayISO();
+
+  const submit = () => {
+    if (!title.trim()) return;
+    onAdd({ date: dateISO, type, title: title.trim(), status: 'pendiente' });
+    setTitle('');
+  };
+
+  const label = new Date(dateISO + 'T00:00:00').toLocaleDateString('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  });
+
+  return (
+    <div className="space-y-3">
+      <div
+        className="rounded-xl p-3"
+        style={{ background: isToday ? '#5ECCFA0D' : '#0E1214', border: `1px solid ${isToday ? '#5ECCFA' : '#212729'}` }}
+      >
+        <div className="capitalize font-bold" style={{ color: isToday ? '#5ECCFA' : '#F2F6F7' }}>
+          {label} {isToday && <span className="text-xs font-normal">· hoy</span>}
+        </div>
+      </div>
+
+      <div className="rounded-xl p-3 bg-surfaceAlt border border-border flex flex-col sm:flex-row gap-2">
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          className="bg-surface border border-border text-ink text-sm rounded-lg px-2.5 py-2 outline-none focus:border-cyan"
+        >
+          {Object.entries(CONTENT_TYPES).map(([k, v]) => (
+            <option key={k} value={k}>{v.label}</option>
+          ))}
+        </select>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          placeholder="Ej. Reel: 3 errores en el déficit calórico"
+          className="bg-surface border border-border text-ink text-sm rounded-lg px-2.5 py-2 flex-1 outline-none focus:border-cyan"
+        />
+        <button onClick={submit} className="rounded-lg px-4 py-2 font-semibold text-sm bg-cyan text-[#00161C] flex items-center justify-center gap-1 shrink-0">
+          <Plus size={16} /> Añadir
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        {entries.length === 0 && (
+          <div className="rounded-xl p-6 bg-surface border border-border text-center text-muted text-sm">
+            Nada programado este día todavía.
+          </div>
+        )}
+        {entries.map((e) => {
+          const meta = CONTENT_TYPES[e.type] || CONTENT_TYPES.reel;
+          const done = e.status === 'hecho';
+          return (
+            <div
+              key={e.id}
+              className="rounded-xl p-3 bg-surface border border-border flex items-center gap-3"
+              style={{ opacity: done ? 0.55 : 1 }}
+            >
+              <button onClick={() => onToggle(e)} className="shrink-0">
+                {done ? <Check size={18} color={meta.color} /> : <div className="w-3.5 h-3.5 rounded-full" style={{ background: meta.color }} />}
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</div>
+                <div className="text-ink text-sm font-medium truncate" style={{ textDecoration: done ? 'line-through' : 'none' }}>
+                  {e.title}
+                </div>
+              </div>
+              <button onClick={() => onDelete(e.id)} className="text-red shrink-0">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function CalendarClient() {
   const supabase = useMemo(() => createClient(), []);
   const [entries, setEntries] = useState([]);
@@ -140,7 +223,9 @@ export default function CalendarClient() {
   const weekDays = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   let grid = [];
   let titleLabel = '';
-  if (mode === 'semana') {
+  if (mode === 'dia') {
+    titleLabel = anchor.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+  } else if (mode === 'semana') {
     const start = startOfWeek(anchor);
     grid = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(start);
@@ -168,7 +253,8 @@ export default function CalendarClient() {
 
   const shift = (dir) => {
     const d = new Date(anchor);
-    if (mode === 'semana') d.setDate(d.getDate() + dir * 7);
+    if (mode === 'dia') d.setDate(d.getDate() + dir);
+    else if (mode === 'semana') d.setDate(d.getDate() + dir * 7);
     else d.setMonth(d.getMonth() + dir);
     setAnchor(d);
   };
@@ -176,45 +262,57 @@ export default function CalendarClient() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="font-display text-ink text-[22px] tracking-wide">CALENDARIO DE CONTENIDO</h2>
-        <div className="flex rounded-lg overflow-hidden border border-border">
-          {['mes', 'semana'].map((m) => (
+        <h2 className="font-display text-ink text-[20px] sm:text-[22px] tracking-wide">CALENDARIO</h2>
+        <div className="flex rounded-lg overflow-hidden border border-border shrink-0">
+          {['dia', 'semana', 'mes'].map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
-              className="px-3 py-1.5 text-xs font-semibold uppercase"
+              className="px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold uppercase"
               style={{ background: mode === m ? '#5ECCFA' : 'transparent', color: mode === m ? '#00161C' : '#7C878B' }}
             >
-              {m}
+              {m === 'dia' ? 'Día' : m}
             </button>
           ))}
         </div>
       </div>
 
       <div className="flex items-center justify-between">
-        <button onClick={() => shift(-1)} className="p-2 rounded-lg border border-border text-ink">
+        <button onClick={() => shift(-1)} className="p-2 rounded-lg border border-border text-ink shrink-0">
           <ChevronLeft size={16} />
         </button>
-        <div className="text-ink font-bold capitalize">{titleLabel}</div>
-        <button onClick={() => shift(1)} className="p-2 rounded-lg border border-border text-ink">
+        <div className="text-ink font-bold capitalize text-sm sm:text-base text-center px-2">{titleLabel}</div>
+        <button onClick={() => shift(1)} className="p-2 rounded-lg border border-border text-ink shrink-0">
           <ChevronRight size={16} />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
-        {weekDays.map((d) => (
-          <div key={d} className="text-center text-muted text-[11px] font-bold">
-            {d}
+      {mode === 'dia' ? (
+        <DayView
+          dateISO={toISO(anchor)}
+          entries={byDate[toISO(anchor)] || []}
+          onAdd={add}
+          onToggle={toggle}
+          onDelete={del}
+        />
+      ) : (
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="grid grid-cols-7 gap-1.5" style={{ minWidth: 630 }}>
+            {weekDays.map((d) => (
+              <div key={d} className="text-center text-muted text-[11px] font-bold">
+                {d}
+              </div>
+            ))}
+            {grid.map((d, i) =>
+              d ? (
+                <DayCell key={i} dateISO={toISO(d)} entries={byDate[toISO(d)] || []} onAdd={add} onToggle={toggle} onDelete={del} compact={mode === 'mes'} />
+              ) : (
+                <div key={i} />
+              )
+            )}
           </div>
-        ))}
-        {grid.map((d, i) =>
-          d ? (
-            <DayCell key={i} dateISO={toISO(d)} entries={byDate[toISO(d)] || []} onAdd={add} onToggle={toggle} onDelete={del} compact={mode === 'mes'} />
-          ) : (
-            <div key={i} />
-          )
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="flex gap-4 flex-wrap pt-1">
         {Object.entries(CONTENT_TYPES).map(([k, v]) => (

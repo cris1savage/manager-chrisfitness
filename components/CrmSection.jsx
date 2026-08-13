@@ -66,10 +66,10 @@ export default function CrmSection({ config }) {
         {total !== null && <div className="text-cyan font-display text-lg">{eur(total)} total</div>}
       </div>
 
-      <Card>
+      <Card className="!p-0 overflow-x-auto">
         <div
-          className="grid gap-2 items-end"
-          style={{ gridTemplateColumns: `repeat(${config.fields.length}, minmax(110px,1fr)) auto` }}
+          className="grid gap-2 items-end p-4"
+          style={{ gridTemplateColumns: `repeat(${config.fields.length}, minmax(130px,1fr)) auto`, minWidth: config.fields.length > 3 ? 130 * config.fields.length + 100 : undefined }}
         >
           {config.fields.map((f) => (
             <div key={f.key}>
@@ -92,10 +92,10 @@ export default function CrmSection({ config }) {
           <Card className="text-center py-8 text-muted">Todavía no hay registros. Añade el primero arriba.</Card>
         )}
         {rows.map((row) => (
-          <Card key={row.id} className="space-y-2">
+          <Card key={row.id} className="!p-0 space-y-0 overflow-x-auto">
             <div
-              className="grid gap-2 items-center"
-              style={{ gridTemplateColumns: `repeat(${config.fields.length}, minmax(110px,1fr)) auto` }}
+              className="grid gap-2 items-center p-4"
+              style={{ gridTemplateColumns: `repeat(${config.fields.length}, minmax(130px,1fr)) auto`, minWidth: config.fields.length > 3 ? 130 * config.fields.length + 100 : undefined }}
             >
               {config.fields.map((f) => (
                 <Field key={f.key} f={f} value={row[f.key]} onChange={(v) => update(row.id, f.key, v)} />
@@ -116,7 +116,11 @@ export default function CrmSection({ config }) {
                 </button>
               </div>
             </div>
-            {config.comments && openThread === row.id && <CommentThread table={config.table} entityId={row.id} />}
+            {config.comments && openThread === row.id && (
+              <div className="px-4 pb-4">
+                <CommentThread table={config.table} entityId={row.id} />
+              </div>
+            )}
           </Card>
         ))}
       </div>
