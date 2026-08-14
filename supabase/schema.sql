@@ -278,6 +278,39 @@ exception
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- MEJORAS: vídeos de guion en el calendario + cliente activo automático
+-- ---------------------------------------------------------------------------
+
+-- Un "vídeo" dentro de un guion es, en realidad, una entrada normal del
+-- calendario que además apunta al guion del que viene. Así, al marcarla
+-- como subida en el Calendario, cuenta igual en Resumen semanal.
+alter table public.calendar_entries add column if not exists script_id uuid references public.scripts(id) on delete set null;
+
+-- Vincula cada cliente activo con el contacto del que viene, para no
+-- duplicar la ficha si el contacto cambia de etapa varias veces.
+alter table public.active_clients add column if not exists contact_id uuid references public.contacts(id) on delete set null;
+create unique index if not exists active_clients_contact_unique on public.active_clients (contact_id) where contact_id is not null;
+
+-- Cuando un contacto pasa a la etapa "Cliente", se crea su ficha en
+-- Clientes activos automáticamente (si no existía ya para ese contacto).
+create or replace function public.contact_became_client()
+returns trigger as $$
+begin
+  if NEW.stage = 'Cliente' and (TG_OP = 'INSERT' or OLD.stage is distinct from 'Cliente') then
+    insert into public.active_clients (name, program, start_date, status, contact_id, created_by)
+    values (NEW.name, NEW.program, current_date, 'Activo', NEW.id, NEW.created_by)
+    on conflict (contact_id) where contact_id is not null do nothing;
+  end if;
+  return NEW;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists contact_became_client_trigger on public.contacts;
+create trigger contact_became_client_trigger
+  after insert or update on public.contacts
+  for each row execute procedure public.contact_became_client();
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto

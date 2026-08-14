@@ -47,6 +47,7 @@ export default function TasksClient() {
 
   const toggle = async (t) => {
     const nextDone = !t.done;
+    setTasks((list) => list.map((x) => (x.id === t.id ? { ...x, done: nextDone } : x)));
     await supabase.from('tasks').update({ done: nextDone, completed_at: nextDone ? new Date().toISOString() : null }).eq('id', t.id);
     load();
   };
@@ -110,8 +111,10 @@ export default function TasksClient() {
           return (
             <Card key={t.id} className="space-y-2">
               <div className="flex items-center gap-3">
-                <button onClick={() => toggle(t)} className="shrink-0">
-                  <div className="w-5 h-5 rounded border-2 border-border hover:border-cyan transition-colors" />
+                <button onClick={() => toggle(t)} className="shrink-0" title="Marcar como realizada">
+                  <div className="w-6 h-6 rounded-md border-2 border-border hover:border-cyan flex items-center justify-center transition-colors">
+                    <Check size={15} className="opacity-0" />
+                  </div>
                 </button>
                 <input
                   value={t.title}
@@ -146,9 +149,13 @@ export default function TasksClient() {
         <div className="space-y-2">
           <div className="text-muted text-[11px] uppercase tracking-wide">Hechas ({done.length})</div>
           {done.map((t) => (
-            <Card key={t.id} className="flex items-center gap-3 opacity-50">
-              <button onClick={() => toggle(t)} className="shrink-0"><Check size={15} color="#4ADE80" /></button>
-              <div className="text-ink text-sm line-through flex-1 truncate">{t.title}</div>
+            <Card key={t.id} className="flex items-center gap-3">
+              <button onClick={() => toggle(t)} className="shrink-0" title="Marcar como pendiente">
+                <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: '#4ADE80' }}>
+                  <Check size={15} color="#00220C" strokeWidth={3} />
+                </div>
+              </button>
+              <div className="text-ink text-sm line-through flex-1 truncate opacity-60">{t.title}</div>
               <AuthorBadge profile={profiles?.[t.assigned_to]} />
               <button onClick={() => del(t.id)} className="text-red shrink-0"><Trash2 size={15} /></button>
             </Card>

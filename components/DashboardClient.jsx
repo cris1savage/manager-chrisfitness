@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Megaphone, Users, Video, DollarSign, Check, Target, UserCheck, CheckSquare,
-  TrendingUp, TrendingDown, Minus, Activity, Percent, Plus, Trash2, ListChecks,
+  TrendingUp, TrendingDown, Minus, Activity, Percent, Plus, Trash2, ListChecks, Pencil, X,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
@@ -18,6 +18,8 @@ export default function DashboardClient({ profile }) {
   const [data, setData] = useState(null);
   const [goals, setGoals] = useState([]);
   const [addingGoal, setAddingGoal] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState(null);
+  const [editForm, setEditForm] = useState({});
   const [goalForm, setGoalForm] = useState({ title: '', metric: 'ventas', period: 'mensual', target: '' });
 
   const load = async () => {
@@ -73,6 +75,17 @@ export default function DashboardClient({ profile }) {
   const updateGoalManual = async (id, value) => {
     setGoals((g) => g.map((x) => (x.id === id ? { ...x, manual_current: value } : x)));
     await supabase.from('goals').update({ manual_current: Number(value) || 0 }).eq('id', id);
+  };
+
+  const startEditGoal = (g) => {
+    setEditingGoalId(g.id);
+    setEditForm({ title: g.title, metric: g.metric, period: g.period, target: g.target });
+  };
+
+  const saveEditGoal = async () => {
+    await supabase.from('goals').update({ ...editForm, target: Number(editForm.target) || 0 }).eq('id', editingGoalId);
+    setEditingGoalId(null);
+    load();
   };
 
   const removeGoal = async (id) => {
@@ -350,9 +363,51 @@ export default function DashboardClient({ profile }) {
             const { current, target } = goalProgress(g);
             const pct = target > 0 ? current / target : 0;
             const isMoney = g.metric === 'facturacion' || g.metric === 'inversion_ads';
+            const completedGoal = target > 0 && current >= target;
+
+            if (editingGoalId === g.id) {
+              return (
+                <div key={g.id} className="rounded-lg p-3 bg-surfaceAlt border border-border space-y-2 w-full sm:w-64">
+                  <input
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-sm w-full outline-none focus:border-cyan"
+                  />
+                  <select
+                    value={editForm.metric}
+                    onChange={(e) => setEditForm({ ...editForm, metric: e.target.value })}
+                    className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-full outline-none focus:border-cyan"
+                  >
+                    {GOAL_METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={editForm.period}
+                      onChange={(e) => setEditForm({ ...editForm, period: e.target.value })}
+                      className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs outline-none focus:border-cyan"
+                    >
+                      <option value="mensual">Mensual</option>
+                      <option value="semanal">Semanal</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={editForm.target}
+                      onChange={(e) => setEditForm({ ...editForm, target: e.target.value })}
+                      className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-full outline-none focus:border-cyan"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={saveEditGoal} className="rounded-lg px-3 py-1.5 font-semibold text-xs bg-cyan text-[#00161C]">Guardar</button>
+                    <button onClick={() => setEditingGoalId(null)} className="rounded-lg px-3 py-1.5 font-semibold text-xs text-muted flex items-center gap-1"><X size={13} /> Cancelar</button>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={g.id} className="flex flex-col items-center gap-1.5">
-                <Ring pct={pct} label={g.title} value={`${isMoney ? eur(current) : current}/${isMoney ? eur(target) : target}`} color="#5ECCFA" />
+                <Ring pct={pct} label={g.title} value={`${isMoney ? eur(current) : current}/${isMoney ? eur(target) : target}`} color={completedGoal ? '#4ADE80' : '#5ECCFA'} />
+                {completedGoal && <span className="text-green text-[10px] font-bold uppercase">Completado 🎉</span>}
                 {g.metric === 'manual' && (
                   <input
                     type="number"
@@ -361,7 +416,10 @@ export default function DashboardClient({ profile }) {
                     className="bg-surfaceAlt border border-border text-ink rounded px-2 py-1 text-xs w-20 text-center outline-none focus:border-cyan"
                   />
                 )}
-                <button onClick={() => removeGoal(g.id)} className="text-muted"><Trash2 size={12} /></button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => startEditGoal(g)} className="text-muted"><Pencil size={12} /></button>
+                  <button onClick={() => removeGoal(g.id)} className="text-muted"><Trash2 size={12} /></button>
+                </div>
               </div>
             );
           })}

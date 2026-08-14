@@ -5,6 +5,29 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Novedades de este ajuste
+
+- **Bug arreglado**: en Guiones, hacer clic en un guion ya creado no abría el
+  editor (el botón "Nuevo guion" sí funcionaba, por eso solo parecía que se
+  podía crear). Era un fallo en el componente de tarjeta que no dejaba pasar
+  el clic. Ya está corregido en toda la web, no solo en Guiones.
+- **Tareas**: el tic para marcarlas como hechas ahora es más claro (casilla
+  más grande, se rellena de verde con un check al completarla).
+- **Resumen semanal**: ahora tiene dos pestañas — Tareas (como antes) y
+  Contenido, que muestra qué se subió y qué quedó pendiente del calendario
+  esa semana.
+- **Objetivos**: ahora se pueden editar (título, tipo, período, meta) con el
+  lápiz, no solo borrar. Cuando se completan, se marcan con "Completado 🎉".
+- **Guiones → Vídeos programados**: dentro de cada guion puedes añadir
+  vídeos sueltos con su propia fecha — al ponerle fecha, aparece solo en el
+  Calendario. Márcalo como subido desde ahí o desde el Calendario, es la
+  misma ficha.
+- **Descargar guion en PDF**: botón de descarga con cabecera de marca
+  (logo + "Chris Fitness · Guion de contenido").
+- **Contactos → Clientes activos automático**: al mover un contacto a la
+  etapa "Cliente", se crea su ficha en Clientes activos sola (antes había
+  que hacerlo a mano en los dos sitios).
+
 ## Cambio grande de esta versión: Contactos unificado
 
 Antes había 5 secciones separadas (Leads, Conversaciones, Invitaciones,

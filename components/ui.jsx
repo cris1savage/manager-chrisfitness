@@ -1,10 +1,11 @@
 'use client';
 
-export function Card({ children, className = '', style = {} }) {
+export function Card({ children, className = '', style = {}, ...rest }) {
   return (
     <div
       className={`rounded-xl p-4 bg-surface border border-border ${className}`}
       style={style}
+      {...rest}
     >
       {children}
     </div>
