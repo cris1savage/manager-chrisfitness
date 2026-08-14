@@ -1,11 +1,60 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ShieldCheck, ShieldOff, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ShieldCheck, ShieldOff, Trash2, User, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui';
 
-export default function SecurityClient() {
+function ProfileCard({ profile, onSaved }) {
+  const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
+  const [name, setName] = useState(profile?.display_name || '');
+  const [role, setRole] = useState(profile?.role_title || '');
+  const [saved, setSaved] = useState(false);
+
+  const save = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase.from('profiles').update({ display_name: name.trim(), role_title: role.trim() }).eq('id', userData.user.id);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+    router.refresh();
+    onSaved?.();
+  };
+
+  return (
+    <Card className="space-y-3">
+      <div className="flex items-center gap-2 text-ink">
+        <User size={18} />
+        <span className="text-sm font-semibold">Tu perfil</span>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-2">
+        <div>
+          <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Nombre</div>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="bg-surfaceAlt border border-border text-ink rounded-lg px-3 py-2 text-sm w-full outline-none focus:border-cyan"
+          />
+        </div>
+        <div>
+          <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Rol</div>
+          <input
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            placeholder="Ej. Entrenador, Gestión"
+            className="bg-surfaceAlt border border-border text-ink rounded-lg px-3 py-2 text-sm w-full outline-none focus:border-cyan"
+          />
+        </div>
+      </div>
+      <button onClick={save} className="rounded-lg px-4 py-2 font-semibold text-sm bg-cyan text-[#00161C] flex items-center gap-1.5 w-fit">
+        {saved ? <><Check size={15} /> Guardado</> : 'Guardar cambios'}
+      </button>
+    </Card>
+  );
+}
+
+export default function SecurityClient({ profile }) {
   const supabase = useMemo(() => createClient(), []);
   const [factors, setFactors] = useState([]);
   const [enrolling, setEnrolling] = useState(null); // { id, qr, secret }
@@ -73,10 +122,16 @@ export default function SecurityClient() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="font-display text-ink text-[22px] tracking-wide">SEGURIDAD DE TU CUENTA</h2>
+        <h2 className="font-display text-ink text-[22px] tracking-wide">CUENTA Y SEGURIDAD</h2>
         <div className="text-muted text-xs">
-          Verificación en dos pasos opcional: se activa por cuenta, no afecta a la otra persona.
+          Tu nombre y la verificación en dos pasos son solo tuyos — no afectan a la otra cuenta.
         </div>
+      </div>
+
+      <ProfileCard profile={profile} />
+
+      <div className="border-t border-border pt-4">
+        <div className="text-ink font-semibold text-sm mb-3">Verificación en dos pasos</div>
       </div>
 
       {loading ? (

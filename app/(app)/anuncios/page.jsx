@@ -1,6 +1,5 @@
-import CrmSection from '@/components/CrmSection';
-import { CRM_CONFIG } from '@/lib/config';
+import AdsClient from '@/components/AdsClient';
 
-export default function Page() {
-  return <CrmSection config={CRM_CONFIG['anuncios']} />;
+export default function AnunciosPage() {
+  return <AdsClient />;
 }

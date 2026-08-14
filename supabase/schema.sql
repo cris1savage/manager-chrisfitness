@@ -1,6 +1,7 @@
 -- ============================================================================
 -- CHRIS FITNESS · Panel de Control
 -- Pega este archivo entero en Supabase > SQL Editor > New query > Run
+-- Es seguro volver a pegarlo y ejecutarlo las veces que haga falta.
 -- ============================================================================
 
 create extension if not exists "pgcrypto";
@@ -15,7 +16,6 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 
--- Crea el perfil automáticamente en cuanto se crea el usuario en Supabase Auth
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -35,65 +35,43 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 -- ---------------------------------------------------------------------------
--- TABLAS DE NEGOCIO — cada fila guarda quién la creó (created_by)
+-- CONTACTOS
+-- Reemplaza lo que antes eran 5 tablas separadas (leads, conversaciones,
+-- invitaciones, videollamadas, ventas). Ahora cada persona es UNA ficha que
+-- se mueve por etapas con un desplegable, en vez de anotarla 5 veces.
 -- ---------------------------------------------------------------------------
-create table if not exists public.ad_spend (
+create table if not exists public.contacts (
   id uuid primary key default gen_random_uuid(),
   created_by uuid references auth.users(id) default auth.uid(),
-  date date not null default current_date,
-  campaign text,
-  amount numeric not null default 0,
+  name text not null,
+  source text default 'Instagram',       -- Instagram / Referido / TusMacros / Otro
+  stage text not null default 'Frío',    -- Frío / Contactado / Llamada agendada / Realizada / Cliente / Perdido
+  program text,                          -- solo relevante en etapa Cliente
+  amount numeric,                        -- solo relevante en etapa Cliente
   notes text,
+  stage_updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.leads (
+-- ---------------------------------------------------------------------------
+-- ANUNCIOS
+-- Ahora se calcula solo: pones fecha de inicio + inversión diaria, y el
+-- gasto acumulado se calcula automáticamente (días transcurridos × diario).
+-- Al pausar, deja de sumar desde ese día.
+--
+-- IMPORTANTE: la estructura cambió por completo respecto a la versión
+-- anterior, así que reseteamos la tabla (si ya tenías algo aquí, como estaba
+-- a 0€ no se pierde nada real).
+-- ---------------------------------------------------------------------------
+drop table if exists public.ad_spend cascade;
+create table public.ad_spend (
   id uuid primary key default gen_random_uuid(),
   created_by uuid references auth.users(id) default auth.uid(),
-  date date not null default current_date,
-  name text,
-  source text,
-  status text default 'Nuevo',
-  notes text,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.conversations (
-  id uuid primary key default gen_random_uuid(),
-  created_by uuid references auth.users(id) default auth.uid(),
-  date date not null default current_date,
-  name text,
-  notes text,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.invites (
-  id uuid primary key default gen_random_uuid(),
-  created_by uuid references auth.users(id) default auth.uid(),
-  date date not null default current_date,
-  name text,
-  status text default 'Pendiente',
-  notes text,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.calls (
-  id uuid primary key default gen_random_uuid(),
-  created_by uuid references auth.users(id) default auth.uid(),
-  date date not null default current_date,
-  name text,
-  result text default 'Neutral',
-  notes text,
-  created_at timestamptz not null default now()
-);
-
-create table if not exists public.sales (
-  id uuid primary key default gen_random_uuid(),
-  created_by uuid references auth.users(id) default auth.uid(),
-  date date not null default current_date,
-  name text,
-  program text,
-  amount numeric not null default 0,
+  campaign text not null,
+  start_date date not null default current_date,
+  daily_amount numeric not null default 0,
+  status text not null default 'Activo', -- Activo / Pausado
+  paused_at date,
   notes text,
   created_at timestamptz not null default now()
 );
@@ -103,10 +81,10 @@ create table if not exists public.referrals (
   id uuid primary key default gen_random_uuid(),
   created_by uuid references auth.users(id) default auth.uid(),
   date date not null default current_date,
-  referrer text,          -- cliente que refiere
-  referred text,          -- persona nueva referida
-  reward text,            -- ej. "1 mes gratis", "50€ descuento"
-  status text default 'Pendiente', -- Pendiente / Entregada
+  referrer text,
+  referred text,
+  reward text,
+  status text default 'Pendiente',
   notes text,
   created_at timestamptz not null default now()
 );
@@ -130,12 +108,12 @@ create table if not exists public.active_clients (
   program text,
   start_date date,
   renewal_date date,
-  status text default 'Activo', -- Activo / Pausado / Finalizado
+  status text default 'Activo',
   notes text,
   created_at timestamptz not null default now()
 );
 
--- Tareas semanales asignadas entre las dos cuentas
+-- Tareas asignadas entre las dos cuentas
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   created_by uuid references auth.users(id) default auth.uid(),
@@ -143,11 +121,12 @@ create table if not exists public.tasks (
   title text not null,
   due_date date,
   done boolean not null default false,
+  completed_at timestamptz,
   created_at timestamptz not null default now()
 );
+alter table public.tasks add column if not exists completed_at timestamptz;
 
--- Notas / comentarios colgados de cualquier registro (leads, conversaciones...)
--- entity_table = nombre de la tabla de origen, entity_id = id de esa fila
+-- Notas / comentarios colgados de cualquier registro (contactos, etc.)
 create table if not exists public.comments (
   id uuid primary key default gen_random_uuid(),
   created_by uuid references auth.users(id) default auth.uid(),
@@ -158,15 +137,18 @@ create table if not exists public.comments (
 );
 create index if not exists comments_entity_idx on public.comments (entity_table, entity_id);
 
+-- Calendario de contenido: ahora con notas y más tipos (se controlan desde el frontend)
 create table if not exists public.calendar_entries (
   id uuid primary key default gen_random_uuid(),
   created_by uuid references auth.users(id) default auth.uid(),
   date date not null,
   type text not null default 'reel',
   title text not null,
+  notes text,
   status text not null default 'pendiente',
   created_at timestamptz not null default now()
 );
+alter table public.calendar_entries add column if not exists notes text;
 
 create table if not exists public.notes (
   id uuid primary key default gen_random_uuid(),
@@ -176,27 +158,44 @@ create table if not exists public.notes (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.goals (
-  id int primary key default 1,
-  leads_goal int not null default 40,
-  sales_goal int not null default 6,
-  ad_budget_monthly numeric not null default 250,
-  revenue_goal numeric not null default 3000,
-  updated_at timestamptz not null default now(),
-  constraint single_row check (id = 1)
+-- Guiones: biblioteca de guiones para grabar, organizados por categoría/etiqueta
+create table if not exists public.scripts (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid references auth.users(id) default auth.uid(),
+  title text not null,
+  category text default 'General',
+  content text,
+  status text not null default 'Borrador', -- Borrador / Listo / Grabado
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
-insert into public.goals (id) values (1) on conflict (id) do nothing;
+
+-- Objetivos: lista personalizable en vez de 4 campos fijos.
+-- metric: 'ventas' | 'clientes_nuevos' | 'facturacion' | 'inversion_ads' | 'manual'
+-- Para 'manual', el progreso se edita a mano (manual_current); el resto se calcula solo.
+--
+-- IMPORTANTE: antes era una única fila fija con 4 columnas; ahora es una
+-- lista de objetivos personalizables, así que reseteamos la tabla.
+drop table if exists public.goals cascade;
+create table public.goals (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid references auth.users(id) default auth.uid(),
+  title text not null,
+  metric text not null default 'manual',
+  period text not null default 'mensual', -- mensual / semanal
+  target numeric not null default 0,
+  manual_current numeric not null default 0,
+  created_at timestamptz not null default now()
+);
 
 -- ---------------------------------------------------------------------------
 -- REGISTRO DE ACTIVIDAD
--- Se rellena solo mediante triggers, así queda constancia pase lo que pase
--- de qué se creó, editó o borró, quién lo hizo y cuándo.
 -- ---------------------------------------------------------------------------
 create table if not exists public.activity_log (
   id uuid primary key default gen_random_uuid(),
   table_name text not null,
   row_id uuid,
-  action text not null, -- insert / update / delete
+  action text not null,
   summary text,
   actor uuid references auth.users(id),
   created_at timestamptz not null default now()
@@ -225,7 +224,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['leads','conversations','invites','calls','sales','ad_spend','referrals','content_ideas','active_clients','tasks','calendar_entries','notes']
+  foreach t in array array['contacts','ad_spend','referrals','content_ideas','active_clients','tasks','calendar_entries','notes','scripts']
   loop
     execute format('drop trigger if exists log_activity_trigger on public.%1$s;', t);
     execute format('create trigger log_activity_trigger after insert or update or delete on public.%1$s for each row execute function public.log_activity();', t);
@@ -234,16 +233,10 @@ end $$;
 
 -- ---------------------------------------------------------------------------
 -- SEGURIDAD (Row Level Security)
--- Solo las cuentas invitadas (autenticadas) pueden leer/escribir.
--- No hay registro público: las cuentas se crean a mano desde Supabase.
 -- ---------------------------------------------------------------------------
 alter table public.profiles enable row level security;
+alter table public.contacts enable row level security;
 alter table public.ad_spend enable row level security;
-alter table public.leads enable row level security;
-alter table public.conversations enable row level security;
-alter table public.invites enable row level security;
-alter table public.calls enable row level security;
-alter table public.sales enable row level security;
 alter table public.referrals enable row level security;
 alter table public.content_ideas enable row level security;
 alter table public.active_clients enable row level security;
@@ -251,6 +244,7 @@ alter table public.tasks enable row level security;
 alter table public.comments enable row level security;
 alter table public.calendar_entries enable row level security;
 alter table public.notes enable row level security;
+alter table public.scripts enable row level security;
 alter table public.goals enable row level security;
 alter table public.activity_log enable row level security;
 
@@ -266,7 +260,7 @@ do $$
 declare
   t text;
 begin
-  foreach t in array array['ad_spend','leads','conversations','invites','calls','sales','referrals','content_ideas','active_clients','tasks','comments','calendar_entries','notes','goals']
+  foreach t in array array['contacts','ad_spend','referrals','content_ideas','active_clients','tasks','comments','calendar_entries','notes','scripts','goals']
   loop
     execute format('drop policy if exists "%1$s_full_access_authenticated" on public.%1$s;', t);
     execute format('create policy "%1$s_full_access_authenticated" on public.%1$s for all to authenticated using (true) with check (true);', t);
@@ -274,11 +268,19 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Realtime (opcional, para que los cambios se vean en vivo entre las dos cuentas)
+-- Realtime
 -- ---------------------------------------------------------------------------
 do $$
 begin
-  alter publication supabase_realtime add table public.leads, public.conversations, public.invites, public.calls, public.sales, public.ad_spend, public.referrals, public.content_ideas, public.active_clients, public.tasks, public.comments, public.calendar_entries, public.notes, public.goals, public.activity_log;
+  alter publication supabase_realtime add table public.contacts, public.ad_spend, public.referrals, public.content_ideas, public.active_clients, public.tasks, public.comments, public.calendar_entries, public.notes, public.scripts, public.goals, public.activity_log;
 exception
   when duplicate_object then null;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- LIMPIEZA OPCIONAL
+-- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
+-- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto
+-- (opcional, no es necesario para que la app funcione):
+-- ---------------------------------------------------------------------------
+-- drop table if exists public.leads, public.conversations, public.invites, public.calls, public.sales cascade;

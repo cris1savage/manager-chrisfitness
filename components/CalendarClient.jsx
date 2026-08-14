@@ -1,15 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, X, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Plus, X, Check, ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { todayISO } from '@/lib/config';
-
-const CONTENT_TYPES = {
-  video: { label: 'Video', color: '#5ECCFA' },
-  reel: { label: 'Reel', color: '#4ADE80' },
-  historia: { label: 'Historia', color: '#FBBF24' },
-};
+import { CONTENT_TYPES, todayISO } from '@/lib/config';
 
 function startOfWeek(d) {
   const x = new Date(d);
@@ -20,18 +14,48 @@ function startOfWeek(d) {
 }
 const toISO = (d) => d.toISOString().slice(0, 10);
 
-function DayCell({ dateISO, entries, onAdd, onToggle, onDelete, compact }) {
-  const isToday = dateISO === todayISO();
-  const [adding, setAdding] = useState(false);
-  const [type, setType] = useState('reel');
-  const [title, setTitle] = useState('');
+function EntryEditor({ initial, onSave, onCancel }) {
+  const [type, setType] = useState(initial?.type || 'reel_ig');
+  const [title, setTitle] = useState(initial?.title || '');
+  const [notes, setNotes] = useState(initial?.notes || '');
 
   const submit = () => {
     if (!title.trim()) return;
-    onAdd({ date: dateISO, type, title: title.trim(), status: 'pendiente' });
-    setTitle('');
-    setAdding(false);
+    onSave({ type, title: title.trim(), notes });
   };
+
+  return (
+    <div className="flex flex-col gap-1.5 mt-1 p-2 rounded-lg bg-surfaceAlt border border-border">
+      <select value={type} onChange={(e) => setType(e.target.value)} className="bg-surface border border-border text-ink text-[10.5px] rounded px-1.5 py-1 outline-none focus:border-cyan">
+        {Object.entries(CONTENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+      </select>
+      <input
+        autoFocus
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && submit()}
+        placeholder="Título..."
+        className="bg-surface border border-border text-ink text-[10.5px] rounded px-1.5 py-1 outline-none focus:border-cyan"
+      />
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Notas (opcional)"
+        rows={2}
+        className="bg-surface border border-border text-ink text-[10.5px] rounded px-1.5 py-1 outline-none focus:border-cyan resize-none"
+      />
+      <div className="flex gap-1">
+        <button onClick={submit} className="flex-1 bg-cyan text-[#00161C] text-[10.5px] rounded py-1 font-bold">Guardar</button>
+        <button onClick={onCancel} className="px-2 text-muted text-[10.5px]">Cancelar</button>
+      </div>
+    </div>
+  );
+}
+
+function DayCell({ dateISO, entries, onAdd, onUpdate, onToggle, onDelete, compact }) {
+  const isToday = dateISO === todayISO();
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   return (
     <div
@@ -46,65 +70,52 @@ function DayCell({ dateISO, entries, onAdd, onToggle, onDelete, compact }) {
         <span className="text-xs font-bold" style={{ color: isToday ? '#5ECCFA' : '#7C878B' }}>
           {new Date(dateISO + 'T00:00:00').getDate()}
         </span>
-        <button onClick={() => setAdding(!adding)} className="text-muted">
+        <button onClick={() => { setAdding(!adding); setEditingId(null); }} className="text-muted">
           <Plus size={13} />
         </button>
       </div>
-      <div className="flex flex-col gap-1 overflow-y-auto" style={{ maxHeight: 90 }}>
+      <div className="flex flex-col gap-1 overflow-y-auto" style={{ maxHeight: 110 }}>
         {entries.map((e) => {
-          const meta = CONTENT_TYPES[e.type] || CONTENT_TYPES.reel;
+          const meta = CONTENT_TYPES[e.type] || CONTENT_TYPES.reel_ig;
           const done = e.status === 'hecho';
+          if (editingId === e.id) {
+            return (
+              <EntryEditor
+                key={e.id}
+                initial={e}
+                onSave={(patch) => { onUpdate(e.id, patch); setEditingId(null); }}
+                onCancel={() => setEditingId(null)}
+              />
+            );
+          }
           return (
-            <div key={e.id} className="flex items-center gap-1 rounded px-1.5 py-1" style={{ background: `${meta.color}14`, opacity: done ? 0.55 : 1 }}>
+            <div key={e.id} className="flex items-center gap-1 rounded px-1.5 py-1 group" style={{ background: `${meta.color}14`, opacity: done ? 0.55 : 1 }}>
               <button onClick={() => onToggle(e)} className="shrink-0">
                 {done ? <Check size={11} color={meta.color} /> : <div className="w-2 h-2 rounded-full" style={{ background: meta.color }} />}
               </button>
-              <span className="text-[10.5px] truncate flex-1" style={{ color: '#F2F6F7', textDecoration: done ? 'line-through' : 'none' }}>
+              <span className="text-[10.5px] truncate flex-1" style={{ color: '#F2F6F7', textDecoration: done ? 'line-through' : 'none' }} title={e.notes || ''}>
                 {e.title}
               </span>
-              <button onClick={() => onDelete(e.id)} className="text-muted shrink-0">
-                <X size={10} />
-              </button>
+              <button onClick={() => { setEditingId(e.id); setAdding(false); }} className="text-muted shrink-0"><Pencil size={9} /></button>
+              <button onClick={() => onDelete(e.id)} className="text-muted shrink-0"><X size={10} /></button>
             </div>
           );
         })}
       </div>
       {adding && (
-        <div className="flex flex-col gap-1 mt-1">
-          <select value={type} onChange={(e) => setType(e.target.value)} className="bg-surfaceAlt border border-border text-ink text-[10.5px] rounded px-1 py-0.5">
-            {Object.entries(CONTENT_TYPES).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v.label}
-              </option>
-            ))}
-          </select>
-          <input
-            autoFocus
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            placeholder="Título..."
-            className="bg-surfaceAlt border border-border text-ink text-[10.5px] rounded px-1 py-1"
-          />
-          <button onClick={submit} className="bg-cyan text-[#00161C] text-[10.5px] rounded py-0.5 font-bold">
-            Guardar
-          </button>
-        </div>
+        <EntryEditor
+          onSave={(patch) => { onAdd({ date: dateISO, status: 'pendiente', ...patch }); setAdding(false); }}
+          onCancel={() => setAdding(false)}
+        />
       )}
     </div>
   );
 }
 
-function DayView({ dateISO, entries, onAdd, onToggle, onDelete }) {
-  const [type, setType] = useState('reel');
-  const [title, setTitle] = useState('');
+function DayView({ dateISO, entries, onAdd, onUpdate, onToggle, onDelete }) {
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const isToday = dateISO === todayISO();
-
-  const submit = () => {
-    if (!title.trim()) return;
-    onAdd({ date: dateISO, type, title: title.trim(), status: 'pendiente' });
-    setTitle('');
-  };
 
   const label = new Date(dateISO + 'T00:00:00').toLocaleDateString('es-ES', {
     weekday: 'long', day: 'numeric', month: 'long',
@@ -112,64 +123,55 @@ function DayView({ dateISO, entries, onAdd, onToggle, onDelete }) {
 
   return (
     <div className="space-y-3">
-      <div
-        className="rounded-xl p-3"
-        style={{ background: isToday ? '#5ECCFA0D' : '#0E1214', border: `1px solid ${isToday ? '#5ECCFA' : '#212729'}` }}
-      >
+      <div className="rounded-xl p-3" style={{ background: isToday ? '#5ECCFA0D' : '#0E1214', border: `1px solid ${isToday ? '#5ECCFA' : '#212729'}` }}>
         <div className="capitalize font-bold" style={{ color: isToday ? '#5ECCFA' : '#F2F6F7' }}>
           {label} {isToday && <span className="text-xs font-normal">· hoy</span>}
         </div>
       </div>
 
-      <div className="rounded-xl p-3 bg-surfaceAlt border border-border flex flex-col sm:flex-row gap-2">
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          className="bg-surface border border-border text-ink text-sm rounded-lg px-2.5 py-2 outline-none focus:border-cyan"
+      {!adding && (
+        <button
+          onClick={() => setAdding(true)}
+          className="rounded-xl p-3 bg-surfaceAlt border border-border w-full flex items-center justify-center gap-2 text-cyan font-semibold text-sm"
         >
-          {Object.entries(CONTENT_TYPES).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
-          ))}
-        </select>
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
-          placeholder="Ej. Reel: 3 errores en el déficit calórico"
-          className="bg-surface border border-border text-ink text-sm rounded-lg px-2.5 py-2 flex-1 outline-none focus:border-cyan"
-        />
-        <button onClick={submit} className="rounded-lg px-4 py-2 font-semibold text-sm bg-cyan text-[#00161C] flex items-center justify-center gap-1 shrink-0">
-          <Plus size={16} /> Añadir
+          <Plus size={16} /> Añadir a este día
         </button>
-      </div>
+      )}
+      {adding && (
+        <div className="rounded-xl p-3 bg-surfaceAlt border border-border">
+          <EntryEditor
+            onSave={(patch) => { onAdd({ date: dateISO, status: 'pendiente', ...patch }); setAdding(false); }}
+            onCancel={() => setAdding(false)}
+          />
+        </div>
+      )}
 
       <div className="space-y-2">
-        {entries.length === 0 && (
-          <div className="rounded-xl p-6 bg-surface border border-border text-center text-muted text-sm">
-            Nada programado este día todavía.
-          </div>
+        {entries.length === 0 && !adding && (
+          <div className="rounded-xl p-6 bg-surface border border-border text-center text-muted text-sm">Nada programado este día todavía.</div>
         )}
         {entries.map((e) => {
-          const meta = CONTENT_TYPES[e.type] || CONTENT_TYPES.reel;
+          const meta = CONTENT_TYPES[e.type] || CONTENT_TYPES.reel_ig;
           const done = e.status === 'hecho';
+          if (editingId === e.id) {
+            return (
+              <div key={e.id} className="rounded-xl p-3 bg-surface border border-border">
+                <EntryEditor initial={e} onSave={(patch) => { onUpdate(e.id, patch); setEditingId(null); }} onCancel={() => setEditingId(null)} />
+              </div>
+            );
+          }
           return (
-            <div
-              key={e.id}
-              className="rounded-xl p-3 bg-surface border border-border flex items-center gap-3"
-              style={{ opacity: done ? 0.55 : 1 }}
-            >
-              <button onClick={() => onToggle(e)} className="shrink-0">
+            <div key={e.id} className="rounded-xl p-3 bg-surface border border-border flex items-start gap-3" style={{ opacity: done ? 0.55 : 1 }}>
+              <button onClick={() => onToggle(e)} className="shrink-0 mt-0.5">
                 {done ? <Check size={18} color={meta.color} /> : <div className="w-3.5 h-3.5 rounded-full" style={{ background: meta.color }} />}
               </button>
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] uppercase tracking-wide" style={{ color: meta.color }}>{meta.label}</div>
-                <div className="text-ink text-sm font-medium truncate" style={{ textDecoration: done ? 'line-through' : 'none' }}>
-                  {e.title}
-                </div>
+                <div className="text-ink text-sm font-medium" style={{ textDecoration: done ? 'line-through' : 'none' }}>{e.title}</div>
+                {e.notes && <div className="text-muted text-xs mt-1 whitespace-pre-wrap">{e.notes}</div>}
               </div>
-              <button onClick={() => onDelete(e.id)} className="text-red shrink-0">
-                <Trash2 size={16} />
-              </button>
+              <button onClick={() => setEditingId(e.id)} className="text-muted shrink-0"><Pencil size={15} /></button>
+              <button onClick={() => onDelete(e.id)} className="text-red shrink-0"><Trash2 size={16} /></button>
             </div>
           );
         })}
@@ -210,6 +212,10 @@ export default function CalendarClient() {
     await supabase.from('calendar_entries').insert({ ...entry, created_by: userData.user.id });
     load();
   };
+  const update = async (id, patch) => {
+    await supabase.from('calendar_entries').update(patch).eq('id', id);
+    load();
+  };
   const toggle = async (entry) => {
     const nextStatus = entry.status === 'hecho' ? 'pendiente' : 'hecho';
     await supabase.from('calendar_entries').update({ status: nextStatus }).eq('id', entry.id);
@@ -227,16 +233,8 @@ export default function CalendarClient() {
     titleLabel = anchor.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
   } else if (mode === 'semana') {
     const start = startOfWeek(anchor);
-    grid = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      return d;
-    });
-    titleLabel = `${start.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} – ${grid[6].toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    })}`;
+    grid = Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+    titleLabel = `${start.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} – ${grid[6].toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}`;
   } else {
     const y = anchor.getFullYear();
     const m = anchor.getMonth();
@@ -278,43 +276,27 @@ export default function CalendarClient() {
       </div>
 
       <div className="flex items-center justify-between">
-        <button onClick={() => shift(-1)} className="p-2 rounded-lg border border-border text-ink shrink-0">
-          <ChevronLeft size={16} />
-        </button>
+        <button onClick={() => shift(-1)} className="p-2 rounded-lg border border-border text-ink shrink-0"><ChevronLeft size={16} /></button>
         <div className="text-ink font-bold capitalize text-sm sm:text-base text-center px-2">{titleLabel}</div>
-        <button onClick={() => shift(1)} className="p-2 rounded-lg border border-border text-ink shrink-0">
-          <ChevronRight size={16} />
-        </button>
+        <button onClick={() => shift(1)} className="p-2 rounded-lg border border-border text-ink shrink-0"><ChevronRight size={16} /></button>
       </div>
 
       {mode === 'dia' ? (
-        <DayView
-          dateISO={toISO(anchor)}
-          entries={byDate[toISO(anchor)] || []}
-          onAdd={add}
-          onToggle={toggle}
-          onDelete={del}
-        />
+        <DayView dateISO={toISO(anchor)} entries={byDate[toISO(anchor)] || []} onAdd={add} onUpdate={update} onToggle={toggle} onDelete={del} />
       ) : (
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="grid grid-cols-7 gap-1.5" style={{ minWidth: 630 }}>
-            {weekDays.map((d) => (
-              <div key={d} className="text-center text-muted text-[11px] font-bold">
-                {d}
-              </div>
-            ))}
+            {weekDays.map((d) => <div key={d} className="text-center text-muted text-[11px] font-bold">{d}</div>)}
             {grid.map((d, i) =>
               d ? (
-                <DayCell key={i} dateISO={toISO(d)} entries={byDate[toISO(d)] || []} onAdd={add} onToggle={toggle} onDelete={del} compact={mode === 'mes'} />
-              ) : (
-                <div key={i} />
-              )
+                <DayCell key={i} dateISO={toISO(d)} entries={byDate[toISO(d)] || []} onAdd={add} onUpdate={update} onToggle={toggle} onDelete={del} compact={mode === 'mes'} />
+              ) : <div key={i} />
             )}
           </div>
         </div>
       )}
 
-      <div className="flex gap-4 flex-wrap pt-1">
+      <div className="flex gap-3 flex-wrap pt-1">
         {Object.entries(CONTENT_TYPES).map(([k, v]) => (
           <div key={k} className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full" style={{ background: v.color }} />

@@ -44,6 +44,11 @@ export default function IdeasClient() {
     load();
   };
 
+  const update = async (id, key, value) => {
+    setIdeas((list) => list.map((i) => (i.id === id ? { ...i, [key]: value } : i)));
+    await supabase.from('content_ideas').update({ [key]: value }).eq('id', id);
+  };
+
   const toggleUsed = async (idea) => {
     await supabase.from('content_ideas').update({ used: !idea.used }).eq('id', idea.id);
     load();
@@ -61,7 +66,7 @@ export default function IdeasClient() {
     <div className="space-y-4">
       <div>
         <h2 className="font-display text-ink text-[22px] tracking-wide">BANCO DE IDEAS</h2>
-        <div className="text-muted text-xs">Apunta ideas sueltas aquí; cuando grabéis, marcadla como usada.</div>
+        <div className="text-muted text-xs">Apunta ideas sueltas aquí; puedes editarlas en cualquier momento, y marcarlas como usadas cuando grabéis.</div>
       </div>
 
       <Card className="space-y-2">
@@ -100,17 +105,34 @@ export default function IdeasClient() {
         {pending.map((idea) => {
           const meta = TYPES[idea.type] || TYPES.reel;
           return (
-            <Card key={idea.id} className="flex items-center gap-3">
-              <button onClick={() => toggleUsed(idea)} className="shrink-0">
-                <div className="w-4 h-4 rounded border border-border" />
-              </button>
-              <meta.Icon size={15} color={meta.color} className="shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="text-ink text-sm font-medium truncate">{idea.title}</div>
-                {idea.notes && <div className="text-muted text-xs truncate">{idea.notes}</div>}
+            <Card key={idea.id} className="space-y-2">
+              <div className="flex items-center gap-3">
+                <button onClick={() => toggleUsed(idea)} className="shrink-0">
+                  <div className="w-4 h-4 rounded border border-border hover:border-cyan transition-colors" />
+                </button>
+                <meta.Icon size={15} color={meta.color} className="shrink-0" />
+                <input
+                  value={idea.title}
+                  onChange={(e) => update(idea.id, 'title', e.target.value)}
+                  className="bg-transparent text-ink text-sm font-medium outline-none flex-1 min-w-0"
+                />
+                <select
+                  value={idea.type}
+                  onChange={(e) => update(idea.id, 'type', e.target.value)}
+                  className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-1 text-xs outline-none focus:border-cyan shrink-0"
+                >
+                  {Object.entries(TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+                <AuthorBadge profile={profiles?.[idea.created_by]} />
+                <button onClick={() => del(idea.id)} className="text-red shrink-0"><Trash2 size={15} /></button>
               </div>
-              <AuthorBadge profile={profiles?.[idea.created_by]} />
-              <button onClick={() => del(idea.id)} className="text-red shrink-0"><Trash2 size={15} /></button>
+              <input
+                value={idea.notes || ''}
+                onChange={(e) => update(idea.id, 'notes', e.target.value)}
+                placeholder="Notas..."
+                className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-xs w-full outline-none focus:border-cyan ml-7"
+                style={{ width: 'calc(100% - 1.75rem)' }}
+              />
             </Card>
           );
         })}

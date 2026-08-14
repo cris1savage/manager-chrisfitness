@@ -46,8 +46,14 @@ export default function TasksClient() {
   };
 
   const toggle = async (t) => {
-    await supabase.from('tasks').update({ done: !t.done }).eq('id', t.id);
+    const nextDone = !t.done;
+    await supabase.from('tasks').update({ done: nextDone, completed_at: nextDone ? new Date().toISOString() : null }).eq('id', t.id);
     load();
+  };
+
+  const update = async (id, key, value) => {
+    setTasks((list) => list.map((t) => (t.id === id ? { ...t, [key]: value } : t)));
+    await supabase.from('tasks').update({ [key]: value }).eq('id', id);
   };
 
   const del = async (id) => {
@@ -102,19 +108,35 @@ export default function TasksClient() {
         {pending.map((t) => {
           const overdue = t.due_date && t.due_date < todayISO();
           return (
-            <Card key={t.id} className="flex items-center gap-3">
-              <button onClick={() => toggle(t)} className="shrink-0">
-                <div className="w-4 h-4 rounded border border-border" />
-              </button>
-              <div className="min-w-0 flex-1">
-                <div className="text-ink text-sm font-medium truncate">{t.title}</div>
-                <div className={`text-xs ${overdue ? 'text-red' : 'text-muted'}`}>
-                  {t.due_date ? new Date(t.due_date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }) : 'Sin fecha'}
-                  {overdue ? ' · atrasada' : ''}
-                </div>
+            <Card key={t.id} className="space-y-2">
+              <div className="flex items-center gap-3">
+                <button onClick={() => toggle(t)} className="shrink-0">
+                  <div className="w-5 h-5 rounded border-2 border-border hover:border-cyan transition-colors" />
+                </button>
+                <input
+                  value={t.title}
+                  onChange={(e) => update(t.id, 'title', e.target.value)}
+                  className="bg-transparent text-ink text-sm font-medium outline-none flex-1 min-w-0"
+                />
+                <AuthorBadge profile={profiles?.[t.assigned_to]} />
+                <button onClick={() => del(t.id)} className="text-red shrink-0"><Trash2 size={15} /></button>
               </div>
-              <AuthorBadge profile={profiles?.[t.assigned_to]} />
-              <button onClick={() => del(t.id)} className="text-red shrink-0"><Trash2 size={15} /></button>
+              <div className="flex items-center gap-2 pl-8 flex-wrap">
+                <select
+                  value={t.assigned_to || ''}
+                  onChange={(e) => update(t.id, 'assigned_to', e.target.value)}
+                  className="bg-surfaceAlt border border-border text-ink rounded px-2 py-1 text-xs outline-none focus:border-cyan"
+                >
+                  {profileList.map((p) => <option key={p.id} value={p.id}>{p.display_name}</option>)}
+                </select>
+                <input
+                  type="date"
+                  value={t.due_date || ''}
+                  onChange={(e) => update(t.id, 'due_date', e.target.value)}
+                  className={`bg-surfaceAlt border border-border rounded px-2 py-1 text-xs outline-none focus:border-cyan ${overdue ? 'text-red' : 'text-ink'}`}
+                />
+                {overdue && <span className="text-red text-[10px] font-semibold">ATRASADA</span>}
+              </div>
             </Card>
           );
         })}

@@ -4,22 +4,20 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, Calendar, Megaphone, Users, MessageCircle, PhoneCall,
-  Video, DollarSign, UserPlus, FileText, LogOut, Menu, X, Lightbulb,
-  CheckSquare, UserCheck, Gift, ShieldCheck,
+  LayoutDashboard, Calendar, Megaphone, Users, UserPlus, FileText, LogOut, Menu, X, Lightbulb,
+  CheckSquare, UserCheck, Gift, ShieldCheck, ScrollText, ClipboardCheck, DollarSign,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 const ICONS = {
   dashboard: LayoutDashboard,
   calendario: Calendar,
+  guiones: ScrollText,
   ideas: Lightbulb,
   tareas: CheckSquare,
+  resumen: ClipboardCheck,
   anuncios: Megaphone,
-  leads: Users,
-  conversaciones: MessageCircle,
-  invitaciones: PhoneCall,
-  videollamadas: Video,
+  contactos: Users,
   clientes: UserCheck,
   ventas: DollarSign,
   referidos: Gift,

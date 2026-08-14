@@ -5,6 +5,38 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Cambio grande de esta versión: Contactos unificado
+
+Antes había 5 secciones separadas (Leads, Conversaciones, Invitaciones,
+Videollamadas, Ventas) donde tenías que anotar a la misma persona varias
+veces según avanzaba. Ahora es **una sola ficha por persona** en
+`/contactos`, con un desplegable de etapa:
+
+**Frío → Contactado → Llamada agendada → Realizada → Cliente → Perdido**
+
+Cuando mueves a alguien a "Cliente", aparecen los campos de programa e
+importe, y esa venta se refleja sola en `/ventas` y en el Dashboard.
+
+⚠️ Las tablas antiguas (leads, conversations, etc.) se quedan intactas en la
+base de datos por si quieres rescatar algo a mano, pero la app ya no las usa.
+
+## Resto de novedades
+
+- **Anuncios con cálculo automático**: fecha de inicio + inversión diaria,
+  el gasto acumulado se calcula solo. Botón de pausar para que deje de sumar.
+- **Calendario**: ahora se puede editar una entrada ya creada, con notas, y
+  tipos Reel Instagram / Historia Instagram / Video YouTube / TikTok. Vista
+  de Día añadida además de Semana y Mes.
+- **Tareas**: al completarlas se registra cuándo, para ver el cumplimiento
+  semanal en `/resumen` (nueva página) con un círculo de % y el detalle de
+  cumplidas/no cumplidas. También hay un widget de tareas en el Dashboard.
+- **Objetivos personalizables** en el Dashboard: creas tus propios objetivos
+  (ventas, facturación, inversión en ads, clientes nuevos, o manual).
+- **Guiones** (`/guiones`): biblioteca organizada por categoría para
+  escribir, leer y corregir guiones entre los dos.
+- **Cuenta y Seguridad** (`/seguridad`): ahora incluye cambiar tu nombre y
+  rol, además de la verificación en dos pasos.
+
 ## 1. Crear el proyecto en Supabase
 
 1. Ve a https://supabase.com → **New project** (elige región Europa).

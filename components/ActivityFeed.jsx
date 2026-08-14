@@ -6,18 +6,15 @@ import { AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 
 const TABLE_LABELS = {
-  leads: 'un lead',
-  conversations: 'una conversación',
-  invites: 'una invitación',
-  calls: 'una videollamada',
-  sales: 'una venta',
-  ad_spend: 'un gasto en anuncios',
+  contacts: 'un contacto',
+  ad_spend: 'un anuncio',
   referrals: 'un referido',
   content_ideas: 'una idea de contenido',
   active_clients: 'un cliente activo',
   tasks: 'una tarea',
   calendar_entries: 'un contenido del calendario',
   notes: 'una nota',
+  scripts: 'un guion',
 };
 
 const ACTION_LABELS = { insert: 'añadió', update: 'editó', delete: 'eliminó' };
