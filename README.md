@@ -28,6 +28,23 @@ sonará.
   etapa "Cliente", se crea su ficha en Clientes activos sola (antes había
   que hacerlo a mano en los dos sitios).
 
+## Novedades de este ajuste
+
+- **Bug arreglado (importante)**: cuando marcabas un contacto como "Cliente"
+  antes de que existiera el disparador automático, nunca se creaba su ficha
+  en Clientes activos. Este `schema.sql` incluye un "backfill" que rescata
+  a esos contactos ya existentes la próxima vez que lo pegues en Supabase.
+- **Clientes activos**: ahora eliges duración (Mensual / 3 meses / 6 meses /
+  Anual / Personalizada) y la fecha de renovación se calcula sola. Además
+  hay un aviso arriba de la página cuando alguien renueva en ≤7 días.
+- **Buscador en Contactos**: por nombre o @usuario, encima del formulario.
+- **Móvil optimizado**: los formularios de Anuncios, Contactos y
+  Recompensas/Referidos ya no obligan a hacer scroll horizontal — los
+  campos se apilan verticalmente en pantallas pequeñas.
+- **Objetivo "Clientes activos (total)"**: nuevo tipo de objetivo en el
+  Dashboard para poner una meta de clientes activos en cartera (no solo
+  ventas del mes) y ver el círculo subir según los vayas consiguiendo.
+
 ## Cambio grande de esta versión: Contactos unificado
 
 Antes había 5 secciones separadas (Leads, Conversaciones, Invitaciones,

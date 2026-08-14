@@ -66,20 +66,17 @@ export default function CrmSection({ config }) {
         {total !== null && <div className="text-cyan font-display text-lg">{eur(total)} total</div>}
       </div>
 
-      <Card className="!p-0 overflow-x-auto">
-        <div
-          className="grid gap-2 items-end p-4"
-          style={{ gridTemplateColumns: `repeat(${config.fields.length}, minmax(130px,1fr)) auto`, minWidth: config.fields.length > 3 ? 130 * config.fields.length + 100 : undefined }}
-        >
+      <Card className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-end sm:flex-wrap">
           {config.fields.map((f) => (
-            <div key={f.key}>
+            <div key={f.key} className="w-full sm:flex-1 sm:min-w-[130px]">
               <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">{f.label}</div>
               <Field f={f} value={form[f.key]} onChange={(v) => setForm({ ...form, [f.key]: v })} />
             </div>
           ))}
           <button
             onClick={add}
-            className="rounded-lg px-3 py-2 flex items-center gap-1 font-semibold text-sm bg-cyan text-[#00161C] shrink-0"
+            className="rounded-lg px-3 py-2 flex items-center justify-center gap-1 font-semibold text-sm bg-cyan text-[#00161C] shrink-0 w-full sm:w-auto"
           >
             <Plus size={16} /> Añadir
           </button>
@@ -92,15 +89,14 @@ export default function CrmSection({ config }) {
           <Card className="text-center py-8 text-muted">Todavía no hay registros. Añade el primero arriba.</Card>
         )}
         {rows.map((row) => (
-          <Card key={row.id} className="!p-0 space-y-0 overflow-x-auto">
-            <div
-              className="grid gap-2 items-center p-4"
-              style={{ gridTemplateColumns: `repeat(${config.fields.length}, minmax(130px,1fr)) auto`, minWidth: config.fields.length > 3 ? 130 * config.fields.length + 100 : undefined }}
-            >
+          <Card key={row.id} className="space-y-0">
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:flex-wrap">
               {config.fields.map((f) => (
-                <Field key={f.key} f={f} value={row[f.key]} onChange={(v) => update(row.id, f.key, v)} />
+                <div key={f.key} className="w-full sm:flex-1 sm:min-w-[130px]">
+                  <Field f={f} value={row[f.key]} onChange={(v) => update(row.id, f.key, v)} />
+                </div>
               ))}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 justify-end">
                 {config.comments && (
                   <button
                     onClick={() => setOpenThread(openThread === row.id ? null : row.id)}
@@ -117,7 +113,7 @@ export default function CrmSection({ config }) {
               </div>
             </div>
             {config.comments && openThread === row.id && (
-              <div className="px-4 pb-4">
+              <div className="pt-3">
                 <CommentThread table={config.table} entityId={row.id} />
               </div>
             )}

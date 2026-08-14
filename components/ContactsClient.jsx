@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, MessageSquare, X } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, X, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
@@ -16,6 +16,7 @@ export default function ContactsClient() {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('Todos');
+  const [search, setSearch] = useState('');
   const [openThread, setOpenThread] = useState(null);
 
   const emptyForm = { name: '', source: 'Instagram', stage: 'Frío', notes: '' };
@@ -63,7 +64,10 @@ export default function ContactsClient() {
     return c;
   }, [contacts]);
 
-  const visible = filter === 'Todos' ? contacts : contacts.filter((c) => c.stage === filter);
+  const stageFiltered = filter === 'Todos' ? contacts : contacts.filter((c) => c.stage === filter);
+  const visible = search.trim()
+    ? stageFiltered.filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : stageFiltered;
 
   return (
     <div className="space-y-4">
@@ -92,10 +96,21 @@ export default function ContactsClient() {
         </div>
       </div>
 
+      {/* Buscador */}
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nombre o @usuario..."
+          className="bg-surfaceAlt border border-border text-ink rounded-lg pl-9 pr-3 py-2 text-sm w-full outline-none focus:border-cyan"
+        />
+      </div>
+
       {/* Añadir contacto */}
-      <Card className="!p-0 overflow-x-auto">
-        <div className="grid gap-2 items-end p-4" style={{ gridTemplateColumns: 'minmax(160px,1fr) minmax(140px,1fr) minmax(160px,1fr) minmax(160px,1fr) auto', minWidth: 700 }}>
-          <div>
+      <Card className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-end sm:flex-wrap">
+          <div className="w-full sm:flex-1 sm:min-w-[160px]">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Nombre / @usuario</div>
             <input
               value={form.name}
@@ -104,7 +119,7 @@ export default function ContactsClient() {
               className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
             />
           </div>
-          <div>
+          <div className="w-full sm:flex-1 sm:min-w-[140px]">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Origen</div>
             <select
               value={form.source}
@@ -114,7 +129,7 @@ export default function ContactsClient() {
               {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <div>
+          <div className="w-full sm:flex-1 sm:min-w-[160px]">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Etapa inicial</div>
             <select
               value={form.stage}
@@ -124,7 +139,7 @@ export default function ContactsClient() {
               {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <div>
+          <div className="w-full sm:flex-1 sm:min-w-[160px]">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Notas</div>
             <input
               value={form.notes}
@@ -132,7 +147,7 @@ export default function ContactsClient() {
               className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
             />
           </div>
-          <button onClick={add} className="rounded-lg px-3 py-2 flex items-center gap-1 font-semibold text-sm bg-cyan text-[#00161C] shrink-0">
+          <button onClick={add} className="rounded-lg px-3 py-2 flex items-center justify-center gap-1 font-semibold text-sm bg-cyan text-[#00161C] shrink-0 w-full sm:w-auto">
             <Plus size={16} /> Añadir
           </button>
         </div>
@@ -142,7 +157,9 @@ export default function ContactsClient() {
       <div className="space-y-2">
         {loading && <Card className="text-center py-8 text-muted">Cargando…</Card>}
         {!loading && visible.length === 0 && (
-          <Card className="text-center py-8 text-muted">No hay contactos en esta etapa.</Card>
+          <Card className="text-center py-8 text-muted">
+            {search.trim() ? 'Sin resultados para esa búsqueda.' : 'No hay contactos en esta etapa.'}
+          </Card>
         )}
         {visible.map((c) => {
           const color = STAGE_COLORS[c.stage] || '#5ECCFA';

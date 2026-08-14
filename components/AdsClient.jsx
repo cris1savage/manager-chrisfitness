@@ -88,9 +88,9 @@ export default function AdsClient() {
         </Card>
       </div>
 
-      <Card className="!p-0 overflow-x-auto">
-        <div className="grid gap-2 items-end p-4" style={{ gridTemplateColumns: 'minmax(160px,1fr) minmax(130px,1fr) minmax(130px,1fr) auto', minWidth: 560 }}>
-          <div>
+      <Card className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+          <div className="w-full sm:flex-1">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Campaña</div>
             <input
               value={form.campaign}
@@ -99,7 +99,7 @@ export default function AdsClient() {
               className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
             />
           </div>
-          <div>
+          <div className="w-full sm:flex-1">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Fecha de inicio</div>
             <input
               type="date"
@@ -108,7 +108,7 @@ export default function AdsClient() {
               className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
             />
           </div>
-          <div>
+          <div className="w-full sm:flex-1">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Inversión diaria (€)</div>
             <input
               type="number"
@@ -117,7 +117,7 @@ export default function AdsClient() {
               className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
             />
           </div>
-          <button onClick={add} className="rounded-lg px-3 py-2 flex items-center gap-1 font-semibold text-sm bg-cyan text-[#00161C] shrink-0">
+          <button onClick={add} className="rounded-lg px-3 py-2 flex items-center justify-center gap-1 font-semibold text-sm bg-cyan text-[#00161C] shrink-0 w-full sm:w-auto">
             <Plus size={16} /> Añadir
           </button>
         </div>

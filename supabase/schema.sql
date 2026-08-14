@@ -310,6 +310,22 @@ create trigger contact_became_client_trigger
   after insert or update on public.contacts
   for each row execute procedure public.contact_became_client();
 
+-- Backfill retroactivo: si ya tenías contactos marcados como "Cliente"
+-- ANTES de que existiera este disparador, no se habían creado en Clientes
+-- activos. Esto los captura, sin duplicar a los que ya tienen ficha.
+insert into public.active_clients (name, program, start_date, status, contact_id, created_by)
+select c.name, c.program, coalesce(c.stage_updated_at::date, current_date), 'Activo', c.id, c.created_by
+from public.contacts c
+where c.stage = 'Cliente'
+  and not exists (select 1 from public.active_clients ac where ac.contact_id = c.id);
+
+-- ---------------------------------------------------------------------------
+-- RENOVACIÓN AUTOMÁTICA
+-- En vez de escribir la fecha de renovación a mano, eliges una duración
+-- (mensual, 3 meses, 6 meses, anual) y se calcula sola a partir del inicio.
+-- ---------------------------------------------------------------------------
+alter table public.active_clients add column if not exists duration text default 'Personalizada';
+
 -- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las

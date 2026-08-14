@@ -1,39 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { Card, Field, AuthorBadge } from '@/components/ui';
+import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
-import { todayISO } from '@/lib/config';
-
-const FIELDS = [
-  { key: 'name', label: 'Cliente', type: 'text' },
-  { key: 'program', label: 'Programa', type: 'text', placeholder: 'Ej. Coaching 3 meses' },
-  { key: 'start_date', label: 'Inicio', type: 'date' },
-  { key: 'renewal_date', label: 'Próxima renovación', type: 'date' },
-  { key: 'status', label: 'Estado', type: 'select', options: ['Activo', 'Pausado', 'Finalizado'] },
-];
-
-function Field2({ f, value, onChange }) {
-  const base = 'bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan';
-  if (f.type === 'select') {
-    return (
-      <select className={base} value={value || ''} onChange={(e) => onChange(e.target.value)}>
-        {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    );
-  }
-  return (
-    <input className={base} type={f.type} placeholder={f.placeholder || f.label} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
-  );
-}
+import { todayISO, addDaysISO, DURATIONS } from '@/lib/config';
 
 export default function ClientsClient() {
   const supabase = useMemo(() => createClient(), []);
   const profiles = useProfiles();
   const [clients, setClients] = useState([]);
-  const emptyForm = { name: '', program: '', start_date: todayISO(), renewal_date: '', status: 'Activo' };
+  const emptyForm = { name: '', program: '', start_date: todayISO(), duration: 'Mensual', renewal_date: addDaysISO(todayISO(), 30), status: 'Activo' };
   const [form, setForm] = useState(emptyForm);
 
   const load = async () => {
@@ -51,6 +29,15 @@ export default function ClientsClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const setFormDuration = (duration) => {
+    const days = DURATIONS[duration];
+    setForm((f) => ({ ...f, duration, renewal_date: days ? addDaysISO(f.start_date, days) : f.renewal_date }));
+  };
+  const setFormStartDate = (start_date) => {
+    const days = DURATIONS[form.duration];
+    setForm((f) => ({ ...f, start_date, renewal_date: days ? addDaysISO(start_date, days) : f.renewal_date }));
+  };
+
   const add = async () => {
     if (!form.name.trim()) return;
     const { data: userData } = await supabase.auth.getUser();
@@ -61,7 +48,16 @@ export default function ClientsClient() {
 
   const update = async (id, key, value) => {
     setClients((c) => c.map((row) => (row.id === id ? { ...row, [key]: value } : row)));
-    await supabase.from('active_clients').update({ [key]: value }).eq('id', id);
+    const patch = { [key]: value };
+    if (key === 'duration' || key === 'start_date') {
+      const row = clients.find((c) => c.id === id);
+      const nextDuration = key === 'duration' ? value : row.duration;
+      const nextStart = key === 'start_date' ? value : row.start_date;
+      const days = DURATIONS[nextDuration];
+      if (days) patch.renewal_date = addDaysISO(nextStart, days);
+    }
+    setClients((c) => c.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+    await supabase.from('active_clients').update(patch).eq('id', id);
   };
 
   const remove = async (id) => {
@@ -70,27 +66,91 @@ export default function ClientsClient() {
   };
 
   const soon = todayISO();
-  const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const in7 = addDaysISO(soon, 7);
+  const renewalsSoon = clients.filter((c) => c.status === 'Activo' && c.renewal_date && c.renewal_date <= in7);
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="font-display text-ink text-[22px] tracking-wide">CLIENTES ACTIVOS</h2>
-        <div className="text-muted text-xs">Las renovaciones en los próximos 7 días se marcan en ámbar; las vencidas en rojo.</div>
+        <div className="text-muted text-xs">Elige la duración y la renovación se calcula sola. Ámbar = ≤7 días, rojo = vencida.</div>
       </div>
 
-      <Card className="!p-0 overflow-x-auto">
-        <div
-          className="grid gap-2 items-end p-4"
-          style={{ gridTemplateColumns: `repeat(${FIELDS.length}, minmax(130px,1fr)) auto`, minWidth: 130 * FIELDS.length + 100 }}
-        >
-          {FIELDS.map((f) => (
-            <div key={f.key}>
-              <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">{f.label}</div>
-              <Field2 f={f} value={form[f.key]} onChange={(v) => setForm({ ...form, [f.key]: v })} />
+      {renewalsSoon.length > 0 && (
+        <Card style={{ border: '1px solid #FBBF24', boxShadow: '0 0 24px -8px #FBBF2455' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle size={16} color="#FBBF24" />
+            <span className="text-amber font-extrabold text-xs tracking-widest">RENOVACIONES PRÓXIMAS</span>
+          </div>
+          <div className="space-y-1">
+            {renewalsSoon.map((c) => {
+              const overdue = c.renewal_date < soon;
+              return (
+                <div key={c.id} className="text-sm flex items-center justify-between">
+                  <span className="text-ink font-medium">{c.name}</span>
+                  <span className={overdue ? 'text-red' : 'text-amber'}>
+                    {overdue ? 'Vencida' : 'Renueva'} el {new Date(c.renewal_date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      <Card className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="w-full sm:flex-1">
+            <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Cliente</div>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan"
+            />
+          </div>
+          <div className="w-full sm:flex-1">
+            <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Programa</div>
+            <input
+              value={form.program}
+              onChange={(e) => setForm({ ...form, program: e.target.value })}
+              placeholder="Ej. Coaching"
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan"
+            />
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="w-full sm:flex-1">
+            <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Inicio</div>
+            <input
+              type="date"
+              value={form.start_date}
+              onChange={(e) => setFormStartDate(e.target.value)}
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan"
+            />
+          </div>
+          <div className="w-full sm:flex-1">
+            <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Duración</div>
+            <select
+              value={form.duration}
+              onChange={(e) => setFormDuration(e.target.value)}
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan"
+            >
+              {Object.keys(DURATIONS).map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          <div className="w-full sm:flex-1">
+            <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">
+              Renovación {DURATIONS[form.duration] ? '(automática)' : ''}
             </div>
-          ))}
-          <button onClick={add} className="rounded-lg px-3 py-2 flex items-center gap-1 font-semibold text-sm bg-cyan text-[#00161C] shrink-0">
+            <input
+              type="date"
+              value={form.renewal_date}
+              disabled={!!DURATIONS[form.duration]}
+              onChange={(e) => setForm({ ...form, renewal_date: e.target.value })}
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan disabled:opacity-60"
+            />
+          </div>
+          <button onClick={add} className="rounded-lg px-3 py-2 flex items-center justify-center gap-1 font-semibold text-sm bg-cyan text-[#00161C] shrink-0 sm:self-end">
             <Plus size={16} /> Añadir
           </button>
         </div>
@@ -102,21 +162,53 @@ export default function ClientsClient() {
           const overdue = c.renewal_date && c.renewal_date < soon && c.status === 'Activo';
           const dueSoon = c.renewal_date && c.renewal_date >= soon && c.renewal_date <= in7 && c.status === 'Activo';
           return (
-            <Card
-              key={c.id}
-              className="!p-0 overflow-x-auto"
-              style={{ borderColor: overdue ? '#F87171' : dueSoon ? '#FBBF24' : undefined }}
-            >
-              <div
-                className="grid gap-2 items-center p-4"
-                style={{ gridTemplateColumns: `repeat(${FIELDS.length}, minmax(130px,1fr)) auto`, minWidth: 130 * FIELDS.length + 100 }}
-              >
-                {FIELDS.map((f) => (
-                  <Field2 key={f.key} f={f} value={c[f.key]} onChange={(v) => update(c.id, f.key, v)} />
-                ))}
-                <div className="flex items-center gap-2 shrink-0">
+            <Card key={c.id} style={{ borderColor: overdue ? '#F87171' : dueSoon ? '#FBBF24' : undefined }}>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={c.name}
+                  onChange={(e) => update(c.id, 'name', e.target.value)}
+                  className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full sm:flex-1 outline-none focus:border-cyan font-semibold"
+                />
+                <input
+                  value={c.program || ''}
+                  onChange={(e) => update(c.id, 'program', e.target.value)}
+                  placeholder="Programa"
+                  className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full sm:flex-1 outline-none focus:border-cyan"
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 mt-2 items-start sm:items-center">
+                <input
+                  type="date"
+                  value={c.start_date || ''}
+                  onChange={(e) => update(c.id, 'start_date', e.target.value)}
+                  className="bg-surfaceAlt border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-full sm:flex-1 outline-none focus:border-cyan"
+                />
+                <select
+                  value={c.duration || 'Personalizada'}
+                  onChange={(e) => update(c.id, 'duration', e.target.value)}
+                  className="bg-surfaceAlt border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-full sm:flex-1 outline-none focus:border-cyan"
+                >
+                  {Object.keys(DURATIONS).map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <input
+                  type="date"
+                  value={c.renewal_date || ''}
+                  disabled={!!DURATIONS[c.duration]}
+                  onChange={(e) => update(c.id, 'renewal_date', e.target.value)}
+                  className={`bg-surfaceAlt border border-border rounded-lg px-2 py-1.5 text-xs w-full sm:flex-1 outline-none focus:border-cyan disabled:opacity-60 ${overdue ? 'text-red' : dueSoon ? 'text-amber' : 'text-ink'}`}
+                />
+                <select
+                  value={c.status}
+                  onChange={(e) => update(c.id, 'status', e.target.value)}
+                  className="bg-surfaceAlt border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-full sm:flex-1 outline-none focus:border-cyan"
+                >
+                  <option value="Activo">Activo</option>
+                  <option value="Pausado">Pausado</option>
+                  <option value="Finalizado">Finalizado</option>
+                </select>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
                   <AuthorBadge profile={profiles?.[c.created_by]} />
-                  <button onClick={() => remove(c.id)} className="p-2 rounded-lg text-red"><Trash2 size={16} /></button>
+                  <button onClick={() => remove(c.id)} className="p-1.5 rounded-lg text-red"><Trash2 size={16} /></button>
                 </div>
               </div>
             </Card>

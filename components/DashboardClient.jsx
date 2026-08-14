@@ -165,12 +165,15 @@ export default function DashboardClient({ profile }) {
   const costPerSale = salesM > 0 ? spendThisMonth / salesM : null;
   const roiPct = spendThisMonth > 0 ? ((revenueM - spendThisMonth) / spendThisMonth) * 100 : null;
 
+  const activeClientsCount = (data.activeClients || []).filter((c) => c.status === 'Activo').length;
+
   const goalProgress = (g) => {
     switch (g.metric) {
       case 'ventas': return { current: salesM, target: g.target };
       case 'clientes_nuevos': return { current: salesM, target: g.target };
       case 'facturacion': return { current: revenueM, target: g.target };
       case 'inversion_ads': return { current: spendThisMonth, target: g.target };
+      case 'clientes_activos_total': return { current: activeClientsCount, target: g.target };
       default: return { current: Number(g.manual_current) || 0, target: g.target };
     }
   };
