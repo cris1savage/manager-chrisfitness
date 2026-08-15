@@ -71,6 +71,18 @@ sonará.
   respeta ese mismo formato (títulos y negrita reales, no asteriscos sueltos).
   Sintaxis: `# título`, `## subtítulo`, `**negrita**`, `- lista`.
 
+## Novedades de este ajuste
+
+- **Guiones: editor de texto enriquecido de verdad**: ya no se ven los
+  símbolos `#`, `##`, `**` — seleccionas texto y le das a Título, Subtítulo,
+  Negrita o Lista, y se aplica el formato ahí mismo mientras escribes, como
+  en Google Docs. El PDF también refleja ese mismo formato real.
+  Aviso: usa una función de edición nativa del navegador que en algún caso
+  puntual del móvil puede comportarse un poco raro (cursor); si da guerra,
+  se puede revertir a la versión anterior sin perder los guiones ya escritos.
+  Los guiones antiguos (con `#`/`**` guardados como texto) se siguen
+  mostrando bien, se convierten solos la primera vez que los abres.
+
 ## Cambio grande de esta versión: Contactos unificado
 
 Antes había 5 secciones separadas (Leads, Conversaciones, Invitaciones,

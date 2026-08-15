@@ -11,3 +11,32 @@ html, body {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { background: #212729; border-radius: 99px; }
+
+/* Editor de guiones (texto enriquecido) */
+.rich-editor[data-placeholder]:empty:before {
+  content: attr(data-placeholder);
+  color: #7C878B;
+  pointer-events: none;
+}
+.rich-editor {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rich-editor h2 {
+  color: #5ECCFA;
+  font-weight: 700;
+  font-size: 1.15rem;
+  line-height: 1.4;
+  margin: 0.6rem 0 0.3rem;
+}
+.rich-editor h3 {
+  color: #F2F6F7;
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.4;
+  margin: 0.5rem 0 0.25rem;
+}
+.rich-editor strong { font-weight: 700; color: #F2F6F7; }
+.rich-editor ul { list-style: disc; padding-left: 1.25rem; margin: 0.25rem 0; }
+.rich-editor li { margin: 0.15rem 0; }
+.rich-editor div, .rich-editor p { margin: 0.15rem 0; }

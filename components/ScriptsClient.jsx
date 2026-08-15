@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check, Bold, Heading1, Heading2, List, Eye, PencilLine } from 'lucide-react';
+import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check, Bold, Heading1, Heading2, List } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
@@ -10,45 +10,44 @@ import { SCRIPT_STATUSES, CONTENT_TYPES, todayISO } from '@/lib/config';
 const STATUS_COLORS = { Borrador: '#7C878B', Listo: '#FBBF24', Grabado: '#4ADE80' };
 
 /* ---------------------------------------------------------------------- */
-/* Formato ligero tipo Markdown: # Título, ## Subtítulo, **negrita**, - lista */
+/* Compatibilidad con guiones antiguos guardados como "# **texto**"       */
 /* ---------------------------------------------------------------------- */
 
-function renderInline(text, keyPrefix) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter((p) => p !== '');
-  return parts.map((part, i) =>
-    part.startsWith('**') && part.endsWith('**') ? (
-      <strong key={`${keyPrefix}-${i}`} className="font-bold text-ink">{part.slice(2, -2)}</strong>
-    ) : (
-      <span key={`${keyPrefix}-${i}`}>{part}</span>
-    )
-  );
+function looksLikeHtml(text) {
+  return /<(h1|h2|h3|strong|b|ul|li|div|p|br)[\s>]/i.test(text || '');
 }
 
-function MarkdownPreview({ content }) {
-  const lines = (content || '').split('\n');
-  if (!content || !content.trim()) {
-    return <div className="text-muted text-sm italic py-6 text-center">Todavía no hay contenido. Escribe algo en la pestaña "Escribir".</div>;
-  }
-  return (
-    <div className="space-y-1.5">
-      {lines.map((line, i) => {
-        if (line.startsWith('## ')) return <div key={i} className="text-ink font-bold text-base mt-3 mb-1">{renderInline(line.slice(3), i)}</div>;
-        if (line.startsWith('# ')) return <div key={i} className="text-ink font-bold text-lg mt-4 mb-1" style={{ color: '#5ECCFA' }}>{renderInline(line.slice(2), i)}</div>;
-        if (line.startsWith('- ')) return (
-          <div key={i} className="flex gap-2 pl-1">
-            <span className="text-cyan shrink-0">•</span>
-            <span className="text-ink text-sm leading-relaxed">{renderInline(line.slice(2), i)}</span>
-          </div>
-        );
-        if (line.trim() === '') return <div key={i} className="h-2" />;
-        return <p key={i} className="text-ink text-sm leading-relaxed">{renderInline(line, i)}</p>;
-      })}
-    </div>
-  );
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function markdownLiteToHtml(text) {
+  if (!text) return '';
+  if (looksLikeHtml(text)) return text;
+  const boldInline = (s) => escapeHtml(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  const lines = text.split('\n');
+  let html = '';
+  let inList = false;
+  const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+  lines.forEach((line) => {
+    if (line.startsWith('## ')) { closeList(); html += `<h3>${boldInline(line.slice(3))}</h3>`; }
+    else if (line.startsWith('# ')) { closeList(); html += `<h2>${boldInline(line.slice(2))}</h2>`; }
+    else if (line.startsWith('- ')) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${boldInline(line.slice(2))}</li>`; }
+    else if (line.trim() === '') { closeList(); html += '<div><br></div>'; }
+    else { closeList(); html += `<div>${boldInline(line)}</div>`; }
+  });
+  closeList();
+  return html;
+}
+
+function htmlToPlainSnippet(html, maxLen = 120) {
+  if (!html) return '';
+  const text = looksLikeHtml(html) ? html.replace(/<[^>]+>/g, ' ') : html.replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
+  return text.replace(/\s+/g, ' ').trim().slice(0, maxLen);
 }
 
 /* ---------------------------------------------------------------------- */
-/* PDF: mismo formato ligero, renderizado de verdad (negrita/títulos/listas) */
+/* PDF: recorre el HTML del editor y lo dibuja con títulos/negrita reales */
 /* ---------------------------------------------------------------------- */
 
 async function getLogoDataUrl() {
@@ -65,19 +64,51 @@ async function getLogoDataUrl() {
   }
 }
 
-function tokenizeInline(text) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter((p) => p !== '');
+// Convierte un elemento del editor en tokens {text, bold} para una línea
+function extractInlineTokens(el) {
   const tokens = [];
-  parts.forEach((part) => {
-    const bold = part.startsWith('**') && part.endsWith('**');
-    const raw = bold ? part.slice(2, -2) : part;
-    const words = raw.split(' ');
-    words.forEach((w, i) => {
-      if (w === '' && i === words.length - 1) return;
-      tokens.push({ text: w + (i < words.length - 1 ? ' ' : ''), bold });
+  const walk = (node, bold) => {
+    node.childNodes.forEach((child) => {
+      if (child.nodeType === 3) {
+        const words = child.textContent.split(' ');
+        words.forEach((w, i) => {
+          if (w === '' && words.length === 1) return;
+          tokens.push({ text: w + (i < words.length - 1 ? ' ' : ''), bold });
+        });
+      } else if (child.nodeType === 1) {
+        const tag = child.tagName.toLowerCase();
+        walk(child, bold || tag === 'strong' || tag === 'b');
+      }
     });
-  });
+  };
+  walk(el, false);
   return tokens;
+}
+
+// Convierte el HTML guardado en bloques {type, tokens/text} en orden, para imprimir en el PDF
+function htmlToBlocks(html) {
+  if (!html) return [];
+  const container = document.createElement('div');
+  container.innerHTML = looksLikeHtml(html) ? html : markdownLiteToHtml(html);
+  const blocks = [];
+  Array.from(container.childNodes).forEach((node) => {
+    if (node.nodeType === 3) {
+      if (node.textContent.trim() !== '') blocks.push({ type: 'p', tokens: [{ text: node.textContent, bold: false }] });
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'h2') blocks.push({ type: 'h1', text: node.textContent });
+    else if (tag === 'h3') blocks.push({ type: 'h2', text: node.textContent });
+    else if (tag === 'ul' || tag === 'ol') {
+      Array.from(node.children).forEach((li) => blocks.push({ type: 'li', tokens: extractInlineTokens(li) }));
+    } else if (tag === 'div' || tag === 'p') {
+      const isBreak = node.childNodes.length === 0 || (node.childNodes.length === 1 && node.firstChild.nodeType === 1 && node.firstChild.tagName === 'BR');
+      if (isBreak) blocks.push({ type: 'break' });
+      else blocks.push({ type: 'p', tokens: extractInlineTokens(node) });
+    }
+  });
+  return blocks;
 }
 
 async function downloadScriptPDF(script) {
@@ -138,37 +169,43 @@ async function downloadScriptPDF(script) {
     });
   };
 
-  const lines = (script.content || 'Sin contenido todavia.').split('\n');
-  lines.forEach((line) => {
-    if (line.startsWith('## ')) {
-      ensureSpace(12);
-      y += 4;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(20, 20, 20);
-      doc.text(line.slice(3), marginX, y);
-      y += 7;
-    } else if (line.startsWith('# ')) {
+  const blocks = htmlToBlocks(script.content);
+  if (blocks.length === 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text('Sin contenido todavia.', marginX, y);
+  }
+  blocks.forEach((block) => {
+    if (block.type === 'h1') {
       ensureSpace(14);
       y += 5;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
       doc.setTextColor(58, 156, 196);
-      doc.text(line.slice(2), marginX, y);
+      doc.text(block.text, marginX, y);
       y += 8;
-    } else if (line.startsWith('- ')) {
+    } else if (block.type === 'h2') {
+      ensureSpace(12);
+      y += 4;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(20, 20, 20);
+      doc.text(block.text, marginX, y);
+      y += 7;
+    } else if (block.type === 'li') {
       ensureSpace(6);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10.5);
       doc.setTextColor(94, 204, 250);
       doc.text('\u2022', marginX, y);
-      printTokens(tokenizeInline(line.slice(2)), marginX + 5, 10.5, 6);
+      printTokens(block.tokens, marginX + 5, 10.5, 6);
       y += 6;
-    } else if (line.trim() === '') {
+    } else if (block.type === 'break') {
       y += 4;
     } else {
       ensureSpace(6);
-      printTokens(tokenizeInline(line), marginX, 10.5, 6);
+      printTokens(block.tokens, marginX, 10.5, 6);
       y += 6;
     }
   });
@@ -177,7 +214,7 @@ async function downloadScriptPDF(script) {
 }
 
 /* ---------------------------------------------------------------------- */
-/* Barra de formato + editor                                              */
+/* Editor de texto enriquecido (WYSIWYG): negrita/títulos reales al escribir */
 /* ---------------------------------------------------------------------- */
 
 function FormatToolbar({ onAction }) {
@@ -194,6 +231,7 @@ function FormatToolbar({ onAction }) {
           key={action}
           type="button"
           title={title}
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => onAction(action)}
           className="p-1.5 rounded-md text-muted hover:text-cyan hover:bg-surface transition-colors"
         >
@@ -204,81 +242,51 @@ function FormatToolbar({ onAction }) {
   );
 }
 
-function ScriptEditor({ draft, setDraft }) {
-  const [tab, setTab] = useState('escribir');
-  const textareaRef = useRef(null);
+function RichEditor({ draft, setDraft }) {
+  const editorRef = useRef(null);
+  const [wordCount, setWordCount] = useState(0);
+  const loadedIdRef = useRef(null);
 
-  const applyFormat = (action) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const value = draft.content || '';
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    if (action === 'bold') {
-      const selected = value.slice(start, end) || 'texto';
-      const next = value.slice(0, start) + `**${selected}**` + value.slice(end);
-      setDraft({ ...draft, content: next });
-      requestAnimationFrame(() => {
-        textarea.focus();
-        const pos = start + 2 + selected.length + 2;
-        textarea.setSelectionRange(pos, pos);
-      });
-      return;
+  useEffect(() => {
+    if (editorRef.current && loadedIdRef.current !== draft.id) {
+      editorRef.current.innerHTML = markdownLiteToHtml(draft.content || '');
+      loadedIdRef.current = draft.id;
+      setWordCount((editorRef.current.textContent || '').trim().split(/\s+/).filter(Boolean).length);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.id]);
 
-    // h1 / h2 / list: prefijo al inicio de la línea actual
-    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-    const prefix = action === 'h1' ? '# ' : action === 'h2' ? '## ' : '- ';
-    const next = value.slice(0, lineStart) + prefix + value.slice(lineStart);
-    setDraft({ ...draft, content: next });
-    requestAnimationFrame(() => {
-      textarea.focus();
-      const pos = start + prefix.length;
-      textarea.setSelectionRange(pos, pos);
-    });
+  const handleInput = () => {
+    const html = editorRef.current.innerHTML;
+    setDraft((d) => ({ ...d, content: html }));
+    setWordCount((editorRef.current.textContent || '').trim().split(/\s+/).filter(Boolean).length);
   };
 
-  const wordCount = (draft.content || '').trim().split(/\s+/).filter(Boolean).length;
+  const applyFormat = (action) => {
+    editorRef.current.focus();
+    if (action === 'bold') document.execCommand('bold');
+    else if (action === 'h1') document.execCommand('formatBlock', false, 'h2');
+    else if (action === 'h2') document.execCommand('formatBlock', false, 'h3');
+    else if (action === 'list') document.execCommand('insertUnorderedList');
+    handleInput();
+  };
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <FormatToolbar onAction={applyFormat} />
-        <div className="flex rounded-lg overflow-hidden border border-border">
-          {[{ k: 'escribir', l: 'Escribir', Icon: PencilLine }, { k: 'vista', l: 'Vista previa', Icon: Eye }].map(({ k, l, Icon }) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setTab(k)}
-              className="px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1.5"
-              style={{ background: tab === k ? '#5ECCFA' : 'transparent', color: tab === k ? '#00161C' : '#7C878B' }}
-            >
-              <Icon size={13} /> {l}
-            </button>
-          ))}
-        </div>
+        <span className="text-muted text-[10.5px]">{wordCount} palabras</span>
       </div>
-
-      {tab === 'escribir' ? (
-        <textarea
-          ref={textareaRef}
-          value={draft.content || ''}
-          onChange={(e) => setDraft({ ...draft, content: e.target.value })}
-          placeholder={'Escribe el guion aquí...\n\n# Título grande\n## Subtítulo\n**negrita**\n- elemento de lista'}
-          rows={16}
-          className="bg-surfaceAlt border border-border text-ink rounded-lg px-3 py-2.5 text-sm w-full outline-none focus:border-cyan resize-y leading-relaxed font-mono"
-        />
-      ) : (
-        <div className="bg-surfaceAlt border border-border rounded-lg px-4 py-3 min-h-[280px]">
-          <MarkdownPreview content={draft.content} />
-        </div>
-      )}
-
-      <div className="flex items-center justify-between text-muted text-[10.5px]">
-        <span># título &middot; ## subtítulo &middot; **negrita** &middot; - lista</span>
-        <span>{wordCount} palabras</span>
-      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={handleInput}
+        data-placeholder="Escribe el guion aquí... selecciona texto y usa la barra de arriba para darle formato."
+        className="rich-editor bg-surfaceAlt border border-border text-ink rounded-lg px-3 py-2.5 text-sm w-full outline-none focus:border-cyan leading-relaxed overflow-y-auto"
+        style={{ minHeight: 280 }}
+      />
+      <div className="text-muted text-[10px]">Selecciona texto y pulsa un botón de la barra para aplicar el formato.</div>
     </div>
   );
 }
@@ -518,7 +526,7 @@ export default function ScriptsClient() {
             </select>
           </div>
 
-          <ScriptEditor draft={draft} setDraft={setDraft} />
+          <RichEditor draft={draft} setDraft={setDraft} />
 
           <div className="flex gap-2 flex-wrap">
             <button onClick={save} className="rounded-lg px-4 py-2 font-semibold text-sm bg-cyan text-[#00161C]">
@@ -620,7 +628,7 @@ export default function ScriptsClient() {
               </div>
             </div>
             <div className="text-muted text-xs line-clamp-2">
-              {s.content ? s.content.replace(/\*\*/g, '').replace(/^#+\s*/gm, '').slice(0, 120) : 'Sin contenido todavía.'}
+              {s.content ? htmlToPlainSnippet(s.content) : 'Sin contenido todavía.'}
             </div>
             <div className="flex items-center justify-between">
               <span
