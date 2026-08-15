@@ -1,13 +1,55 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check, Bold, Heading1, Heading2, List, Eye, PencilLine } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { SCRIPT_STATUSES, CONTENT_TYPES, todayISO } from '@/lib/config';
 
 const STATUS_COLORS = { Borrador: '#7C878B', Listo: '#FBBF24', Grabado: '#4ADE80' };
+
+/* ---------------------------------------------------------------------- */
+/* Formato ligero tipo Markdown: # Título, ## Subtítulo, **negrita**, - lista */
+/* ---------------------------------------------------------------------- */
+
+function renderInline(text, keyPrefix) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter((p) => p !== '');
+  return parts.map((part, i) =>
+    part.startsWith('**') && part.endsWith('**') ? (
+      <strong key={`${keyPrefix}-${i}`} className="font-bold text-ink">{part.slice(2, -2)}</strong>
+    ) : (
+      <span key={`${keyPrefix}-${i}`}>{part}</span>
+    )
+  );
+}
+
+function MarkdownPreview({ content }) {
+  const lines = (content || '').split('\n');
+  if (!content || !content.trim()) {
+    return <div className="text-muted text-sm italic py-6 text-center">Todavía no hay contenido. Escribe algo en la pestaña "Escribir".</div>;
+  }
+  return (
+    <div className="space-y-1.5">
+      {lines.map((line, i) => {
+        if (line.startsWith('## ')) return <div key={i} className="text-ink font-bold text-base mt-3 mb-1">{renderInline(line.slice(3), i)}</div>;
+        if (line.startsWith('# ')) return <div key={i} className="text-ink font-bold text-lg mt-4 mb-1" style={{ color: '#5ECCFA' }}>{renderInline(line.slice(2), i)}</div>;
+        if (line.startsWith('- ')) return (
+          <div key={i} className="flex gap-2 pl-1">
+            <span className="text-cyan shrink-0">•</span>
+            <span className="text-ink text-sm leading-relaxed">{renderInline(line.slice(2), i)}</span>
+          </div>
+        );
+        if (line.trim() === '') return <div key={i} className="h-2" />;
+        return <p key={i} className="text-ink text-sm leading-relaxed">{renderInline(line, i)}</p>;
+      })}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* PDF: mismo formato ligero, renderizado de verdad (negrita/títulos/listas) */
+/* ---------------------------------------------------------------------- */
 
 async function getLogoDataUrl() {
   try {
@@ -23,11 +65,28 @@ async function getLogoDataUrl() {
   }
 }
 
+function tokenizeInline(text) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter((p) => p !== '');
+  const tokens = [];
+  parts.forEach((part) => {
+    const bold = part.startsWith('**') && part.endsWith('**');
+    const raw = bold ? part.slice(2, -2) : part;
+    const words = raw.split(' ');
+    words.forEach((w, i) => {
+      if (w === '' && i === words.length - 1) return;
+      tokens.push({ text: w + (i < words.length - 1 ? ' ' : ''), bold });
+    });
+  });
+  return tokens;
+}
+
 async function downloadScriptPDF(script) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 14;
+  const maxX = pageWidth - marginX;
   const logo = await getLogoDataUrl();
 
   doc.setFillColor(5, 7, 8);
@@ -44,31 +103,187 @@ async function downloadScriptPDF(script) {
   doc.setTextColor(20, 20, 20);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text(script.title || 'Sin título', 14, 52);
+  doc.text(script.title || 'Sin título', marginX, 52);
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(120, 120, 120);
-  doc.text(`Categoria: ${script.category || 'General'}    Estado: ${script.status}`, 14, 59);
+  doc.text(`Categoria: ${script.category || 'General'}    Estado: ${script.status}`, marginX, 59);
 
   doc.setDrawColor(210, 210, 210);
-  doc.line(14, 64, pageWidth - 14, 64);
+  doc.line(marginX, 64, pageWidth - marginX, 64);
 
-  doc.setTextColor(30, 30, 30);
-  doc.setFontSize(11);
-  const lines = doc.splitTextToSize(script.content || 'Sin contenido todavía.', pageWidth - 28);
-  let y = 74;
-  lines.forEach((line) => {
-    if (y > pageHeight - 20) {
+  let y = 76;
+  const ensureSpace = (needed) => {
+    if (y + needed > pageHeight - 16) {
       doc.addPage();
       y = 20;
     }
-    doc.text(line, 14, y);
-    y += 6;
+  };
+
+  const printTokens = (tokens, x, size, lineHeight) => {
+    doc.setFontSize(size);
+    let curX = x;
+    tokens.forEach((tok) => {
+      doc.setFont('helvetica', tok.bold ? 'bold' : 'normal');
+      const w = doc.getTextWidth(tok.text);
+      if (curX + w > maxX) {
+        curX = marginX;
+        y += lineHeight;
+        ensureSpace(lineHeight);
+      }
+      doc.setTextColor(30, 30, 30);
+      doc.text(tok.text, curX, y);
+      curX += w;
+    });
+  };
+
+  const lines = (script.content || 'Sin contenido todavia.').split('\n');
+  lines.forEach((line) => {
+    if (line.startsWith('## ')) {
+      ensureSpace(12);
+      y += 4;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(20, 20, 20);
+      doc.text(line.slice(3), marginX, y);
+      y += 7;
+    } else if (line.startsWith('# ')) {
+      ensureSpace(14);
+      y += 5;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(58, 156, 196);
+      doc.text(line.slice(2), marginX, y);
+      y += 8;
+    } else if (line.startsWith('- ')) {
+      ensureSpace(6);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10.5);
+      doc.setTextColor(94, 204, 250);
+      doc.text('\u2022', marginX, y);
+      printTokens(tokenizeInline(line.slice(2)), marginX + 5, 10.5, 6);
+      y += 6;
+    } else if (line.trim() === '') {
+      y += 4;
+    } else {
+      ensureSpace(6);
+      printTokens(tokenizeInline(line), marginX, 10.5, 6);
+      y += 6;
+    }
   });
 
   doc.save(`guion-${(script.title || 'sin-titulo').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`);
 }
+
+/* ---------------------------------------------------------------------- */
+/* Barra de formato + editor                                              */
+/* ---------------------------------------------------------------------- */
+
+function FormatToolbar({ onAction }) {
+  const buttons = [
+    { icon: Heading1, action: 'h1', title: 'Título grande' },
+    { icon: Heading2, action: 'h2', title: 'Subtítulo' },
+    { icon: Bold, action: 'bold', title: 'Negrita' },
+    { icon: List, action: 'list', title: 'Lista' },
+  ];
+  return (
+    <div className="flex items-center gap-1 rounded-lg border border-border bg-surfaceAlt p-1 w-fit">
+      {buttons.map(({ icon: Icon, action, title }) => (
+        <button
+          key={action}
+          type="button"
+          title={title}
+          onClick={() => onAction(action)}
+          className="p-1.5 rounded-md text-muted hover:text-cyan hover:bg-surface transition-colors"
+        >
+          <Icon size={15} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ScriptEditor({ draft, setDraft }) {
+  const [tab, setTab] = useState('escribir');
+  const textareaRef = useRef(null);
+
+  const applyFormat = (action) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    const value = draft.content || '';
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    if (action === 'bold') {
+      const selected = value.slice(start, end) || 'texto';
+      const next = value.slice(0, start) + `**${selected}**` + value.slice(end);
+      setDraft({ ...draft, content: next });
+      requestAnimationFrame(() => {
+        textarea.focus();
+        const pos = start + 2 + selected.length + 2;
+        textarea.setSelectionRange(pos, pos);
+      });
+      return;
+    }
+
+    // h1 / h2 / list: prefijo al inicio de la línea actual
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    const prefix = action === 'h1' ? '# ' : action === 'h2' ? '## ' : '- ';
+    const next = value.slice(0, lineStart) + prefix + value.slice(lineStart);
+    setDraft({ ...draft, content: next });
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const pos = start + prefix.length;
+      textarea.setSelectionRange(pos, pos);
+    });
+  };
+
+  const wordCount = (draft.content || '').trim().split(/\s+/).filter(Boolean).length;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <FormatToolbar onAction={applyFormat} />
+        <div className="flex rounded-lg overflow-hidden border border-border">
+          {[{ k: 'escribir', l: 'Escribir', Icon: PencilLine }, { k: 'vista', l: 'Vista previa', Icon: Eye }].map(({ k, l, Icon }) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              className="px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1.5"
+              style={{ background: tab === k ? '#5ECCFA' : 'transparent', color: tab === k ? '#00161C' : '#7C878B' }}
+            >
+              <Icon size={13} /> {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === 'escribir' ? (
+        <textarea
+          ref={textareaRef}
+          value={draft.content || ''}
+          onChange={(e) => setDraft({ ...draft, content: e.target.value })}
+          placeholder={'Escribe el guion aquí...\n\n# Título grande\n## Subtítulo\n**negrita**\n- elemento de lista'}
+          rows={16}
+          className="bg-surfaceAlt border border-border text-ink rounded-lg px-3 py-2.5 text-sm w-full outline-none focus:border-cyan resize-y leading-relaxed font-mono"
+        />
+      ) : (
+        <div className="bg-surfaceAlt border border-border rounded-lg px-4 py-3 min-h-[280px]">
+          <MarkdownPreview content={draft.content} />
+        </div>
+      )}
+
+      <div className="flex items-center justify-between text-muted text-[10.5px]">
+        <span># título &middot; ## subtítulo &middot; **negrita** &middot; - lista</span>
+        <span>{wordCount} palabras</span>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
 
 function ScriptVideos({ scriptId }) {
   const supabase = useMemo(() => createClient(), []);
@@ -302,13 +517,9 @@ export default function ScriptsClient() {
               {SCRIPT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <textarea
-            value={draft.content || ''}
-            onChange={(e) => setDraft({ ...draft, content: e.target.value })}
-            placeholder="Escribe el guion aquí... Ana puede leerlo y corregirlo directamente."
-            rows={14}
-            className="bg-surfaceAlt border border-border text-ink rounded-lg px-3 py-2.5 text-sm w-full outline-none focus:border-cyan resize-y leading-relaxed"
-          />
+
+          <ScriptEditor draft={draft} setDraft={setDraft} />
+
           <div className="flex gap-2 flex-wrap">
             <button onClick={save} className="rounded-lg px-4 py-2 font-semibold text-sm bg-cyan text-[#00161C]">
               Guardar
@@ -408,7 +619,9 @@ export default function ScriptsClient() {
                 </button>
               </div>
             </div>
-            <div className="text-muted text-xs line-clamp-2">{s.content ? s.content.slice(0, 120) : 'Sin contenido todavía.'}</div>
+            <div className="text-muted text-xs line-clamp-2">
+              {s.content ? s.content.replace(/\*\*/g, '').replace(/^#+\s*/gm, '').slice(0, 120) : 'Sin contenido todavía.'}
+            </div>
             <div className="flex items-center justify-between">
               <span
                 className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded"

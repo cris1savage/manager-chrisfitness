@@ -63,6 +63,14 @@ sonará.
   subido en total. El color del icono cambia según la racha (cian → ámbar
   a partir de 3 días → verde a partir de 7).
 
+## Novedades de este ajuste
+
+- **Guiones con formato de verdad**: barra con botones de Título, Subtítulo,
+  Negrita y Lista (en vez de un cuadro de texto plano), pestaña de "Vista
+  previa" para verlo ya formateado, y contador de palabras. El PDF ahora
+  respeta ese mismo formato (títulos y negrita reales, no asteriscos sueltos).
+  Sintaxis: `# título`, `## subtítulo`, `**negrita**`, `- lista`.
+
 ## Cambio grande de esta versión: Contactos unificado
 
 Antes había 5 secciones separadas (Leads, Conversaciones, Invitaciones,
