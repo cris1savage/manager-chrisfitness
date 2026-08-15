@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Megaphone, Users, Video, DollarSign, Check, Target, UserCheck, CheckSquare,
-  TrendingUp, TrendingDown, Minus, Activity, Percent, Plus, Trash2, ListChecks, Pencil, X,
+  TrendingUp, TrendingDown, Minus, Activity, Percent, Plus, Trash2, ListChecks, Pencil, X, Flame,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
@@ -143,6 +143,20 @@ export default function DashboardClient({ profile }) {
   const todayEntries = data.calendarEntries.filter((e) => e.date === today);
   const tomorrowEntries = data.calendarEntries.filter((e) => e.date === tomorrow);
 
+  // Racha de días subiendo contenido seguidos, + total acumulado histórico (nunca se reinicia)
+  const doneDates = new Set(data.calendarEntries.filter((e) => e.status === 'hecho').map((e) => e.date));
+  let streak = 0;
+  {
+    const cursor = new Date();
+    if (!doneDates.has(cursor.toISOString().slice(0, 10))) cursor.setDate(cursor.getDate() - 1);
+    while (doneDates.has(cursor.toISOString().slice(0, 10))) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+  }
+  const totalCompletedEver = data.calendarEntries.filter((e) => e.status === 'hecho').length;
+  const streakColor = streak >= 7 ? '#4ADE80' : streak >= 3 ? '#FBBF24' : '#5ECCFA';
+
   const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const renewalsSoon = (data.activeClients || []).filter((c) => c.status === 'Activo' && c.renewal_date && c.renewal_date <= in7);
   const pendingTasks = (data.tasks || []).filter((t) => !t.done).sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''));
@@ -215,6 +229,27 @@ export default function DashboardClient({ profile }) {
         {tomorrowEntries.length > 0 && (
           <div className="text-muted text-[11.5px] mt-2.5 border-t border-border pt-2">Mañana: {tomorrowEntries.map((e) => e.title).join(' · ')}</div>
         )}
+      </Card>
+
+      {/* Racha de contenido */}
+      <Card className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="rounded-full p-2.5" style={{ background: `${streakColor}1A` }}>
+            <Flame size={22} color={streakColor} />
+          </div>
+          <div>
+            <div className="text-ink font-display text-xl leading-none">
+              {streak} {streak === 1 ? 'día seguido' : 'días seguidos'}
+            </div>
+            <div className="text-muted text-[11px] mt-1">
+              {streak === 0 ? 'Sube algo hoy para empezar la racha' : '¡Sigue así! Que no se corte hoy'}
+            </div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-ink font-display text-xl leading-none">{totalCompletedEver}</div>
+          <div className="text-muted text-[11px] mt-1">subidos en total</div>
+        </div>
       </Card>
 
       {/* Widget de tareas */}

@@ -257,6 +257,7 @@ export default function ScriptsClient() {
       .from('scripts')
       .update({ title: draft.title, category: draft.category, content: draft.content, status: draft.status, updated_at: new Date().toISOString() })
       .eq('id', openId);
+    setOpenId(null);
     load();
   };
 

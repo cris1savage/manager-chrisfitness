@@ -45,6 +45,24 @@ sonará.
   Dashboard para poner una meta de clientes activos en cartera (no solo
   ventas del mes) y ver el círculo subir según los vayas consiguiendo.
 
+## Novedades de este ajuste
+
+- **Bug arreglado**: en Guiones, "Guardar" no cerraba el editor, así que se
+  quedaba "pillado" hasta salir a mano. Ya vuelve a la lista al guardar.
+- **Plantillas de mensajes** (`/plantillas`): mensajes que copias y pegas
+  (primer contacto, seguimiento, post-llamada), organizados por categoría,
+  editables por los dos, con botón de copiar directo.
+- **Equipo** (`/equipo`): comparativa de lo que ha hecho cada cuenta esta
+  semana — tareas cumplidas/pendientes, contactos movidos, contenido
+  subido, ventas cerradas. Las dos cuentas ven las dos columnas.
+
+## Novedades de este ajuste
+
+- **Racha de contenido en el Dashboard** 🔥: días seguidos subiendo algo del
+  calendario, más un contador que suma sin reiniciarse nunca de todo lo
+  subido en total. El color del icono cambia según la racha (cian → ámbar
+  a partir de 3 días → verde a partir de 7).
+
 ## Cambio grande de esta versión: Contactos unificado
 
 Antes había 5 secciones separadas (Leads, Conversaciones, Invitaciones,

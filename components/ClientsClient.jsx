@@ -1,16 +1,107 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, Target, Pencil, Check, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { Card, AuthorBadge } from '@/components/ui';
+import { Card, AuthorBadge, Ring } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { todayISO, addDaysISO, DURATIONS } from '@/lib/config';
+
+function ActiveClientsGoal({ activeCount }) {
+  const supabase = useMemo(() => createClient(), []);
+  const [goal, setGoal] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [targetInput, setTargetInput] = useState('');
+
+  const load = async () => {
+    const { data } = await supabase.from('goals').select('*').eq('metric', 'clientes_activos_total').order('created_at', { ascending: true }).limit(1);
+    setGoal(data?.[0] || null);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+    const channel = supabase
+      .channel('active-clients-goal-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'goals' }, load)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const createGoal = async () => {
+    const target = Number(targetInput) || 0;
+    if (!target) return;
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase.from('goals').insert({
+      title: 'Clientes activos', metric: 'clientes_activos_total', period: 'mensual', target, created_by: userData.user.id,
+    });
+    setTargetInput('');
+    load();
+  };
+
+  const saveTarget = async () => {
+    const target = Number(targetInput) || 0;
+    await supabase.from('goals').update({ target }).eq('id', goal.id);
+    setEditing(false);
+    load();
+  };
+
+  if (loading) return null;
+
+  if (!goal) {
+    return (
+      <Card className="flex flex-col sm:flex-row items-center gap-3 justify-between">
+        <div className="flex items-center gap-2 text-ink">
+          <Target size={16} />
+          <span className="text-sm">Ponte un objetivo de clientes activos para ver tu progreso aquí</span>
+        </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <input
+            type="number"
+            value={targetInput}
+            onChange={(e) => setTargetInput(e.target.value)}
+            placeholder="Ej. 20"
+            className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full sm:w-24 outline-none focus:border-cyan"
+          />
+          <button onClick={createGoal} className="rounded-lg px-3 py-1.5 font-semibold text-xs bg-cyan text-[#00161C] shrink-0">Crear</button>
+        </div>
+      </Card>
+    );
+  }
+
+  const pct = goal.target > 0 ? activeCount / goal.target : 0;
+  const completed = goal.target > 0 && activeCount >= goal.target;
+
+  return (
+    <Card className="flex items-center justify-center gap-4 flex-wrap">
+      <Ring pct={pct} label="Clientes activos" value={`${activeCount}/${goal.target}`} color={completed ? '#4ADE80' : '#5ECCFA'} size={100} />
+      {completed && <span className="text-green text-xs font-bold">Objetivo cumplido 🎉</span>}
+      {editing ? (
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={targetInput}
+            onChange={(e) => setTargetInput(e.target.value)}
+            className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-24 outline-none focus:border-cyan"
+          />
+          <button onClick={saveTarget} className="text-cyan"><Check size={16} /></button>
+        </div>
+      ) : (
+        <button onClick={() => { setEditing(true); setTargetInput(String(goal.target)); }} className="text-muted flex items-center gap-1 text-xs">
+          <Pencil size={13} /> Editar objetivo
+        </button>
+      )}
+    </Card>
+  );
+}
 
 export default function ClientsClient() {
   const supabase = useMemo(() => createClient(), []);
   const profiles = useProfiles();
   const [clients, setClients] = useState([]);
+  const [search, setSearch] = useState('');
   const emptyForm = { name: '', program: '', start_date: todayISO(), duration: 'Mensual', renewal_date: addDaysISO(todayISO(), 30), status: 'Activo' };
   const [form, setForm] = useState(emptyForm);
 
@@ -68,6 +159,9 @@ export default function ClientsClient() {
   const soon = todayISO();
   const in7 = addDaysISO(soon, 7);
   const renewalsSoon = clients.filter((c) => c.status === 'Activo' && c.renewal_date && c.renewal_date <= in7);
+  const visibleClients = search.trim()
+    ? clients.filter((c) => (c.name || '').toLowerCase().includes(search.trim().toLowerCase()) || (c.program || '').toLowerCase().includes(search.trim().toLowerCase()))
+    : clients;
 
   return (
     <div className="space-y-4">
@@ -75,6 +169,8 @@ export default function ClientsClient() {
         <h2 className="font-display text-ink text-[22px] tracking-wide">CLIENTES ACTIVOS</h2>
         <div className="text-muted text-xs">Elige la duración y la renovación se calcula sola. Ámbar = ≤7 días, rojo = vencida.</div>
       </div>
+
+      <ActiveClientsGoal activeCount={clients.filter((c) => c.status === 'Activo').length} />
 
       {renewalsSoon.length > 0 && (
         <Card style={{ border: '1px solid #FBBF24', boxShadow: '0 0 24px -8px #FBBF2455' }}>
@@ -156,9 +252,22 @@ export default function ClientsClient() {
         </div>
       </Card>
 
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nombre o programa..."
+          className="bg-surfaceAlt border border-border text-ink rounded-lg pl-9 pr-3 py-2 text-sm w-full outline-none focus:border-cyan"
+        />
+      </div>
+
       <div className="space-y-2">
         {clients.length === 0 && <Card className="text-center py-8 text-muted">Todavía no hay clientes activos registrados.</Card>}
-        {clients.map((c) => {
+        {clients.length > 0 && visibleClients.length === 0 && (
+          <Card className="text-center py-8 text-muted">Sin resultados para esa búsqueda.</Card>
+        )}
+        {visibleClients.map((c) => {
           const overdue = c.renewal_date && c.renewal_date < soon && c.status === 'Activo';
           const dueSoon = c.renewal_date && c.renewal_date >= soon && c.renewal_date <= in7 && c.status === 'Activo';
           return (

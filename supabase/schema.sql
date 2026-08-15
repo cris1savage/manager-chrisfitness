@@ -327,6 +327,33 @@ where c.stage = 'Cliente'
 alter table public.active_clients add column if not exists duration text default 'Personalizada';
 
 -- ---------------------------------------------------------------------------
+-- PLANTILLAS DE MENSAJES
+-- Respuestas que se copian y pegan (primer contacto, seguimiento, post-llamada).
+-- ---------------------------------------------------------------------------
+create table if not exists public.message_templates (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid references auth.users(id) default auth.uid(),
+  title text not null,
+  category text default 'General',
+  content text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.message_templates enable row level security;
+drop policy if exists "message_templates_full_access_authenticated" on public.message_templates;
+create policy "message_templates_full_access_authenticated" on public.message_templates for all to authenticated using (true) with check (true);
+
+drop trigger if exists log_activity_trigger on public.message_templates;
+create trigger log_activity_trigger after insert or update or delete on public.message_templates for each row execute function public.log_activity();
+
+do $$
+begin
+  alter publication supabase_realtime add table public.message_templates;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto
