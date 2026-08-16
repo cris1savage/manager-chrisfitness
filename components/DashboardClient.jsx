@@ -24,13 +24,14 @@ export default function DashboardClient({ profile }) {
   const [goalForm, setGoalForm] = useState({ title: '', metric: 'ventas', period: 'mensual', target: '' });
 
   const load = async () => {
-    const [adSpend, contacts, calendarEntries, activeClients, tasks, goalsRows] = await Promise.all([
+    const [adSpend, contacts, calendarEntries, activeClients, tasks, goalsRows, videos] = await Promise.all([
       supabase.from('ad_spend').select('*'),
       supabase.from('contacts').select('*'),
       supabase.from('calendar_entries').select('*'),
       supabase.from('active_clients').select('*'),
       supabase.from('tasks').select('*'),
       supabase.from('goals').select('*').order('created_at', { ascending: true }),
+      supabase.from('videos').select('*'),
     ]);
     setData({
       adSpend: adSpend.data || [],
@@ -38,6 +39,7 @@ export default function DashboardClient({ profile }) {
       calendarEntries: calendarEntries.data || [],
       activeClients: activeClients.data || [],
       tasks: tasks.data || [],
+      videos: videos.data || [],
     });
     setGoals(goalsRows.data || []);
   };
@@ -146,7 +148,12 @@ export default function DashboardClient({ profile }) {
   const tomorrowEntries = data.calendarEntries.filter((e) => e.date === tomorrow);
 
   // Racha de días subiendo contenido seguidos, + total acumulado histórico (nunca se reinicia)
-  const doneDates = new Set(data.calendarEntries.filter((e) => e.status === 'hecho').map((e) => e.date));
+  // Cuenta tanto lo marcado "hecho" en el Calendario como los Vídeos marcados subidos
+  // (que ya no pasan por el Calendario, pero siguen sumando aquí). Las entradas del
+  // Calendario que vienen de un guion (script_id) se excluyen aquí para no contarlas
+  // dos veces, ya que esas mismas ya se migraron a la tabla de Vídeos.
+  const doneDates = new Set(data.calendarEntries.filter((e) => e.status === 'hecho' && !e.script_id).map((e) => e.date));
+  (data.videos || []).forEach((v) => { if (v.uploaded && v.uploaded_at) doneDates.add(v.uploaded_at.slice(0, 10)); });
   let streak = 0;
   {
     const cursor = new Date();
@@ -156,7 +163,7 @@ export default function DashboardClient({ profile }) {
       cursor.setDate(cursor.getDate() - 1);
     }
   }
-  const totalCompletedEver = data.calendarEntries.filter((e) => e.status === 'hecho').length;
+  const totalCompletedEver = data.calendarEntries.filter((e) => e.status === 'hecho' && !e.script_id).length + (data.videos || []).filter((v) => v.uploaded).length;
   const streakColor = streak >= 7 ? '#4ADE80' : streak >= 3 ? '#FBBF24' : '#5ECCFA';
 
   const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);

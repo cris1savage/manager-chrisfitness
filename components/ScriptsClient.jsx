@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check, Bold, Heading1, Heading2, List } from 'lucide-react';
+import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check, Bold, Heading1, Heading2, List, CalendarPlus, CalendarX } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { SCRIPT_STATUSES, CONTENT_TYPES, PRODUCTION_STATUSES, todayISO } from '@/lib/config';
 
 const STATUS_COLORS = { Borrador: '#7C878B', Listo: '#FBBF24', Grabado: '#4ADE80' };
+const SCHEDULABLE = ['Editado', 'Programado'];
 
 /* ---------------------------------------------------------------------- */
 /* Compatibilidad con guiones antiguos guardados como "# **texto**"       */
@@ -296,11 +297,13 @@ function RichEditor({ draft, setDraft }) {
 function ScriptVideos({ scriptId }) {
   const supabase = useMemo(() => createClient(), []);
   const [videos, setVideos] = useState([]);
-  const [form, setForm] = useState({ title: '', type: 'reel_ig', date: todayISO(), production_status: 'Guion' });
+  const [form, setForm] = useState({ title: '', type: 'reel_ig', date: '', production_status: 'Guion' });
   const [editingId, setEditingId] = useState(null);
+  const [schedulingId, setSchedulingId] = useState(null);
+  const [scheduleDate, setScheduleDate] = useState(todayISO());
 
   const load = async () => {
-    const { data } = await supabase.from('calendar_entries').select('*').eq('script_id', scriptId).order('date', { ascending: true });
+    const { data } = await supabase.from('videos').select('*').eq('script_id', scriptId).order('created_at', { ascending: true });
     setVideos(data || []);
   };
 
@@ -308,7 +311,7 @@ function ScriptVideos({ scriptId }) {
     load();
     const channel = supabase
       .channel(`script-videos-${scriptId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_entries' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'videos' }, load)
       .subscribe();
     return () => supabase.removeChannel(channel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -317,32 +320,56 @@ function ScriptVideos({ scriptId }) {
   const add = async () => {
     if (!form.title.trim()) return;
     const { data: userData } = await supabase.auth.getUser();
-    await supabase.from('calendar_entries').insert({
-      title: form.title.trim(), type: form.type, date: form.date, status: 'pendiente',
+    await supabase.from('videos').insert({
+      title: form.title.trim(), type: form.type, date: form.date || null,
       production_status: form.production_status, script_id: scriptId, created_by: userData.user.id,
     });
-    setForm({ title: '', type: 'reel_ig', date: todayISO(), production_status: 'Guion' });
+    setForm({ title: '', type: 'reel_ig', date: '', production_status: 'Guion' });
     load();
   };
 
   const update = async (id, key, value) => {
     setVideos((v) => v.map((x) => (x.id === id ? { ...x, [key]: value } : x)));
-    await supabase.from('calendar_entries').update({ [key]: value }).eq('id', id);
+    await supabase.from('videos').update({ [key]: value }).eq('id', id);
   };
 
   const toggle = async (v) => {
-    await update(v.id, 'status', v.status === 'hecho' ? 'pendiente' : 'hecho');
+    const nextUploaded = !v.uploaded;
+    await supabase.from('videos').update({ uploaded: nextUploaded, uploaded_at: nextUploaded ? new Date().toISOString() : null }).eq('id', v.id);
+    load();
   };
 
   const del = async (id) => {
     setVideos((v) => v.filter((x) => x.id !== id));
-    await supabase.from('calendar_entries').delete().eq('id', id);
+    await supabase.from('videos').delete().eq('id', id);
+  };
+
+  const scheduleToCalendar = async (v) => {
+    const { data: userData } = await supabase.auth.getUser();
+    const { data: entry } = await supabase
+      .from('calendar_entries')
+      .insert({ title: v.title, type: v.type, date: scheduleDate, status: 'pendiente', script_id: scriptId, notes: v.notes, created_by: userData.user.id })
+      .select()
+      .single();
+    if (entry) {
+      await supabase.from('videos').update({ calendar_entry_id: entry.id, production_status: 'Programado' }).eq('id', v.id);
+    }
+    setSchedulingId(null);
+    load();
+  };
+
+  const unscheduleFromCalendar = async (v) => {
+    if (v.calendar_entry_id) await supabase.from('calendar_entries').delete().eq('id', v.calendar_entry_id);
+    await supabase.from('videos').update({ calendar_entry_id: null }).eq('id', v.id);
+    load();
   };
 
   return (
     <div className="space-y-3">
-      <div className="text-ink font-semibold text-sm flex items-center gap-1.5"><Film size={15} /> Vídeos programados de este guion</div>
-      <div className="text-muted text-xs -mt-2">Ponles fecha y aparecerán solos en el Calendario. El estado de producción es tuyo (guion/grabado/editado/programado); "subido" se marca aparte cuando ya está publicado.</div>
+      <div className="text-ink font-semibold text-sm flex items-center gap-1.5"><Film size={15} /> Vídeos de este guion</div>
+      <div className="text-muted text-xs -mt-2">
+        Viven solo aquí y en el apartado "Vídeos" del menú — no aparecen en el Calendario a menos que tú los añadas allí aparte.
+      </div>
 
       <div className="rounded-lg p-3 bg-surfaceAlt border border-border grid grid-cols-1 sm:grid-cols-[1fr_130px_130px_130px_auto] gap-2">
         <input
@@ -378,11 +405,11 @@ function ScriptVideos({ scriptId }) {
       </div>
 
       <div className="space-y-1.5">
-        {videos.length === 0 && <div className="text-muted text-xs text-center py-3">Todavía no hay vídeos programados para este guion.</div>}
+        {videos.length === 0 && <div className="text-muted text-xs text-center py-3">Todavía no hay vídeos para este guion. Añade uno arriba.</div>}
         {videos.map((v) => {
           const meta = CONTENT_TYPES[v.type] || CONTENT_TYPES.reel_ig;
           const prodColor = (PRODUCTION_STATUSES[v.production_status] || PRODUCTION_STATUSES['Guion']).color;
-          const done = v.status === 'hecho';
+          const done = v.uploaded;
           const editing = editingId === v.id;
           return (
             <div key={v.id} className="rounded-lg p-2.5 bg-surface border border-border">
@@ -409,9 +436,35 @@ function ScriptVideos({ scriptId }) {
                 >
                   {Object.keys(PRODUCTION_STATUSES).map((s) => <option key={s} value={s} style={{ color: '#000' }}>{s}</option>)}
                 </select>
+                {SCHEDULABLE.includes(v.production_status) && !v.calendar_entry_id && (
+                  <button
+                    onClick={() => { setSchedulingId(schedulingId === v.id ? null : v.id); setScheduleDate(todayISO()); }}
+                    className="text-cyan shrink-0"
+                    title="Programar en Calendario"
+                  >
+                    <CalendarPlus size={14} />
+                  </button>
+                )}
+                {v.calendar_entry_id && (
+                  <button onClick={() => unscheduleFromCalendar(v)} className="text-muted shrink-0" title="Quitar del Calendario">
+                    <CalendarX size={14} />
+                  </button>
+                )}
                 <button onClick={() => setEditingId(editing ? null : v.id)} className="text-muted shrink-0"><Pencil size={13} /></button>
                 <button onClick={() => del(v.id)} className="text-red shrink-0"><Trash2 size={13} /></button>
               </div>
+              {schedulingId === v.id && (
+                <div className="flex items-center gap-2 mt-2 pl-6">
+                  <input
+                    type="date"
+                    value={scheduleDate}
+                    onChange={(e) => setScheduleDate(e.target.value)}
+                    className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-1 text-[11px] outline-none focus:border-cyan"
+                  />
+                  <button onClick={() => scheduleToCalendar(v)} className="rounded px-2 py-1 text-[11px] font-semibold bg-cyan text-[#00161C]">Confirmar</button>
+                  <button onClick={() => setSchedulingId(null)} className="text-muted text-[11px]">Cancelar</button>
+                </div>
+              )}
               {editing && (
                 <div className="flex items-center gap-2 mt-2 pl-6">
                   <select
@@ -423,15 +476,17 @@ function ScriptVideos({ scriptId }) {
                   </select>
                   <input
                     type="date"
-                    value={v.date}
-                    onChange={(e) => update(v.id, 'date', e.target.value)}
+                    value={v.date || ''}
+                    onChange={(e) => update(v.id, 'date', e.target.value || null)}
                     className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-1 text-[11px] outline-none focus:border-cyan"
                   />
                 </div>
               )}
               {!editing && (
                 <div className="text-[10.5px] pl-6 mt-0.5" style={{ color: meta.color }}>
-                  {meta.label} · {new Date(v.date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                  {meta.label}
+                  {v.date && <> · {new Date(v.date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</>}
+                  {v.calendar_entry_id && <span style={{ color: '#5ECCFA' }}> · en el Calendario</span>}
                 </div>
               )}
             </div>

@@ -7,6 +7,28 @@ sonará.
 
 ## Novedades de este ajuste (la más reciente)
 
+- **Programar en Calendario, cuando tú decidas**: en `/videos` (y también
+  dentro de cada guion), cuando un vídeo llega a la fase **Editado** o
+  **Programado**, aparece el botón "Programar en Calendario". Eliges la
+  fecha y ahí sí se crea la entrada — antes de esa fase, el botón no
+  aparece, porque no tiene sentido programar algo que aún no está listo.
+  Puedes quitarlo del Calendario cuando quieras sin borrar el vídeo.
+
+## Novedades de este ajuste (la más reciente)
+
+- **Vídeos desacoplado del Calendario**: un vídeo creado en Guiones (o
+  suelto desde `/videos`) ya NO se crea como fila del Calendario — vive
+  solo en su propia tabla. Si quieres que algo aparezca en el Calendario,
+  lo añades allí aparte, a mano.
+- **Añadir vídeos sueltos** desde `/videos`, sin necesidad de pasar por un
+  guion (el desplegable "Guion" es opcional, puedes dejarlo en "Sin guion").
+- ⚠️ Los vídeos que ya tenías creados (los que sí estaban como filas del
+  Calendario) se migran solos a la tabla nueva la próxima vez que pegues el
+  `schema.sql` — no se pierden, y no se duplican en tu racha/total del
+  Dashboard (ya lo tuve en cuenta al hacer el cambio).
+
+## Novedades de este ajuste (la más reciente)
+
 - **Vídeos** (`/videos`): todos los vídeos de tus guiones en un solo sitio,
   como el pipeline de Contactos pero para producción — filtras por fase
   (Guion / Grabado / Editado / Programado), les añades notas, y al marcarlos

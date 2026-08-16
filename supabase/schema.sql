@@ -401,6 +401,55 @@ exception
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- VÍDEOS (independiente del Calendario)
+-- Antes, un "vídeo" dentro de un guion era en realidad una fila del
+-- Calendario, así que aparecía ahí sin querer. Ahora vive en su propia
+-- tabla: se puede añadir desde un guion o suelto, y NUNCA toca el
+-- Calendario a menos que tú añadas algo allí aparte a mano.
+-- ---------------------------------------------------------------------------
+create table if not exists public.videos (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid references auth.users(id) default auth.uid(),
+  script_id uuid references public.scripts(id) on delete set null,
+  title text not null,
+  type text default 'reel_ig',
+  production_status text not null default 'Guion', -- Guion / Grabado / Editado / Programado
+  date date,
+  notes text,
+  uploaded boolean not null default false,
+  uploaded_at timestamptz,
+  source_calendar_entry_id uuid, -- solo interno, para la migración de abajo
+  created_at timestamptz not null default now()
+);
+alter table public.videos enable row level security;
+drop policy if exists "videos_full_access_authenticated" on public.videos;
+create policy "videos_full_access_authenticated" on public.videos for all to authenticated using (true) with check (true);
+
+drop trigger if exists log_activity_trigger on public.videos;
+create trigger log_activity_trigger after insert or update or delete on public.videos for each row execute function public.log_activity();
+
+do $$
+begin
+  alter publication supabase_realtime add table public.videos;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- Enlace opcional a la entrada del Calendario, cuando programas el vídeo a
+-- mano desde el panel de Vídeos (una vez está Editado o Programado).
+alter table public.videos add column if not exists calendar_entry_id uuid references public.calendar_entries(id) on delete set null;
+
+-- Migración única: rescata los vídeos que ya tenías creados como filas del
+-- Calendario (con script_id) y los copia aquí. No los borra del Calendario
+-- ni los duplica si vuelves a pegar este archivo.
+insert into public.videos (created_by, script_id, title, type, production_status, date, notes, uploaded, uploaded_at, source_calendar_entry_id, calendar_entry_id, created_at)
+select ce.created_by, ce.script_id, ce.title, ce.type, coalesce(ce.production_status, 'Guion'), ce.date, ce.notes,
+       (ce.status = 'hecho'), case when ce.status = 'hecho' then ce.created_at else null end, ce.id, ce.id, ce.created_at
+from public.calendar_entries ce
+where ce.script_id is not null
+  and not exists (select 1 from public.videos v where v.source_calendar_entry_id = ce.id);
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto
