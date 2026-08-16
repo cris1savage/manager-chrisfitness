@@ -379,6 +379,28 @@ create policy "push_subscriptions_own_access" on public.push_subscriptions for a
 alter table public.calendar_entries add column if not exists production_status text default 'Guion';
 
 -- ---------------------------------------------------------------------------
+-- CANAL
+-- Un chat sencillo entre las dos cuentas para cosas puntuales (enlaces,
+-- avisos rápidos) sin depender de WhatsApp.
+-- ---------------------------------------------------------------------------
+create table if not exists public.channel_messages (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid references auth.users(id) default auth.uid(),
+  body text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.channel_messages enable row level security;
+drop policy if exists "channel_messages_full_access_authenticated" on public.channel_messages;
+create policy "channel_messages_full_access_authenticated" on public.channel_messages for all to authenticated using (true) with check (true);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.channel_messages;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto

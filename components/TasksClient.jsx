@@ -15,6 +15,8 @@ export default function TasksClient() {
   const [assignedTo, setAssignedTo] = useState('');
   const [dueDate, setDueDate] = useState(todayISO());
   const [dueTime, setDueTime] = useState('');
+  const [meId, setMeId] = useState(null);
+  const [view, setView] = useState('mias'); // mias | todas
 
   const profileList = Object.values(profiles || {});
 
@@ -24,6 +26,7 @@ export default function TasksClient() {
   };
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMeId(data?.user?.id || null));
     load();
     const channel = supabase
       .channel('tasks-changes')
@@ -64,14 +67,29 @@ export default function TasksClient() {
     load();
   };
 
-  const pending = tasks.filter((t) => !t.done);
-  const done = tasks.filter((t) => t.done);
+  const scoped = view === 'mias' && meId ? tasks.filter((t) => t.assigned_to === meId) : tasks;
+  const pending = scoped.filter((t) => !t.done);
+  const done = scoped.filter((t) => t.done);
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="font-display text-ink text-[22px] tracking-wide">TAREAS ASIGNADAS</h2>
-        <div className="text-muted text-xs">Reparte el trabajo de la semana entre las dos cuentas.</div>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="font-display text-ink text-[22px] tracking-wide">TAREAS ASIGNADAS</h2>
+          <div className="text-muted text-xs">Reparte el trabajo de la semana entre las dos cuentas.</div>
+        </div>
+        <div className="flex rounded-lg overflow-hidden border border-border shrink-0">
+          {[{ k: 'mias', l: 'Mis tareas' }, { k: 'todas', l: 'Todas' }].map(({ k, l }) => (
+            <button
+              key={k}
+              onClick={() => setView(k)}
+              className="px-3 py-1.5 text-xs font-semibold"
+              style={{ background: view === k ? '#5ECCFA' : 'transparent', color: view === k ? '#00161C' : '#7C878B' }}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
       </div>
 
       <Card className="space-y-2">

@@ -16,6 +16,7 @@ import ActivityFeed from '@/components/ActivityFeed';
 export default function DashboardClient({ profile }) {
   const supabase = useMemo(() => createClient(), []);
   const [data, setData] = useState(null);
+  const [meId, setMeId] = useState(null);
   const [goals, setGoals] = useState([]);
   const [addingGoal, setAddingGoal] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState(null);
@@ -42,6 +43,7 @@ export default function DashboardClient({ profile }) {
   };
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMeId(data?.user?.id || null));
     load();
     const channel = supabase
       .channel('dashboard-changes')
@@ -159,10 +161,11 @@ export default function DashboardClient({ profile }) {
 
   const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const renewalsSoon = (data.activeClients || []).filter((c) => c.status === 'Activo' && c.renewal_date && c.renewal_date <= in7);
-  const pendingTasks = (data.tasks || []).filter((t) => !t.done).sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''));
-  const doneThisWeek = (data.tasks || []).filter((t) => t.done && t.completed_at && t.completed_at.slice(0, 10) >= startOfWeekISO).length;
-  const dueThisWeek = (data.tasks || []).filter((t) => t.due_date && t.due_date >= startOfWeekISO);
-  const taskCompletionPct = dueThisWeek.length ? dueThisWeek.filter((t) => t.done).length / dueThisWeek.length : (data.tasks.length ? data.tasks.filter((t) => t.done).length / data.tasks.length : 0);
+  const myTasks = meId ? (data.tasks || []).filter((t) => t.assigned_to === meId) : (data.tasks || []);
+  const pendingTasks = myTasks.filter((t) => !t.done).sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''));
+  const doneThisWeek = myTasks.filter((t) => t.done && t.completed_at && t.completed_at.slice(0, 10) >= startOfWeekISO).length;
+  const dueThisWeek = myTasks.filter((t) => t.due_date && t.due_date >= startOfWeekISO);
+  const taskCompletionPct = dueThisWeek.length ? dueThisWeek.filter((t) => t.done).length / dueThisWeek.length : (myTasks.length ? myTasks.filter((t) => t.done).length / myTasks.length : 0);
 
   const last14 = Array.from({ length: 14 }, (_, i) => {
     const idx = 13 - i;
@@ -256,7 +259,7 @@ export default function DashboardClient({ profile }) {
       {pendingTasks.length > 0 && (
         <Card>
           <div className="flex items-center justify-between mb-2">
-            <div className="text-muted text-[11.5px] uppercase tracking-wide flex items-center gap-1.5"><ListChecks size={13} /> Tareas pendientes</div>
+            <div className="text-muted text-[11.5px] uppercase tracking-wide flex items-center gap-1.5"><ListChecks size={13} /> Tus tareas pendientes</div>
             <span className="text-ink text-xs font-bold">{pendingTasks.length}</span>
           </div>
           <div className="space-y-1.5">
@@ -287,7 +290,7 @@ export default function DashboardClient({ profile }) {
       {(renewalsSoon.length > 0 || pendingTasks.length > 0) && (
         <div className="grid grid-cols-2 gap-3">
           <StatCard icon={UserCheck} label="Renovaciones ≤ 7 días" value={renewalsSoon.length} color={renewalsSoon.length ? '#F87171' : '#7C878B'} />
-          <StatCard icon={CheckSquare} label="Tareas pendientes" value={pendingTasks.length} color="#FBBF24" />
+          <StatCard icon={CheckSquare} label="Tus tareas pendientes" value={pendingTasks.length} color="#FBBF24" />
         </div>
       )}
 
@@ -308,7 +311,7 @@ export default function DashboardClient({ profile }) {
 
       <div className="grid md:grid-cols-3 gap-3">
         <Card className="flex justify-around items-center flex-wrap gap-4 md:col-span-1">
-          <Ring pct={taskCompletionPct} label="Tareas cumplidas" value={`${Math.round(taskCompletionPct * 100)}%`} color={taskCompletionPct >= 0.7 ? '#4ADE80' : taskCompletionPct >= 0.4 ? '#FBBF24' : '#F87171'} />
+          <Ring pct={taskCompletionPct} label="Tus tareas cumplidas" value={`${Math.round(taskCompletionPct * 100)}%`} color={taskCompletionPct >= 0.7 ? '#4ADE80' : taskCompletionPct >= 0.4 ? '#FBBF24' : '#F87171'} />
         </Card>
         <Card className="md:col-span-2">
           <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3">Embudo · este mes</div>

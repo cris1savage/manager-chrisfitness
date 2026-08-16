@@ -7,6 +7,21 @@ sonará.
 
 ## Novedades de este ajuste (la más reciente)
 
+- **Vídeos** (`/videos`): todos los vídeos de tus guiones en un solo sitio,
+  como el pipeline de Contactos pero para producción — filtras por fase
+  (Guion / Grabado / Editado / Programado), les añades notas, y al marcarlos
+  "subido" desaparecen de la vista de trabajo. No se borran de verdad: siguen
+  contando para tu racha y tus estadísticas del Dashboard, solo dejan de
+  estorbar visualmente. Hay una pestaña "Subidos" para verlos si los buscas.
+- **Canal** (`/canal`): un chat sencillo entre las dos cuentas para enlaces
+  y avisos puntuales, sin depender de WhatsApp.
+- **Tareas personales**: por defecto cada uno ve solo "Mis tareas" (las que
+  tiene asignadas), con un botón para ver "Todas" si hace falta. El widget
+  del Dashboard también es personal ahora — cada cuenta ve sus propias
+  tareas pendientes y su propio % de cumplimiento, no las de la otra.
+
+## Novedades de este ajuste (la más reciente)
+
 - **Notificaciones push personales**: cada cuenta activa la suya desde
   Cuenta y Seguridad. Un aviso al día (sobre las 9:00) con las tareas
   pendientes de esa cuenta en los próximos 3-4 días — no solo las de hoy.
