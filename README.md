@@ -5,6 +5,20 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Novedades de este ajuste (la más reciente)
+
+- **Notificaciones push personales**: cada cuenta activa la suya desde
+  Cuenta y Seguridad. Un aviso al día (sobre las 9:00) con las tareas
+  pendientes de esa cuenta en los próximos 3-4 días — no solo las de hoy.
+  Ana no ve tus avisos ni tú los suyos. Requiere un par de pasos de
+  configuración en Vercel, ver la sección "Notificaciones push" más abajo.
+- **Tareas con hora**: además de la fecha, ahora se les puede poner una hora
+  concreta.
+- **Guiones → Vídeos programados**: cada vídeo tiene ahora un estado de
+  producción (Guion → Grabado → Editado → Programado), independiente de si
+  ya está "subido" (eso se sigue marcando con el check, como publicar de
+  verdad en redes).
+
 ## Novedades de este ajuste
 
 - **Bug arreglado**: en Guiones, hacer clic en un guion ya creado no abría el
@@ -174,6 +188,39 @@ Abre http://localhost:3000 — te llevará a `/login`.
 3. En **Environment Variables**, añade las mismas dos variables del paso 3.
 4. Deploy. Cuando termine, tendrás tu URL (puedes ponerle un dominio propio,
    por ejemplo `panel.chrisfitness.online`, desde **Vercel → Domains**).
+
+## 6. Notificaciones push (opcional pero recomendado)
+
+Requiere 3 variables de entorno más en Vercel, además de las dos de Supabase:
+
+1. **`NEXT_PUBLIC_VAPID_PUBLIC_KEY`** y **`VAPID_PRIVATE_KEY`**: ya vienen
+   generadas en `.env.local.example` — cópialas tal cual, no hace falta
+   crear nada nuevo. (Si algún día quieres regenerarlas, es con el paquete
+   `web-push`, pero no es necesario.)
+2. **`CRON_SECRET`**: también viene un valor listo en `.env.local.example`,
+   o invéntate el tuyo (cualquier texto largo). Protege el aviso diario para
+   que solo Vercel pueda activarlo.
+3. **`SUPABASE_SERVICE_ROLE_KEY`**: en Supabase → **Project Settings → API**
+   → pestaña **"Publishable and secret API keys"** → sección **Secret keys**
+   (la que empieza distinto a la publishable, a veces llamada `service_role`).
+   ⚠️ Esta es la clave que nunca debe estar en el navegador — aquí solo la
+   usa el servidor, es correcto y seguro.
+
+Añade las 4 en Vercel → Environment Variables (Production, Preview y
+Development) y vuelve a hacer **Redeploy**.
+
+El archivo `vercel.json` ya incluye el aviso diario programado a las 7:00
+UTC (~9:00 en España en horario de verano). Vercel lo activa solo al
+desplegar — no hay que configurar nada más ahí. Si prefieres otra hora,
+cambia `"0 7 * * *"` en `vercel.json` (formato cron: minuto hora * * *).
+
+**Cómo lo usa cada uno:** desde el panel, en **Cuenta y Seguridad**, cada
+cuenta pulsa "Activar notificaciones". Es individual — tú activas la tuya,
+Ana la suya, y cada uno recibe solo sus propias tareas.
+
+⚠️ En iPhone, las notificaciones push de una web solo funcionan si el panel
+está instalado en la pantalla de inicio (ver "Instalar como app" más abajo)
+y se abre desde ese icono, no desde Safari directamente.
 
 ## Novedades de esta versión
 

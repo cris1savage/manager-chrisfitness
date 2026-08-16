@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ShieldCheck, ShieldOff, Trash2, User, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui';
+import PushNotifications from '@/components/PushNotifications';
 
 function ProfileCard({ profile, onSaved }) {
   const supabase = useMemo(() => createClient(), []);
@@ -129,6 +130,11 @@ export default function SecurityClient({ profile }) {
       </div>
 
       <ProfileCard profile={profile} />
+
+      <div className="border-t border-border pt-4">
+        <div className="text-ink font-semibold text-sm mb-3">Notificaciones</div>
+      </div>
+      <PushNotifications />
 
       <div className="border-t border-border pt-4">
         <div className="text-ink font-semibold text-sm mb-3">Verificación en dos pasos</div>

@@ -354,6 +354,31 @@ exception
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- NOTIFICACIONES
+-- Hora concreta en las tareas + suscripciones push por cuenta.
+-- ---------------------------------------------------------------------------
+alter table public.tasks add column if not exists due_time time;
+
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) not null,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "push_subscriptions_own_access" on public.push_subscriptions;
+create policy "push_subscriptions_own_access" on public.push_subscriptions for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- ESTADO DE PRODUCCIÓN DE VÍDEOS (dentro de Guiones)
+-- Guion -> Grabado -> Editado -> Programado. Independiente del "subido/
+-- pendiente" del Calendario, que sigue midiendo si ya está publicado.
+-- ---------------------------------------------------------------------------
+alter table public.calendar_entries add column if not exists production_status text default 'Guion';
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto

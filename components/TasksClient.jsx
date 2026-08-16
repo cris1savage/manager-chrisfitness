@@ -14,6 +14,7 @@ export default function TasksClient() {
   const [title, setTitle] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [dueDate, setDueDate] = useState(todayISO());
+  const [dueTime, setDueTime] = useState('');
 
   const profileList = Object.values(profiles || {});
 
@@ -39,6 +40,7 @@ export default function TasksClient() {
       title: title.trim(),
       assigned_to: assignedTo || userData.user.id,
       due_date: dueDate,
+      due_time: dueTime || null,
       created_by: userData.user.id,
     });
     setTitle('');
@@ -80,7 +82,7 @@ export default function TasksClient() {
           placeholder="Ej. Contactar a 3 leads fríos"
           className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan"
         />
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <select
             value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value)}
@@ -95,6 +97,12 @@ export default function TasksClient() {
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
+            className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm outline-none focus:border-cyan"
+          />
+          <input
+            type="time"
+            value={dueTime}
+            onChange={(e) => setDueTime(e.target.value)}
             className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm outline-none focus:border-cyan"
           />
         </div>
@@ -137,6 +145,12 @@ export default function TasksClient() {
                   value={t.due_date || ''}
                   onChange={(e) => update(t.id, 'due_date', e.target.value)}
                   className={`bg-surfaceAlt border border-border rounded px-2 py-1 text-xs outline-none focus:border-cyan ${overdue ? 'text-red' : 'text-ink'}`}
+                />
+                <input
+                  type="time"
+                  value={t.due_time || ''}
+                  onChange={(e) => update(t.id, 'due_time', e.target.value || null)}
+                  className="bg-surfaceAlt border border-border text-ink rounded px-2 py-1 text-xs outline-none focus:border-cyan"
                 />
                 {overdue && <span className="text-red text-[10px] font-semibold">ATRASADA</span>}
               </div>

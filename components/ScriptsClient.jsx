@@ -5,7 +5,7 @@ import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check, Bold, Heading
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
-import { SCRIPT_STATUSES, CONTENT_TYPES, todayISO } from '@/lib/config';
+import { SCRIPT_STATUSES, CONTENT_TYPES, PRODUCTION_STATUSES, todayISO } from '@/lib/config';
 
 const STATUS_COLORS = { Borrador: '#7C878B', Listo: '#FBBF24', Grabado: '#4ADE80' };
 
@@ -296,7 +296,7 @@ function RichEditor({ draft, setDraft }) {
 function ScriptVideos({ scriptId }) {
   const supabase = useMemo(() => createClient(), []);
   const [videos, setVideos] = useState([]);
-  const [form, setForm] = useState({ title: '', type: 'reel_ig', date: todayISO() });
+  const [form, setForm] = useState({ title: '', type: 'reel_ig', date: todayISO(), production_status: 'Guion' });
   const [editingId, setEditingId] = useState(null);
 
   const load = async () => {
@@ -318,9 +318,10 @@ function ScriptVideos({ scriptId }) {
     if (!form.title.trim()) return;
     const { data: userData } = await supabase.auth.getUser();
     await supabase.from('calendar_entries').insert({
-      title: form.title.trim(), type: form.type, date: form.date, status: 'pendiente', script_id: scriptId, created_by: userData.user.id,
+      title: form.title.trim(), type: form.type, date: form.date, status: 'pendiente',
+      production_status: form.production_status, script_id: scriptId, created_by: userData.user.id,
     });
-    setForm({ title: '', type: 'reel_ig', date: todayISO() });
+    setForm({ title: '', type: 'reel_ig', date: todayISO(), production_status: 'Guion' });
     load();
   };
 
@@ -341,9 +342,9 @@ function ScriptVideos({ scriptId }) {
   return (
     <div className="space-y-3">
       <div className="text-ink font-semibold text-sm flex items-center gap-1.5"><Film size={15} /> Vídeos programados de este guion</div>
-      <div className="text-muted text-xs -mt-2">Ponles fecha y aparecerán solos en el Calendario. Márcalos como subidos cuando estén listos.</div>
+      <div className="text-muted text-xs -mt-2">Ponles fecha y aparecerán solos en el Calendario. El estado de producción es tuyo (guion/grabado/editado/programado); "subido" se marca aparte cuando ya está publicado.</div>
 
-      <div className="rounded-lg p-3 bg-surfaceAlt border border-border grid grid-cols-1 sm:grid-cols-[1fr_140px_140px_auto] gap-2">
+      <div className="rounded-lg p-3 bg-surfaceAlt border border-border grid grid-cols-1 sm:grid-cols-[1fr_130px_130px_130px_auto] gap-2">
         <input
           value={form.title}
           onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -357,6 +358,13 @@ function ScriptVideos({ scriptId }) {
           className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs outline-none focus:border-cyan"
         >
           {Object.entries(CONTENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <select
+          value={form.production_status}
+          onChange={(e) => setForm({ ...form, production_status: e.target.value })}
+          className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs outline-none focus:border-cyan"
+        >
+          {Object.keys(PRODUCTION_STATUSES).map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
         <input
           type="date"
@@ -373,12 +381,13 @@ function ScriptVideos({ scriptId }) {
         {videos.length === 0 && <div className="text-muted text-xs text-center py-3">Todavía no hay vídeos programados para este guion.</div>}
         {videos.map((v) => {
           const meta = CONTENT_TYPES[v.type] || CONTENT_TYPES.reel_ig;
+          const prodColor = (PRODUCTION_STATUSES[v.production_status] || PRODUCTION_STATUSES['Guion']).color;
           const done = v.status === 'hecho';
           const editing = editingId === v.id;
           return (
             <div key={v.id} className="rounded-lg p-2.5 bg-surface border border-border">
               <div className="flex items-center gap-2">
-                <button onClick={() => toggle(v)} className="shrink-0">
+                <button onClick={() => toggle(v)} className="shrink-0" title="Marcar como subido/pendiente">
                   {done ? <Check size={16} color={meta.color} /> : <div className="w-4 h-4 rounded border border-border" />}
                 </button>
                 {editing ? (
@@ -392,6 +401,14 @@ function ScriptVideos({ scriptId }) {
                     {v.title}
                   </span>
                 )}
+                <select
+                  value={v.production_status || 'Guion'}
+                  onChange={(e) => update(v.id, 'production_status', e.target.value)}
+                  className="rounded px-1.5 py-0.5 text-[10.5px] font-semibold outline-none shrink-0"
+                  style={{ background: `${prodColor}1A`, color: prodColor, border: `1px solid ${prodColor}55` }}
+                >
+                  {Object.keys(PRODUCTION_STATUSES).map((s) => <option key={s} value={s} style={{ color: '#000' }}>{s}</option>)}
+                </select>
                 <button onClick={() => setEditingId(editing ? null : v.id)} className="text-muted shrink-0"><Pencil size={13} /></button>
                 <button onClick={() => del(v.id)} className="text-red shrink-0"><Trash2 size={13} /></button>
               </div>
