@@ -439,6 +439,69 @@ end $$;
 -- mano desde el panel de Vídeos (una vez está Editado o Programado).
 alter table public.videos add column if not exists calendar_entry_id uuid references public.calendar_entries(id) on delete set null;
 
+-- ---------------------------------------------------------------------------
+-- CATEGORÍAS DE CONTENIDO (editables)
+-- Antes eran 4 fijas en el código (Reel/Historia/Video/TikTok). Ahora se
+-- pueden añadir, editar el color, o borrar, y se usan igual en Calendario,
+-- Guiones y Vídeos. Se guardan aquí los 4 valores de siempre para que nada
+-- de lo ya creado se rompa.
+-- ---------------------------------------------------------------------------
+create table if not exists public.content_categories (
+  id text primary key,
+  created_by uuid references auth.users(id) default auth.uid(),
+  label text not null,
+  color text not null default '#5ECCFA',
+  sort_order int not null default 0,
+  created_at timestamptz not null default now()
+);
+insert into public.content_categories (id, label, color, sort_order) values
+  ('reel_ig', 'Reel Instagram', '#4ADE80', 1),
+  ('historia_ig', 'Historia Instagram', '#FBBF24', 2),
+  ('video_youtube', 'Video YouTube', '#5ECCFA', 3),
+  ('tiktok', 'TikTok', '#F87171', 4)
+on conflict (id) do nothing;
+
+alter table public.content_categories enable row level security;
+drop policy if exists "content_categories_full_access_authenticated" on public.content_categories;
+create policy "content_categories_full_access_authenticated" on public.content_categories for all to authenticated using (true) with check (true);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.content_categories;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- TAREAS REPETITIVAS
+-- Reglas que generan tareas solas cada día (el aviso diario ya programado
+-- se encarga de crearlas): diaria, semanal (un día de la semana) o mensual
+-- (un día del mes).
+-- ---------------------------------------------------------------------------
+create table if not exists public.task_templates (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid references auth.users(id) default auth.uid(),
+  assigned_to uuid references auth.users(id),
+  title text not null,
+  recurrence_type text not null, -- 'daily' | 'weekly' | 'monthly'
+  recurrence_day int, -- semanal: 0=domingo..6=sábado (getDay JS). mensual: 1-31
+  due_time time,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table public.task_templates enable row level security;
+drop policy if exists "task_templates_full_access_authenticated" on public.task_templates;
+create policy "task_templates_full_access_authenticated" on public.task_templates for all to authenticated using (true) with check (true);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.task_templates;
+exception
+  when duplicate_object then null;
+end $$;
+
+alter table public.tasks add column if not exists template_id uuid references public.task_templates(id) on delete set null;
+
 -- Migración única: rescata los vídeos que ya tenías creados como filas del
 -- Calendario (con script_id) y los copia aquí. No los borra del Calendario
 -- ni los duplica si vuelves a pegar este archivo.

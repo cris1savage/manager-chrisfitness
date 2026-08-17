@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
-// Se ejecuta una vez al día (ver vercel.json) y manda, a cada cuenta, un
-// único aviso con sus tareas pendientes de los próximos 3-4 días. Nada
-// compartido: cada uno solo ve las suyas.
+// Se ejecuta una vez al día (ver vercel.json). Primero genera las tareas de
+// hoy a partir de las rutinas activas (task_templates), y después manda a
+// cada cuenta un único aviso con sus tareas pendientes de los próximos
+// 3-4 días. Nada compartido: cada uno solo ve las suyas.
 
 export async function GET(request) {
   const authHeader = request.headers.get('authorization');
@@ -25,6 +26,44 @@ export async function GET(request) {
   const tomorrowISO = new Date(today.getTime() + 86400000).toISOString().slice(0, 10);
   const windowEnd = new Date(today.getTime() + 3 * 86400000).toISOString().slice(0, 10); // hoy + 3 días más = ventana de 4 días
 
+  // --- Generar hoy las tareas de las rutinas activas (si no existen ya) ---
+  const { data: templates } = await supabase.from('task_templates').select('*').eq('active', true);
+  let generated = 0;
+  if (templates && templates.length) {
+    const todayDate = new Date(`${todayISO}T00:00:00Z`);
+    const dow = todayDate.getUTCDay(); // 0=domingo..6=sábado
+    const dom = todayDate.getUTCDate();
+    const daysInThisMonth = new Date(Date.UTC(todayDate.getUTCFullYear(), todayDate.getUTCMonth() + 1, 0)).getUTCDate();
+
+    for (const tpl of templates) {
+      let matches = false;
+      if (tpl.recurrence_type === 'daily') matches = true;
+      else if (tpl.recurrence_type === 'weekly') matches = tpl.recurrence_day === dow;
+      else if (tpl.recurrence_type === 'monthly') {
+        matches = tpl.recurrence_day === dom || (tpl.recurrence_day > daysInThisMonth && dom === daysInThisMonth);
+      }
+      if (!matches) continue;
+
+      const { data: existing } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('template_id', tpl.id)
+        .eq('due_date', todayISO)
+        .maybeSingle();
+      if (existing) continue;
+
+      await supabase.from('tasks').insert({
+        title: tpl.title,
+        assigned_to: tpl.assigned_to,
+        due_date: todayISO,
+        due_time: tpl.due_time,
+        template_id: tpl.id,
+        created_by: tpl.created_by,
+      });
+      generated++;
+    }
+  }
+
   const { data: tasks, error: tasksErr } = await supabase
     .from('tasks')
     .select('*')
@@ -34,7 +73,7 @@ export async function GET(request) {
     .lte('due_date', windowEnd);
 
   if (tasksErr) return NextResponse.json({ error: tasksErr.message }, { status: 500 });
-  if (!tasks || tasks.length === 0) return NextResponse.json({ sent: 0, reason: 'Sin tareas en los próximos días' });
+  if (!tasks || tasks.length === 0) return NextResponse.json({ sent: 0, generated, reason: 'Sin tareas en los próximos días' });
 
   const byUser = {};
   tasks.forEach((t) => {
@@ -84,5 +123,5 @@ export async function GET(request) {
     }
   }
 
-  return NextResponse.json({ sent, removedStale });
+  return NextResponse.json({ sent, removedStale, generated });
 }

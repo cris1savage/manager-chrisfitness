@@ -5,7 +5,8 @@ import { Plus, Trash2, MessageSquare, Check, RotateCcw, CalendarPlus, CalendarX 
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
-import { CONTENT_TYPES, PRODUCTION_STATUSES, todayISO } from '@/lib/config';
+import { PRODUCTION_STATUSES, todayISO } from '@/lib/config';
+import { useCategories } from '@/components/CategoriesProvider';
 import CommentThread from '@/components/CommentThread';
 
 const STAGES = Object.keys(PRODUCTION_STATUSES);
@@ -14,6 +15,7 @@ const SCHEDULABLE = ['Editado', 'Programado'];
 export default function VideosClient() {
   const supabase = useMemo(() => createClient(), []);
   const profiles = useProfiles();
+  const { list: categoriesList, map: categoriesMap } = useCategories();
   const [videos, setVideos] = useState([]);
   const [scripts, setScripts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,8 +25,13 @@ export default function VideosClient() {
   const [schedulingId, setSchedulingId] = useState(null);
   const [scheduleDate, setScheduleDate] = useState(todayISO());
 
-  const emptyForm = { title: '', type: 'reel_ig', production_status: 'Guion', script_id: '' };
+  const emptyForm = { title: '', type: categoriesList[0]?.id || '', production_status: 'Guion', script_id: '' };
   const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    if (!form.type && categoriesList[0]) setForm((f) => ({ ...f, type: categoriesList[0].id }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriesList.length]);
 
   const load = async () => {
     const [videosRes, scriptsRes] = await Promise.all([
@@ -143,7 +150,7 @@ export default function VideosClient() {
               onChange={(e) => setForm({ ...form, type: e.target.value })}
               className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
             >
-              {Object.entries(CONTENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              {categoriesList.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
             </select>
           </div>
           <div className="w-full sm:flex-1 sm:min-w-[140px]">
@@ -232,7 +239,7 @@ export default function VideosClient() {
           </Card>
         )}
         {visible.map((v) => {
-          const meta = CONTENT_TYPES[v.type] || CONTENT_TYPES.reel_ig;
+          const meta = categoriesMap[v.type] || { label: 'Sin categoría', color: '#7C878B' };
           const stageColor = PRODUCTION_STATUSES[v.production_status]?.color || '#7C878B';
           return (
             <Card key={v.id} className="!p-0" style={{ borderColor: showUploaded ? '#4ADE8055' : `${stageColor}55` }}>

@@ -10,11 +10,13 @@ import {
 } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import { Card, StatCard, Ring } from '@/components/ui';
-import { CONTENT_TYPES, STAGES, todayISO, monthKey, eur, GOAL_METRICS } from '@/lib/config';
+import { STAGES, todayISO, monthKey, eur, GOAL_METRICS, dateToISO } from '@/lib/config';
+import { useCategories } from '@/components/CategoriesProvider';
 import ActivityFeed from '@/components/ActivityFeed';
 
 export default function DashboardClient({ profile }) {
   const supabase = useMemo(() => createClient(), []);
+  const { map: categoriesMap } = useCategories();
   const [data, setData] = useState(null);
   const [meId, setMeId] = useState(null);
   const [goals, setGoals] = useState([]);
@@ -104,7 +106,7 @@ export default function DashboardClient({ profile }) {
     const d = new Date();
     const day = (d.getDay() + 6) % 7;
     d.setDate(d.getDate() - day);
-    return d.toISOString().slice(0, 10);
+    return dateToISO(d);
   })();
 
   const inPeriod = (dateStr, period) => {
@@ -143,7 +145,7 @@ export default function DashboardClient({ profile }) {
   }, 0);
 
   const today = todayISO();
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const tomorrow = dateToISO(new Date(Date.now() + 86400000));
   const todayEntries = data.calendarEntries.filter((e) => e.date === today);
   const tomorrowEntries = data.calendarEntries.filter((e) => e.date === tomorrow);
 
@@ -157,8 +159,8 @@ export default function DashboardClient({ profile }) {
   let streak = 0;
   {
     const cursor = new Date();
-    if (!doneDates.has(cursor.toISOString().slice(0, 10))) cursor.setDate(cursor.getDate() - 1);
-    while (doneDates.has(cursor.toISOString().slice(0, 10))) {
+    if (!doneDates.has(dateToISO(cursor))) cursor.setDate(cursor.getDate() - 1);
+    while (doneDates.has(dateToISO(cursor))) {
       streak++;
       cursor.setDate(cursor.getDate() - 1);
     }
@@ -166,7 +168,7 @@ export default function DashboardClient({ profile }) {
   const totalCompletedEver = data.calendarEntries.filter((e) => e.status === 'hecho' && !e.script_id).length + (data.videos || []).filter((v) => v.uploaded).length;
   const streakColor = streak >= 7 ? '#4ADE80' : streak >= 3 ? '#FBBF24' : '#5ECCFA';
 
-  const in7 = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const in7 = dateToISO(new Date(Date.now() + 7 * 86400000));
   const renewalsSoon = (data.activeClients || []).filter((c) => c.status === 'Activo' && c.renewal_date && c.renewal_date <= in7);
   const myTasks = meId ? (data.tasks || []).filter((t) => t.assigned_to === meId) : (data.tasks || []);
   const pendingTasks = myTasks.filter((t) => !t.done).sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''));
@@ -176,7 +178,7 @@ export default function DashboardClient({ profile }) {
 
   const last14 = Array.from({ length: 14 }, (_, i) => {
     const idx = 13 - i;
-    const d = new Date(Date.now() - idx * 86400000).toISOString().slice(0, 10);
+    const d = dateToISO(new Date(Date.now() - idx * 86400000));
     const label = new Date(d + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
     return {
       label,
@@ -222,7 +224,7 @@ export default function DashboardClient({ profile }) {
         ) : (
           <div className="flex flex-col gap-2">
             {todayEntries.map((e) => {
-              const meta = CONTENT_TYPES[e.type] || CONTENT_TYPES.reel_ig;
+              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: '#7C878B' };
               const done = e.status === 'hecho';
               return (
                 <div key={e.id} className="flex items-center gap-2">

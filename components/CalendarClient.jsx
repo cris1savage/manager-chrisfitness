@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, X, Check, ChevronLeft, ChevronRight, Trash2, Pencil } from 'lucide-react';
+import { Plus, X, Check, ChevronLeft, ChevronRight, Trash2, Pencil, Settings } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { CONTENT_TYPES, todayISO } from '@/lib/config';
+import { todayISO, dateToISO } from '@/lib/config';
+import { useCategories } from '@/components/CategoriesProvider';
+import CategoriesManager from '@/components/CategoriesManager';
 
 function startOfWeek(d) {
   const x = new Date(d);
@@ -12,10 +14,12 @@ function startOfWeek(d) {
   x.setHours(0, 0, 0, 0);
   return x;
 }
-const toISO = (d) => d.toISOString().slice(0, 10);
+const toISO = (d) => dateToISO(d);
+const FALLBACK_META = { label: 'Sin categoría', color: '#7C878B' };
 
-function EntryEditor({ initial, onSave, onCancel }) {
-  const [type, setType] = useState(initial?.type || 'reel_ig');
+function EntryEditor({ initial, categories, onSave, onCancel }) {
+  const firstKey = categories[0]?.id || '';
+  const [type, setType] = useState(initial?.type || firstKey);
   const [title, setTitle] = useState(initial?.title || '');
   const [notes, setNotes] = useState(initial?.notes || '');
 
@@ -27,7 +31,7 @@ function EntryEditor({ initial, onSave, onCancel }) {
   return (
     <div className="flex flex-col gap-1.5 mt-1 p-2 rounded-lg bg-surfaceAlt border border-border">
       <select value={type} onChange={(e) => setType(e.target.value)} className="bg-surface border border-border text-ink text-[10.5px] rounded px-1.5 py-1 outline-none focus:border-cyan">
-        {Object.entries(CONTENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        {categories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
       </select>
       <input
         autoFocus
@@ -52,7 +56,7 @@ function EntryEditor({ initial, onSave, onCancel }) {
   );
 }
 
-function DayCell({ dateISO, entries, onAdd, onUpdate, onToggle, onDelete, compact }) {
+function DayCell({ dateISO, entries, categoriesMap, categoriesList, onAdd, onUpdate, onToggle, onDelete, compact }) {
   const isToday = dateISO === todayISO();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -76,13 +80,14 @@ function DayCell({ dateISO, entries, onAdd, onUpdate, onToggle, onDelete, compac
       </div>
       <div className="flex flex-col gap-1 overflow-y-auto" style={{ maxHeight: 110 }}>
         {entries.map((e) => {
-          const meta = CONTENT_TYPES[e.type] || CONTENT_TYPES.reel_ig;
+          const meta = categoriesMap[e.type] || FALLBACK_META;
           const done = e.status === 'hecho';
           if (editingId === e.id) {
             return (
               <EntryEditor
                 key={e.id}
                 initial={e}
+                categories={categoriesList}
                 onSave={(patch) => { onUpdate(e.id, patch); setEditingId(null); }}
                 onCancel={() => setEditingId(null)}
               />
@@ -104,6 +109,7 @@ function DayCell({ dateISO, entries, onAdd, onUpdate, onToggle, onDelete, compac
       </div>
       {adding && (
         <EntryEditor
+          categories={categoriesList}
           onSave={(patch) => { onAdd({ date: dateISO, status: 'pendiente', ...patch }); setAdding(false); }}
           onCancel={() => setAdding(false)}
         />
@@ -112,7 +118,7 @@ function DayCell({ dateISO, entries, onAdd, onUpdate, onToggle, onDelete, compac
   );
 }
 
-function DayView({ dateISO, entries, onAdd, onUpdate, onToggle, onDelete }) {
+function DayView({ dateISO, entries, categoriesMap, categoriesList, onAdd, onUpdate, onToggle, onDelete }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const isToday = dateISO === todayISO();
@@ -140,6 +146,7 @@ function DayView({ dateISO, entries, onAdd, onUpdate, onToggle, onDelete }) {
       {adding && (
         <div className="rounded-xl p-3 bg-surfaceAlt border border-border">
           <EntryEditor
+            categories={categoriesList}
             onSave={(patch) => { onAdd({ date: dateISO, status: 'pendiente', ...patch }); setAdding(false); }}
             onCancel={() => setAdding(false)}
           />
@@ -151,12 +158,12 @@ function DayView({ dateISO, entries, onAdd, onUpdate, onToggle, onDelete }) {
           <div className="rounded-xl p-6 bg-surface border border-border text-center text-muted text-sm">Nada programado este día todavía.</div>
         )}
         {entries.map((e) => {
-          const meta = CONTENT_TYPES[e.type] || CONTENT_TYPES.reel_ig;
+          const meta = categoriesMap[e.type] || FALLBACK_META;
           const done = e.status === 'hecho';
           if (editingId === e.id) {
             return (
               <div key={e.id} className="rounded-xl p-3 bg-surface border border-border">
-                <EntryEditor initial={e} onSave={(patch) => { onUpdate(e.id, patch); setEditingId(null); }} onCancel={() => setEditingId(null)} />
+                <EntryEditor initial={e} categories={categoriesList} onSave={(patch) => { onUpdate(e.id, patch); setEditingId(null); }} onCancel={() => setEditingId(null)} />
               </div>
             );
           }
@@ -182,9 +189,11 @@ function DayView({ dateISO, entries, onAdd, onUpdate, onToggle, onDelete }) {
 
 export default function CalendarClient() {
   const supabase = useMemo(() => createClient(), []);
+  const { list: categoriesList, map: categoriesMap } = useCategories();
   const [entries, setEntries] = useState([]);
   const [mode, setMode] = useState('mes');
   const [anchor, setAnchor] = useState(new Date());
+  const [showCategories, setShowCategories] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from('calendar_entries').select('*');
@@ -282,28 +291,45 @@ export default function CalendarClient() {
       </div>
 
       {mode === 'dia' ? (
-        <DayView dateISO={toISO(anchor)} entries={byDate[toISO(anchor)] || []} onAdd={add} onUpdate={update} onToggle={toggle} onDelete={del} />
+        <DayView
+          dateISO={toISO(anchor)}
+          entries={byDate[toISO(anchor)] || []}
+          categoriesMap={categoriesMap}
+          categoriesList={categoriesList}
+          onAdd={add} onUpdate={update} onToggle={toggle} onDelete={del}
+        />
       ) : (
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="grid grid-cols-7 gap-1.5" style={{ minWidth: 630 }}>
             {weekDays.map((d) => <div key={d} className="text-center text-muted text-[11px] font-bold">{d}</div>)}
             {grid.map((d, i) =>
               d ? (
-                <DayCell key={i} dateISO={toISO(d)} entries={byDate[toISO(d)] || []} onAdd={add} onUpdate={update} onToggle={toggle} onDelete={del} compact={mode === 'mes'} />
+                <DayCell
+                  key={i} dateISO={toISO(d)} entries={byDate[toISO(d)] || []}
+                  categoriesMap={categoriesMap} categoriesList={categoriesList}
+                  onAdd={add} onUpdate={update} onToggle={toggle} onDelete={del} compact={mode === 'mes'}
+                />
               ) : <div key={i} />
             )}
           </div>
         </div>
       )}
 
-      <div className="flex gap-3 flex-wrap pt-1">
-        {Object.entries(CONTENT_TYPES).map(([k, v]) => (
-          <div key={k} className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full" style={{ background: v.color }} />
-            <span className="text-muted text-xs">{v.label}</span>
-          </div>
-        ))}
+      <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
+        <div className="flex gap-3 flex-wrap">
+          {categoriesList.map((c) => (
+            <div key={c.id} className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full" style={{ background: c.color }} />
+              <span className="text-muted text-xs">{c.label}</span>
+            </div>
+          ))}
+        </div>
+        <button onClick={() => setShowCategories(!showCategories)} className="text-muted text-xs flex items-center gap-1.5">
+          <Settings size={13} /> Editar categorías
+        </button>
       </div>
+
+      {showCategories && <CategoriesManager onClose={() => setShowCategories(false)} />}
     </div>
   );
 }

@@ -5,7 +5,8 @@ import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check, Bold, Heading
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
-import { SCRIPT_STATUSES, CONTENT_TYPES, PRODUCTION_STATUSES, todayISO } from '@/lib/config';
+import { SCRIPT_STATUSES, PRODUCTION_STATUSES, todayISO } from '@/lib/config';
+import { useCategories } from '@/components/CategoriesProvider';
 
 const STATUS_COLORS = { Borrador: '#7C878B', Listo: '#FBBF24', Grabado: '#4ADE80' };
 const SCHEDULABLE = ['Editado', 'Programado'];
@@ -296,11 +297,17 @@ function RichEditor({ draft, setDraft }) {
 
 function ScriptVideos({ scriptId }) {
   const supabase = useMemo(() => createClient(), []);
+  const { list: categoriesList, map: categoriesMap } = useCategories();
   const [videos, setVideos] = useState([]);
-  const [form, setForm] = useState({ title: '', type: 'reel_ig', date: '', production_status: 'Guion' });
+  const [form, setForm] = useState({ title: '', type: '', date: '', production_status: 'Guion' });
   const [editingId, setEditingId] = useState(null);
   const [schedulingId, setSchedulingId] = useState(null);
   const [scheduleDate, setScheduleDate] = useState(todayISO());
+
+  useEffect(() => {
+    if (!form.type && categoriesList[0]) setForm((f) => ({ ...f, type: categoriesList[0].id }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriesList.length]);
 
   const load = async () => {
     const { data } = await supabase.from('videos').select('*').eq('script_id', scriptId).order('created_at', { ascending: true });
@@ -324,7 +331,7 @@ function ScriptVideos({ scriptId }) {
       title: form.title.trim(), type: form.type, date: form.date || null,
       production_status: form.production_status, script_id: scriptId, created_by: userData.user.id,
     });
-    setForm({ title: '', type: 'reel_ig', date: '', production_status: 'Guion' });
+    setForm({ title: '', type: categoriesList[0]?.id || '', date: '', production_status: 'Guion' });
     load();
   };
 
@@ -384,7 +391,7 @@ function ScriptVideos({ scriptId }) {
           onChange={(e) => setForm({ ...form, type: e.target.value })}
           className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs outline-none focus:border-cyan"
         >
-          {Object.entries(CONTENT_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          {categoriesList.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
         </select>
         <select
           value={form.production_status}
@@ -407,7 +414,7 @@ function ScriptVideos({ scriptId }) {
       <div className="space-y-1.5">
         {videos.length === 0 && <div className="text-muted text-xs text-center py-3">Todavía no hay vídeos para este guion. Añade uno arriba.</div>}
         {videos.map((v) => {
-          const meta = CONTENT_TYPES[v.type] || CONTENT_TYPES.reel_ig;
+          const meta = categoriesMap[v.type] || { label: 'Sin categoría', color: '#7C878B' };
           const prodColor = (PRODUCTION_STATUSES[v.production_status] || PRODUCTION_STATUSES['Guion']).color;
           const done = v.uploaded;
           const editing = editingId === v.id;
@@ -472,7 +479,7 @@ function ScriptVideos({ scriptId }) {
                     onChange={(e) => update(v.id, 'type', e.target.value)}
                     className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-1 text-[11px] outline-none focus:border-cyan"
                   >
-                    {Object.entries(CONTENT_TYPES).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
+                    {categoriesList.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
                   </select>
                   <input
                     type="date"

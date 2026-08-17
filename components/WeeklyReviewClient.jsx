@@ -5,7 +5,8 @@ import { Check, X, ChevronLeft, ChevronRight, ListChecks, Film } from 'lucide-re
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge, Ring } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
-import { CONTENT_TYPES } from '@/lib/config';
+import { dateToISO } from '@/lib/config';
+import { useCategories } from '@/components/CategoriesProvider';
 
 function startOfWeek(d) {
   const x = new Date(d);
@@ -14,11 +15,12 @@ function startOfWeek(d) {
   x.setHours(0, 0, 0, 0);
   return x;
 }
-const toISO = (d) => d.toISOString().slice(0, 10);
+const toISO = (d) => dateToISO(d);
 
 export default function WeeklyReviewClient() {
   const supabase = useMemo(() => createClient(), []);
   const profiles = useProfiles();
+  const { map: categoriesMap } = useCategories();
   const [tab, setTab] = useState('tareas');
   const [tasks, setTasks] = useState([]);
   const [entries, setEntries] = useState([]);
@@ -169,7 +171,7 @@ export default function WeeklyReviewClient() {
             <div className="text-green text-[11px] uppercase tracking-wide font-semibold flex items-center gap-1.5"><Check size={13} /> Subido esta semana</div>
             {uploadedEntries.length === 0 && <Card className="text-center py-4 text-muted text-sm">Nada subido todavía esta semana.</Card>}
             {uploadedEntries.map((e) => {
-              const meta = CONTENT_TYPES[e.type] || CONTENT_TYPES.reel_ig;
+              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: '#7C878B' };
               return (
                 <Card key={e.id} className="flex items-center gap-3 cursor-pointer" onClick={() => toggleEntry(e)}>
                   <Check size={16} color="#4ADE80" className="shrink-0" />
@@ -186,7 +188,7 @@ export default function WeeklyReviewClient() {
             <div className="text-red text-[11px] uppercase tracking-wide font-semibold flex items-center gap-1.5"><X size={13} /> Pendiente de subir</div>
             {pendingEntries.length === 0 && <Card className="text-center py-4 text-muted text-sm">Todo subido esta semana. 🎉</Card>}
             {pendingEntries.map((e) => {
-              const meta = CONTENT_TYPES[e.type] || CONTENT_TYPES.reel_ig;
+              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: '#7C878B' };
               return (
                 <Card key={e.id} className="flex items-center gap-3 cursor-pointer" onClick={() => toggleEntry(e)}>
                   <X size={16} color="#F87171" className="shrink-0" />

@@ -1,11 +1,153 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Check } from 'lucide-react';
+import { Plus, Trash2, Check, Repeat, Power } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { todayISO } from '@/lib/config';
+
+const WEEKDAYS = [
+  { v: 1, l: 'Lunes' }, { v: 2, l: 'Martes' }, { v: 3, l: 'Miércoles' }, { v: 4, l: 'Jueves' },
+  { v: 5, l: 'Viernes' }, { v: 6, l: 'Sábado' }, { v: 0, l: 'Domingo' },
+];
+
+function RecurringTasks() {
+  const supabase = useMemo(() => createClient(), []);
+  const profiles = useProfiles();
+  const profileList = Object.values(profiles || {});
+  const [templates, setTemplates] = useState([]);
+  const [form, setForm] = useState({ title: '', assigned_to: '', recurrence_type: 'daily', recurrence_day: 1, due_time: '' });
+
+  const load = async () => {
+    const { data } = await supabase.from('task_templates').select('*').order('created_at', { ascending: false });
+    setTemplates(data || []);
+  };
+
+  useEffect(() => {
+    load();
+    const channel = supabase
+      .channel('task-templates-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_templates' }, load)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const add = async () => {
+    if (!form.title.trim()) return;
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase.from('task_templates').insert({
+      title: form.title.trim(),
+      assigned_to: form.assigned_to || userData.user.id,
+      recurrence_type: form.recurrence_type,
+      recurrence_day: form.recurrence_type === 'daily' ? null : Number(form.recurrence_day),
+      due_time: form.due_time || null,
+      created_by: userData.user.id,
+    });
+    setForm({ title: '', assigned_to: '', recurrence_type: 'daily', recurrence_day: 1, due_time: '' });
+    load();
+  };
+
+  const toggleActive = async (t) => {
+    await supabase.from('task_templates').update({ active: !t.active }).eq('id', t.id);
+    load();
+  };
+
+  const del = async (id) => {
+    await supabase.from('task_templates').delete().eq('id', id);
+    load();
+  };
+
+  const describe = (t) => {
+    if (t.recurrence_type === 'daily') return 'Todos los días';
+    if (t.recurrence_type === 'weekly') return `Cada ${WEEKDAYS.find((w) => w.v === t.recurrence_day)?.l || ''}`;
+    return `El día ${t.recurrence_day} de cada mes`;
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="text-ink font-semibold text-sm flex items-center gap-1.5"><Repeat size={15} /> Tareas repetitivas</div>
+      <div className="text-muted text-xs -mt-1">
+        Se crean solas cada día que toque (con el aviso diario ya programado). No hace falta repetirlas a mano.
+      </div>
+
+      <Card className="space-y-2">
+        <input
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+          placeholder="Ej. Revisar anuncios y ajustar presupuesto"
+          className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan"
+        />
+        <div className="flex flex-col sm:flex-row gap-2">
+          <select
+            value={form.assigned_to}
+            onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+            className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full sm:flex-1 outline-none focus:border-cyan"
+          >
+            <option value="">Asignar a…</option>
+            {profileList.map((p) => <option key={p.id} value={p.id}>{p.display_name}</option>)}
+          </select>
+          <select
+            value={form.recurrence_type}
+            onChange={(e) => setForm({ ...form, recurrence_type: e.target.value })}
+            className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full sm:flex-1 outline-none focus:border-cyan"
+          >
+            <option value="daily">Diaria</option>
+            <option value="weekly">Semanal</option>
+            <option value="monthly">Mensual</option>
+          </select>
+          {form.recurrence_type === 'weekly' && (
+            <select
+              value={form.recurrence_day}
+              onChange={(e) => setForm({ ...form, recurrence_day: e.target.value })}
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full sm:flex-1 outline-none focus:border-cyan"
+            >
+              {WEEKDAYS.map((w) => <option key={w.v} value={w.v}>{w.l}</option>)}
+            </select>
+          )}
+          {form.recurrence_type === 'monthly' && (
+            <select
+              value={form.recurrence_day}
+              onChange={(e) => setForm({ ...form, recurrence_day: e.target.value })}
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full sm:flex-1 outline-none focus:border-cyan"
+            >
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>Día {d}</option>)}
+            </select>
+          )}
+          <input
+            type="time"
+            value={form.due_time}
+            onChange={(e) => setForm({ ...form, due_time: e.target.value })}
+            className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full sm:flex-1 outline-none focus:border-cyan"
+          />
+        </div>
+        <button onClick={add} className="rounded-lg px-3 py-2 flex items-center gap-1 font-semibold text-sm bg-cyan text-[#00161C]">
+          <Plus size={16} /> Crear rutina
+        </button>
+      </Card>
+
+      <div className="space-y-1.5">
+        {templates.length === 0 && <div className="text-muted text-xs text-center py-3">Sin rutinas todavía.</div>}
+        {templates.map((t) => (
+          <Card key={t.id} className="flex items-center gap-3" style={{ opacity: t.active ? 1 : 0.5 }}>
+            <button onClick={() => toggleActive(t)} className="shrink-0" title={t.active ? 'Pausar rutina' : 'Reactivar rutina'}>
+              <Power size={16} color={t.active ? '#4ADE80' : '#7C878B'} />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="text-ink text-sm font-medium truncate">{t.title}</div>
+              <div className="text-muted text-[11px]">
+                {describe(t)}{t.due_time && ` · ${t.due_time.slice(0, 5)}`}
+              </div>
+            </div>
+            <AuthorBadge profile={profiles?.[t.assigned_to]} />
+            <button onClick={() => del(t.id)} className="text-red shrink-0"><Trash2 size={15} /></button>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function TasksClient() {
   const supabase = useMemo(() => createClient(), []);
@@ -194,6 +336,10 @@ export default function TasksClient() {
           ))}
         </div>
       )}
+
+      <div className="border-t border-border pt-4">
+        <RecurringTasks />
+      </div>
     </div>
   );
 }

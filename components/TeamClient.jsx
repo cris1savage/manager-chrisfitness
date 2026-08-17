@@ -5,7 +5,7 @@ import { CheckSquare, Users, Film, Megaphone, Activity } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
-import { eur } from '@/lib/config';
+import { eur, dateToISO } from '@/lib/config';
 
 function startOfWeek(d) {
   const x = new Date(d);
@@ -46,7 +46,7 @@ export default function TeamClient() {
   }, []);
 
   const start = startOfWeek(new Date());
-  const startISO = start.toISOString().slice(0, 10);
+  const startISO = dateToISO(start);
 
   const profileList = Object.values(profiles || {});
 

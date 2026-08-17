@@ -7,6 +7,23 @@ sonará.
 
 ## Novedades de este ajuste (la más reciente)
 
+- **Bug del Calendario arreglado (importante)**: los días se veían
+  desplazados una columna (ej. un lunes aparecía como martes). La causa era
+  que la app convertía las fechas a formato UTC, y España va por delante de
+  UTC, así que cada fecha se corría un día hacia atrás. Ya usa siempre la
+  fecha local del navegador — no hace falta hacer nada para que funcione,
+  solo subir el código nuevo.
+- **Categorías de contenido editables**: antes eran 4 fijas (Reel, Historia,
+  Video, TikTok). Ahora desde el Calendario (botón "Editar categorías" junto
+  a la leyenda) puedes añadir nuevas, cambiarles el color, o borrarlas. Se
+  usan igual en Guiones y Vídeos.
+- **Tareas repetitivas**: en `/tareas`, apartado "Tareas repetitivas" al
+  final — creas una rutina (diaria, semanal en un día concreto, o mensual
+  en un día del mes) y se genera sola cada vez que toca, sin que tengas que
+  crearla a mano. Se apoya en el mismo aviso diario que ya tenías programado.
+
+## Novedades de este ajuste (la más reciente)
+
 - **Programar en Calendario, cuando tú decidas**: en `/videos` (y también
   dentro de cada guion), cuando un vídeo llega a la fase **Editado** o
   **Programado**, aparece el botón "Programar en Calendario". Eliges la
