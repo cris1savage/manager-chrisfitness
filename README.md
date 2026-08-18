@@ -7,6 +7,22 @@ sonará.
 
 ## Novedades de este ajuste (la más reciente)
 
+- **Bug arreglado en Guiones**: el editor de texto no tenía forma de quitar
+  un título o negrita una vez aplicados — había que borrar y reescribir.
+  Añadido un botón "Aa" en la barra de formato que quita el formato del
+  bloque seleccionado y vuelve al texto normal.
+- **Historial unificado**: Mensual y Semanal ya no son dos secciones en el
+  menú — ahora es una sola página (`/historial`) con un selector arriba
+  para cambiar de vista. Menos ruido en la barra lateral, misma información.
+- **"Ver más" en vez de lista infinita**: el historial ahora muestra 8 filas
+  y un botón para cargar más — así dentro de 1-2 años no tienes una lista
+  interminable en la pantalla.
+- **Gráfico de líneas en vez de barras**: para comparar facturación e
+  inversión en anuncios a lo largo del tiempo, una línea se lee mejor que
+  columnas — se ve la tendencia de un vistazo.
+
+## Novedades de este ajuste (la más reciente)
+
 - **Guiones fusionado con Banco de ideas**: ya no son dos secciones
   separadas. Ahora Guiones tiene 4 etapas — Idea → Borrador → Listo →
   Grabado — y se añade igual que Contactos (formulario rápido arriba,

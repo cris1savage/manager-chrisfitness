@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check, Bold, Heading1, Heading2, List, CalendarPlus, CalendarX } from 'lucide-react';
+import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check, Bold, Heading1, Heading2, List, CalendarPlus, CalendarX, Type } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
@@ -224,6 +224,7 @@ function FormatToolbar({ onAction }) {
     { icon: Heading2, action: 'h2', title: 'Subtítulo' },
     { icon: Bold, action: 'bold', title: 'Negrita' },
     { icon: List, action: 'list', title: 'Lista' },
+    { icon: Type, action: 'normal', title: 'Quitar formato (volver a texto normal)' },
   ];
   return (
     <div className="flex items-center gap-1 rounded-lg border border-border bg-surfaceAlt p-1 w-fit">
@@ -269,6 +270,12 @@ function RichEditor({ draft, setDraft }) {
     else if (action === 'h1') document.execCommand('formatBlock', false, 'h2');
     else if (action === 'h2') document.execCommand('formatBlock', false, 'h3');
     else if (action === 'list') document.execCommand('insertUnorderedList');
+    else if (action === 'normal') {
+      // Quita título/lista del bloque actual y la negrita si la hubiera
+      document.execCommand('formatBlock', false, 'div');
+      if (document.queryCommandState('bold')) document.execCommand('bold');
+      if (document.queryCommandState('insertUnorderedList')) document.execCommand('insertUnorderedList');
+    }
     handleInput();
   };
 
@@ -287,7 +294,7 @@ function RichEditor({ draft, setDraft }) {
         className="rich-editor bg-surfaceAlt border border-border text-ink rounded-lg px-3 py-2.5 text-sm w-full outline-none focus:border-cyan leading-relaxed overflow-y-auto"
         style={{ minHeight: 280 }}
       />
-      <div className="text-muted text-[10px]">Selecciona texto y pulsa un botón de la barra para aplicar el formato.</div>
+      <div className="text-muted text-[10px]">Selecciona texto y pulsa un botón para aplicar formato — el último botón (Aa) lo quita y vuelve al texto normal.</div>
     </div>
   );
 }
