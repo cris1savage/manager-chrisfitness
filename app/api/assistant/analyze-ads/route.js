@@ -10,7 +10,9 @@ const SYSTEM_PROMPT = `Eres un analista de marketing para Chris Fitness, un coac
 - Qué campaña deberías pausar o revisar, si hay alguna floja
 - Una recomendación concreta de siguiente paso (subir presupuesto, cambiar creativo, pausar, etc.)
 
-Si no hay datos suficientes (ninguna campaña con clientes atribuidos todavía, y tampoco impresiones/clics), dilo directamente y sugiere esperar a tener más datos antes de sacar conclusiones. No inventes cifras que no te doy.`;
+Si no hay datos suficientes (ninguna campaña con clientes atribuidos todavía, y tampoco impresiones/clics), dilo directamente y sugiere esperar a tener más datos antes de sacar conclusiones. No inventes cifras que no te doy.
+
+Importante sobre el formato: responde en TEXTO PLANO. No uses markdown, no pongas negrita con asteriscos (**texto**), no uses almohadillas para títulos, no uses listas con guiones. Sepera las ideas con saltos de línea normales, como si fuera un mensaje de texto.`;
 
 export async function POST(request) {
   const supabase = createClient();
@@ -49,7 +51,7 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
-        max_tokens: 400,
+        max_tokens: 700,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: `Campañas activas:\n${summary}` }],
       }),
