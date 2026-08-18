@@ -191,6 +191,12 @@ export default function DashboardClient({ profile }) {
   const costPerSale = salesM > 0 ? spendThisMonth / salesM : null;
   const roiPct = spendThisMonth > 0 ? ((revenueM - spendThisMonth) / spendThisMonth) * 100 : null;
 
+  const adsWithPerfThisMonth = data.adSpend.filter((ad) => monthKey(ad.start_date) === thisMonth && (ad.impressions || ad.ctr));
+  const totalImpressions = adsWithPerfThisMonth.reduce((s, ad) => s + (Number(ad.impressions) || 0), 0);
+  const avgCtr = adsWithPerfThisMonth.filter((ad) => ad.ctr).length
+    ? (adsWithPerfThisMonth.filter((ad) => ad.ctr).reduce((s, ad) => s + Number(ad.ctr), 0) / adsWithPerfThisMonth.filter((ad) => ad.ctr).length).toFixed(2)
+    : null;
+
   const activeClientsCount = (data.activeClients || []).filter((c) => c.status === 'Activo').length;
 
   const goalProgress = (g) => {
@@ -316,6 +322,16 @@ export default function DashboardClient({ profile }) {
           />
         </div>
         {roiPct === null && <div className="text-muted text-[11px] mt-2">Aparece en cuanto registres inversión en anuncios este mes.</div>}
+        {(totalImpressions > 0 || avgCtr !== null) && (
+          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border flex-wrap">
+            {totalImpressions > 0 && (
+              <div className="text-xs"><span className="text-ink font-bold">{totalImpressions.toLocaleString('es-ES')}</span> <span className="text-muted">impresiones (Meta)</span></div>
+            )}
+            {avgCtr !== null && (
+              <div className="text-xs"><span className="text-ink font-bold">{avgCtr}%</span> <span className="text-muted">CTR medio</span></div>
+            )}
+          </div>
+        )}
       </Card>
 
       <div className="grid md:grid-cols-3 gap-3">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Pause, Play, Users, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Trash2, Pause, Play, Users, TrendingUp, TrendingDown, Sparkles, Loader2, Eye } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
@@ -19,6 +19,9 @@ export default function AdsClient() {
   const [ads, setAds] = useState([]);
   const [clientsByAd, setClientsByAd] = useState({});
   const [loading, setLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysis, setAnalysis] = useState('');
+  const [analysisError, setAnalysisError] = useState('');
 
   const emptyForm = { campaign: '', start_date: todayISO(), daily_amount: '', objective: 'Visitas' };
   const [form, setForm] = useState(emptyForm);
@@ -65,6 +68,17 @@ export default function AdsClient() {
     await supabase.from('ad_spend').update({ [key]: value }).eq('id', id);
   };
 
+  const updatePerformance = async (ad, key, value) => {
+    const patch = { [key]: value };
+    const impressions = key === 'impressions' ? value : ad.impressions;
+    const clicks = key === 'clicks' ? value : ad.clicks;
+    if (key !== 'ctr' && impressions && clicks) {
+      patch.ctr = ((Number(clicks) / Number(impressions)) * 100).toFixed(2);
+    }
+    setAds((a) => a.map((row) => (row.id === ad.id ? { ...row, ...patch } : row)));
+    await supabase.from('ad_spend').update(patch).eq('id', ad.id);
+  };
+
   const togglePause = async (ad) => {
     if (ad.status === 'Activo') {
       await supabase.from('ad_spend').update({ status: 'Pausado', paused_at: todayISO() }).eq('id', ad.id);
@@ -82,13 +96,51 @@ export default function AdsClient() {
   const totalSpend = ads.reduce((s, ad) => s + computeSpend(ad), 0);
   const activeSpendDaily = ads.filter((a) => a.status === 'Activo').reduce((s, a) => s + (Number(a.daily_amount) || 0), 0);
 
+  const analyzeWithAI = async () => {
+    setAnalyzing(true);
+    setAnalysisError('');
+    setAnalysis('');
+    try {
+      const payload = ads.map((ad) => {
+        const spend = computeSpend(ad);
+        const attributedClients = clientsByAd[ad.id] || [];
+        const attributedRevenue = attributedClients.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+        const roi = spend > 0 ? Math.round(((attributedRevenue - spend) / spend) * 100) : null;
+        return {
+          campaign: ad.campaign,
+          objective: ad.objective,
+          status: ad.status,
+          spend: spend.toFixed(0),
+          attributedClients: attributedClients.length,
+          attributedRevenue: attributedRevenue.toFixed(0),
+          roi,
+          impressions: ad.impressions || null,
+          clicks: ad.clicks || null,
+          ctr: ad.ctr || null,
+        };
+      });
+      const res = await fetch('/api/assistant/analyze-ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ads: payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) setAnalysisError(data.error || 'Algo falló.');
+      else setAnalysis(data.analysis);
+    } catch {
+      setAnalysisError('No se pudo conectar. Inténtalo de nuevo.');
+    }
+    setAnalyzing(false);
+  };
+
   return (
     <div className="space-y-4">
       <div>
         <h2 className="font-display text-ink text-[22px] tracking-wide">ANUNCIOS</h2>
         <div className="text-muted text-xs">
           Pon la fecha de inicio y la inversión diaria — el gasto acumulado se calcula solo. Cuando un contacto de este
-          anuncio pasa a Cliente en Contactos (eligiendo esta campaña como origen), verás aquí cuántos clientes y ROI real trae.
+          anuncio pasa a Cliente en Contactos, verás aquí cuántos clientes y ROI real trae. Debajo de cada anuncio puedes
+          copiar las impresiones/clics/CTR desde Meta Ads Manager de vez en cuando, para tener también el rendimiento real.
         </div>
       </div>
 
@@ -102,6 +154,25 @@ export default function AdsClient() {
           <div className="text-ink text-xl font-extrabold font-display">{eur(activeSpendDaily)}/día</div>
         </Card>
       </div>
+
+      {ads.length > 0 && (
+        <Card className="space-y-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-1.5 text-cyan text-xs font-semibold">
+              <Sparkles size={14} /> Análisis con IA (bajo demanda, no automático)
+            </div>
+            <button
+              onClick={analyzeWithAI}
+              disabled={analyzing}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-cyan text-[#00161C] flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {analyzing ? <><Loader2 size={13} className="animate-spin" /> Analizando...</> : 'Analizar anuncios'}
+            </button>
+          </div>
+          {analysisError && <div className="text-red text-xs">{analysisError}</div>}
+          {analysis && <div className="text-ink text-sm whitespace-pre-wrap bg-surfaceAlt rounded-lg p-3 border border-border">{analysis}</div>}
+        </Card>
+      )}
 
       <Card className="space-y-2">
         <div className="flex flex-col sm:flex-row gap-2 sm:items-end sm:flex-wrap">
@@ -207,6 +278,43 @@ export default function AdsClient() {
                   <button onClick={() => remove(ad.id)} className="p-2 rounded-lg text-red">
                     <Trash2 size={16} />
                   </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border flex-wrap">
+                <div className="flex items-center gap-1.5 text-muted text-[11px] uppercase tracking-wide">
+                  <Eye size={12} /> Rendimiento real (de Meta):
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={ad.impressions || ''}
+                    onChange={(e) => updatePerformance(ad, 'impressions', e.target.value ? Number(e.target.value) : null)}
+                    placeholder="0"
+                    className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-0.5 text-xs w-20 outline-none focus:border-cyan"
+                  />
+                  <span className="text-muted text-[10.5px]">impresiones</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={ad.clicks || ''}
+                    onChange={(e) => updatePerformance(ad, 'clicks', e.target.value ? Number(e.target.value) : null)}
+                    placeholder="0"
+                    className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-0.5 text-xs w-16 outline-none focus:border-cyan"
+                  />
+                  <span className="text-muted text-[10.5px]">clics</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={ad.ctr || ''}
+                    onChange={(e) => updatePerformance(ad, 'ctr', e.target.value || null)}
+                    placeholder="0.0"
+                    step="0.01"
+                    className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-0.5 text-xs w-16 outline-none focus:border-cyan"
+                  />
+                  <span className="text-muted text-[10.5px]">% CTR</span>
                 </div>
               </div>
 

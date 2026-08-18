@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Calendar, Megaphone, Users, UserPlus, FileText, LogOut, Menu, X, Lightbulb,
-  CheckSquare, UserCheck, Gift, ShieldCheck, ScrollText, ClipboardCheck, DollarSign, MessageCircle, UsersRound, Clapperboard, MessagesSquare,
+  CheckSquare, UserCheck, Gift, ShieldCheck, ScrollText, ClipboardCheck, DollarSign, MessageCircle, UsersRound, Clapperboard, MessagesSquare, FolderOpen,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -26,6 +26,7 @@ const ICONS = {
   ventas: DollarSign,
   referidos: Gift,
   notas: FileText,
+  documentos: FolderOpen,
   seguridad: ShieldCheck,
 };
 

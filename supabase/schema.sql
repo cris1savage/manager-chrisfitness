@@ -58,13 +58,8 @@ create table if not exists public.contacts (
 -- Ahora se calcula solo: pones fecha de inicio + inversión diaria, y el
 -- gasto acumulado se calcula automáticamente (días transcurridos × diario).
 -- Al pausar, deja de sumar desde ese día.
---
--- IMPORTANTE: la estructura cambió por completo respecto a la versión
--- anterior, así que reseteamos la tabla (si ya tenías algo aquí, como estaba
--- a 0€ no se pierde nada real).
 -- ---------------------------------------------------------------------------
-drop table if exists public.ad_spend cascade;
-create table public.ad_spend (
+create table if not exists public.ad_spend (
   id uuid primary key default gen_random_uuid(),
   created_by uuid references auth.users(id) default auth.uid(),
   campaign text not null,
@@ -173,11 +168,7 @@ create table if not exists public.scripts (
 -- Objetivos: lista personalizable en vez de 4 campos fijos.
 -- metric: 'ventas' | 'clientes_nuevos' | 'facturacion' | 'inversion_ads' | 'manual'
 -- Para 'manual', el progreso se edita a mano (manual_current); el resto se calcula solo.
---
--- IMPORTANTE: antes era una única fila fija con 4 columnas; ahora es una
--- lista de objetivos personalizables, así que reseteamos la tabla.
-drop table if exists public.goals cascade;
-create table public.goals (
+create table if not exists public.goals (
   id uuid primary key default gen_random_uuid(),
   created_by uuid references auth.users(id) default auth.uid(),
   title text not null,
@@ -520,6 +511,52 @@ where ce.script_id is not null
 -- ---------------------------------------------------------------------------
 alter table public.ad_spend add column if not exists objective text default 'Visitas';
 alter table public.contacts add column if not exists source_ad_id uuid references public.ad_spend(id) on delete set null;
+
+-- ---------------------------------------------------------------------------
+-- DOCUMENTOS
+-- Almacén de archivos privado (PDFs y demás) con visor dentro de la web.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public) values ('documents', 'documents', false) on conflict (id) do nothing;
+
+drop policy if exists "documents_bucket_select" on storage.objects;
+create policy "documents_bucket_select" on storage.objects for select to authenticated using (bucket_id = 'documents');
+drop policy if exists "documents_bucket_insert" on storage.objects;
+create policy "documents_bucket_insert" on storage.objects for insert to authenticated with check (bucket_id = 'documents');
+drop policy if exists "documents_bucket_delete" on storage.objects;
+create policy "documents_bucket_delete" on storage.objects for delete to authenticated using (bucket_id = 'documents');
+
+create table if not exists public.documents (
+  id uuid primary key default gen_random_uuid(),
+  created_by uuid references auth.users(id) default auth.uid(),
+  name text not null,
+  storage_path text not null,
+  mime_type text,
+  size_bytes bigint,
+  category text default 'General',
+  created_at timestamptz not null default now()
+);
+alter table public.documents enable row level security;
+drop policy if exists "documents_full_access_authenticated" on public.documents;
+create policy "documents_full_access_authenticated" on public.documents for all to authenticated using (true) with check (true);
+
+drop trigger if exists log_activity_trigger on public.documents;
+create trigger log_activity_trigger after insert or update or delete on public.documents for each row execute function public.log_activity();
+
+do $$
+begin
+  alter publication supabase_realtime add table public.documents;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- RENDIMIENTO REAL DE ANUNCIOS (manual)
+-- Copias estos 3 datos desde Meta Ads Manager de vez en cuando; no se
+-- calculan solos porque no hay conexión directa con Meta.
+-- ---------------------------------------------------------------------------
+alter table public.ad_spend add column if not exists impressions bigint;
+alter table public.ad_spend add column if not exists clicks bigint;
+alter table public.ad_spend add column if not exists ctr numeric;
 
 -- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL

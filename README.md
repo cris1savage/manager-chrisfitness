@@ -7,6 +7,36 @@ sonará.
 
 ## Novedades de este ajuste (la más reciente)
 
+- **Bug arreglado (importante)**: `schema.sql` tenía dos instrucciones que
+  borraban y recreaban las tablas de **Anuncios** y **Objetivos** enteras
+  cada vez que se volvía a pegar el archivo — eran de cuando cambiamos su
+  estructura hace tiempo, y se quedaron ahí por error, borrando esos datos
+  en cada actualización futura. Ya no pasa: a partir de ahora, pegar
+  `schema.sql` nunca borra nada que ya tengas creado, en ninguna tabla.
+
+## Novedades de este ajuste (la más reciente)
+
+- **Rendimiento real de anuncios (manual)**: en cada anuncio puedes copiar
+  impresiones, clics y CTR desde Meta Ads Manager de vez en cuando (el CTR
+  se calcula solo si pones impresiones + clics, pero puedes sobrescribirlo).
+  No hay conexión directa con Meta — esto es a mano, a propósito, para no
+  meterte en la complejidad de conectar la cuenta de verdad. Se refleja en
+  el Dashboard (impresiones totales y CTR medio del mes) y el análisis con
+  IA de Anuncios ya lo tiene en cuenta si lo has rellenado.
+
+## Novedades de este ajuste (la más reciente)
+
+- **Documentos** (`/documentos`): sube archivos (PDFs, imágenes...) y
+  visualízalos directamente desde la web sin descargarlos — botón "Ver"
+  abre un visor dentro de la propia app. Usa el almacenamiento de Supabase,
+  privado (solo vosotros dos tenéis acceso).
+- **Análisis de anuncios con IA**: en Anuncios, botón "Analizar anuncios"
+  — bajo demanda, solo cuando tú lo pulsas, nunca automático — te da un
+  análisis breve de qué campaña funciona mejor y qué hacer a continuación,
+  usando tus datos reales de gasto/clientes/ROI.
+
+## Novedades de este ajuste (la más reciente)
+
 - **Asistente de IA en Contactos**: dentro de cada ficha, icono de estrellas
   (✨) junto al de notas. Pegas lo que te ha escrito esa persona y te
   sugiere 3 respuestas distintas (usa el nombre, la etapa, el origen y las
