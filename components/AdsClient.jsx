@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Pause, Play } from 'lucide-react';
+import { Plus, Trash2, Pause, Play, Users, TrendingUp, TrendingDown } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
-import { eur, todayISO, daysBetween } from '@/lib/config';
+import { eur, todayISO, daysBetween, AD_OBJECTIVES } from '@/lib/config';
 
 function computeSpend(ad) {
   const end = ad.status === 'Pausado' && ad.paused_at ? ad.paused_at : todayISO();
@@ -17,14 +17,24 @@ export default function AdsClient() {
   const supabase = useMemo(() => createClient(), []);
   const profiles = useProfiles();
   const [ads, setAds] = useState([]);
+  const [clientsByAd, setClientsByAd] = useState({});
   const [loading, setLoading] = useState(true);
 
-  const emptyForm = { campaign: '', start_date: todayISO(), daily_amount: '' };
+  const emptyForm = { campaign: '', start_date: todayISO(), daily_amount: '', objective: 'Visitas' };
   const [form, setForm] = useState(emptyForm);
 
   const load = async () => {
-    const { data } = await supabase.from('ad_spend').select('*').order('start_date', { ascending: false });
-    setAds(data || []);
+    const [adsRes, contactsRes] = await Promise.all([
+      supabase.from('ad_spend').select('*').order('start_date', { ascending: false }),
+      supabase.from('contacts').select('*').eq('stage', 'Cliente').not('source_ad_id', 'is', null),
+    ]);
+    setAds(adsRes.data || []);
+    const grouped = {};
+    (contactsRes.data || []).forEach((c) => {
+      if (!grouped[c.source_ad_id]) grouped[c.source_ad_id] = [];
+      grouped[c.source_ad_id].push(c);
+    });
+    setClientsByAd(grouped);
     setLoading(false);
   };
 
@@ -34,7 +44,11 @@ export default function AdsClient() {
       .channel('ads-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ad_spend' }, load)
       .subscribe();
-    return () => supabase.removeChannel(channel);
+    const channel2 = supabase
+      .channel('ads-contacts-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts' }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(channel2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -73,7 +87,8 @@ export default function AdsClient() {
       <div>
         <h2 className="font-display text-ink text-[22px] tracking-wide">ANUNCIOS</h2>
         <div className="text-muted text-xs">
-          Pon la fecha de inicio y la inversión diaria — el gasto acumulado se calcula solo. Pausa el anuncio cuando lo apagues para que deje de sumar.
+          Pon la fecha de inicio y la inversión diaria — el gasto acumulado se calcula solo. Cuando un contacto de este
+          anuncio pasa a Cliente en Contactos (eligiendo esta campaña como origen), verás aquí cuántos clientes y ROI real trae.
         </div>
       </div>
 
@@ -89,8 +104,8 @@ export default function AdsClient() {
       </div>
 
       <Card className="space-y-2">
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
-          <div className="w-full sm:flex-1">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-end sm:flex-wrap">
+          <div className="w-full sm:flex-1 sm:min-w-[160px]">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Campaña</div>
             <input
               value={form.campaign}
@@ -99,7 +114,17 @@ export default function AdsClient() {
               className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
             />
           </div>
-          <div className="w-full sm:flex-1">
+          <div className="w-full sm:flex-1 sm:min-w-[130px]">
+            <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Objetivo</div>
+            <select
+              value={form.objective}
+              onChange={(e) => setForm({ ...form, objective: e.target.value })}
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
+            >
+              {AD_OBJECTIVES.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div className="w-full sm:flex-1 sm:min-w-[140px]">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Fecha de inicio</div>
             <input
               type="date"
@@ -108,7 +133,7 @@ export default function AdsClient() {
               className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
             />
           </div>
-          <div className="w-full sm:flex-1">
+          <div className="w-full sm:flex-1 sm:min-w-[130px]">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Inversión diaria (€)</div>
             <input
               type="number"
@@ -129,6 +154,9 @@ export default function AdsClient() {
         {ads.map((ad) => {
           const spend = computeSpend(ad);
           const active = ad.status === 'Activo';
+          const attributedClients = clientsByAd[ad.id] || [];
+          const attributedRevenue = attributedClients.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+          const roi = spend > 0 ? ((attributedRevenue - spend) / spend) * 100 : null;
           return (
             <Card key={ad.id} style={{ borderColor: active ? '#4ADE8055' : undefined }}>
               <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -138,16 +166,23 @@ export default function AdsClient() {
                     onChange={(e) => update(ad.id, 'campaign', e.target.value)}
                     className="bg-transparent text-ink font-bold text-sm outline-none w-full"
                   />
-                  <div className="text-muted text-xs mt-1">
-                    Desde {new Date(ad.start_date + 'T00:00:00').toLocaleDateString('es-ES')} ·{' '}
+                  <div className="text-muted text-xs mt-1 flex items-center gap-1.5 flex-wrap">
+                    <select
+                      value={ad.objective || 'Visitas'}
+                      onChange={(e) => update(ad.id, 'objective', e.target.value)}
+                      className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-0.5 text-[11px] outline-none focus:border-cyan"
+                    >
+                      {AD_OBJECTIVES.map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    <span>· Desde {new Date(ad.start_date + 'T00:00:00').toLocaleDateString('es-ES')} ·</span>
                     <input
                       type="number"
                       value={ad.daily_amount}
                       onChange={(e) => update(ad.id, 'daily_amount', e.target.value)}
                       className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-0.5 text-xs w-16 outline-none focus:border-cyan"
-                    />{' '}
-                    €/día
-                    {!active && ad.paused_at && ` · pausado el ${new Date(ad.paused_at + 'T00:00:00').toLocaleDateString('es-ES')}`}
+                    />
+                    <span>€/día</span>
+                    {!active && ad.paused_at && <span>· pausado el {new Date(ad.paused_at + 'T00:00:00').toLocaleDateString('es-ES')}</span>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -174,6 +209,23 @@ export default function AdsClient() {
                   </button>
                 </div>
               </div>
+
+              {attributedClients.length > 0 && (
+                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border flex-wrap">
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Users size={14} className="text-cyan" />
+                    <span className="text-ink font-semibold">{attributedClients.length}</span>
+                    <span className="text-muted text-xs">cliente{attributedClients.length !== 1 ? 's' : ''} de este anuncio</span>
+                  </div>
+                  <div className="text-sm text-ink font-semibold">{eur(attributedRevenue)} facturado</div>
+                  {roi !== null && (
+                    <div className="flex items-center gap-1 text-sm font-semibold" style={{ color: roi >= 0 ? '#4ADE80' : '#F87171' }}>
+                      {roi >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                      ROI {roi >= 0 ? '+' : ''}{roi.toFixed(0)}%
+                    </div>
+                  )}
+                </div>
+              )}
             </Card>
           );
         })}

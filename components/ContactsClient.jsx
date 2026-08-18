@@ -1,30 +1,37 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, MessageSquare, X, Search } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, X, Search, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { STAGES, STAGE_COLORS, eur } from '@/lib/config';
 import CommentThread from '@/components/CommentThread';
+import AIReplyAssistant from '@/components/AIReplyAssistant';
 
-const SOURCES = ['Instagram', 'Referido', 'TusMacros', 'Otro'];
+const SOURCES = ['Instagram', 'Anuncio', 'Referido', 'TusMacros', 'Otro'];
 
 export default function ContactsClient() {
   const supabase = useMemo(() => createClient(), []);
   const profiles = useProfiles();
   const [contacts, setContacts] = useState([]);
+  const [ads, setAds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
   const [openThread, setOpenThread] = useState(null);
+  const [openAI, setOpenAI] = useState(null);
 
-  const emptyForm = { name: '', source: 'Instagram', stage: 'Frío', notes: '' };
+  const emptyForm = { name: '', source: 'Instagram', source_ad_id: '', stage: 'Frío', notes: '' };
   const [form, setForm] = useState(emptyForm);
 
   const load = async () => {
-    const { data } = await supabase.from('contacts').select('*').order('stage_updated_at', { ascending: false });
-    setContacts(data || []);
+    const [contactsRes, adsRes] = await Promise.all([
+      supabase.from('contacts').select('*').order('stage_updated_at', { ascending: false }),
+      supabase.from('ad_spend').select('id, campaign').order('start_date', { ascending: false }),
+    ]);
+    setContacts(contactsRes.data || []);
+    setAds(adsRes.data || []);
     setLoading(false);
   };
 
@@ -34,14 +41,23 @@ export default function ContactsClient() {
       .channel('contacts-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts' }, load)
       .subscribe();
-    return () => supabase.removeChannel(channel);
+    const channel2 = supabase
+      .channel('contacts-ads-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ad_spend' }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); supabase.removeChannel(channel2); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const add = async () => {
     if (!form.name.trim()) return;
     const { data: userData } = await supabase.auth.getUser();
-    await supabase.from('contacts').insert({ ...form, created_by: userData.user.id, stage_updated_at: new Date().toISOString() });
+    await supabase.from('contacts').insert({
+      ...form,
+      source_ad_id: form.source === 'Anuncio' ? (form.source_ad_id || null) : null,
+      created_by: userData.user.id,
+      stage_updated_at: new Date().toISOString(),
+    });
     setForm(emptyForm);
     load();
   };
@@ -129,6 +145,19 @@ export default function ContactsClient() {
               {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+          {form.source === 'Anuncio' && (
+            <div className="w-full sm:flex-1 sm:min-w-[160px]">
+              <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Qué anuncio</div>
+              <select
+                value={form.source_ad_id}
+                onChange={(e) => setForm({ ...form, source_ad_id: e.target.value })}
+                className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
+              >
+                <option value="">Sin especificar</option>
+                {ads.map((a) => <option key={a.id} value={a.id}>{a.campaign}</option>)}
+              </select>
+            </div>
+          )}
           <div className="w-full sm:flex-1 sm:min-w-[160px]">
             <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Etapa inicial</div>
             <select
@@ -174,12 +203,24 @@ export default function ContactsClient() {
                       onChange={(e) => update(c.id, 'name', e.target.value)}
                       className="bg-transparent text-ink font-bold text-sm outline-none w-full"
                     />
-                    <div className="text-muted text-[11px]">{c.source}</div>
+                    <div className="text-muted text-[11px]">
+                      {c.source}
+                      {c.source === 'Anuncio' && c.source_ad_id && (
+                        <> · {ads.find((a) => a.id === c.source_ad_id)?.campaign || 'anuncio borrado'}</>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <AuthorBadge profile={profiles?.[c.created_by]} />
                     <button
-                      onClick={() => setOpenThread(openThread === c.id ? null : c.id)}
+                      onClick={() => { setOpenAI(openAI === c.id ? null : c.id); setOpenThread(null); }}
+                      className={`p-1.5 rounded-lg ${openAI === c.id ? 'text-cyan' : 'text-muted'}`}
+                      title="Sugerir respuesta con IA"
+                    >
+                      <Sparkles size={16} />
+                    </button>
+                    <button
+                      onClick={() => { setOpenThread(openThread === c.id ? null : c.id); setOpenAI(null); }}
                       className={`p-1.5 rounded-lg ${openThread === c.id ? 'text-cyan' : 'text-muted'}`}
                       title="Notas de esta ficha"
                     >
@@ -201,6 +242,24 @@ export default function ContactsClient() {
                   >
                     {STAGES.map((s) => <option key={s} value={s} style={{ color: '#000' }}>{s}</option>)}
                   </select>
+                  <span className="text-muted text-[10.5px] uppercase tracking-wide">Origen:</span>
+                  <select
+                    value={c.source}
+                    onChange={(e) => update(c.id, 'source', e.target.value)}
+                    className="bg-surfaceAlt border border-border text-ink rounded-lg px-2 py-1 text-xs outline-none focus:border-cyan"
+                  >
+                    {SOURCES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  {c.source === 'Anuncio' && (
+                    <select
+                      value={c.source_ad_id || ''}
+                      onChange={(e) => update(c.id, 'source_ad_id', e.target.value || null)}
+                      className="bg-surfaceAlt border border-border text-ink rounded-lg px-2 py-1 text-xs outline-none focus:border-cyan"
+                    >
+                      <option value="">Qué anuncio…</option>
+                      {ads.map((a) => <option key={a.id} value={a.id}>{a.campaign}</option>)}
+                    </select>
+                  )}
                 </div>
 
                 {isClient && (
@@ -233,6 +292,11 @@ export default function ContactsClient() {
                   className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-xs w-full outline-none focus:border-cyan"
                 />
               </div>
+              {openAI === c.id && (
+                <div className="px-4 pb-4">
+                  <AIReplyAssistant contact={c} />
+                </div>
+              )}
               {openThread === c.id && (
                 <div className="px-4 pb-4">
                   <CommentThread table="contacts" entityId={c.id} />

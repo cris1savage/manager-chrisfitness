@@ -513,6 +513,15 @@ where ce.script_id is not null
   and not exists (select 1 from public.videos v where v.source_calendar_entry_id = ce.id);
 
 -- ---------------------------------------------------------------------------
+-- ATRIBUCIÓN DE ANUNCIOS
+-- Cada anuncio tiene un objetivo (Visitas/Mensajes/Web...), y cada contacto
+-- puede venir de uno en concreto — así el ROI se calcula por campaña real,
+-- no solo mezclado en un total del mes.
+-- ---------------------------------------------------------------------------
+alter table public.ad_spend add column if not exists objective text default 'Visitas';
+alter table public.contacts add column if not exists source_ad_id uuid references public.ad_spend(id) on delete set null;
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto

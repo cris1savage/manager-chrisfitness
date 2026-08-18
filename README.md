@@ -7,6 +7,24 @@ sonará.
 
 ## Novedades de este ajuste (la más reciente)
 
+- **Asistente de IA en Contactos**: dentro de cada ficha, icono de estrellas
+  (✨) junto al de notas. Pegas lo que te ha escrito esa persona y te
+  sugiere 3 respuestas distintas (usa el nombre, la etapa, el origen y las
+  notas de esa ficha como contexto), con botón de copiar. Requiere tu propia
+  clave de Anthropic — ver la sección "Asistente de IA" del README.
+
+## Novedades de este ajuste (la más reciente)
+
+- **Anuncios con objetivo**: cada campaña ahora tiene un objetivo (Visitas,
+  Mensajes, Web, Interacción, Seguidores, Otro), igual que en Meta Ads.
+- **Atribución de contactos a un anuncio en concreto**: en Contactos, el
+  origen ahora incluye "Anuncio" — al elegirlo, seleccionas de qué campaña
+  viene esa persona. Si luego pasa a Cliente, en la página de Anuncios verás
+  cuántos clientes, cuánto facturado y el ROI real de esa campaña en
+  concreto (no solo el total mezclado del mes, que sigue en el Dashboard).
+
+## Novedades de este ajuste (la más reciente)
+
 - **Bug del Calendario arreglado (importante)**: los días se veían
   desplazados una columna (ej. un lunes aparecía como martes). La causa era
   que la app convertía las fechas a formato UTC, y España va por delante de
@@ -275,6 +293,29 @@ Ana la suya, y cada uno recibe solo sus propias tareas.
 ⚠️ En iPhone, las notificaciones push de una web solo funcionan si el panel
 está instalado en la pantalla de inicio (ver "Instalar como app" más abajo)
 y se abre desde ese icono, no desde Safari directamente.
+
+## 7. Asistente de IA en Contactos (opcional)
+
+1. Ve a **console.anthropic.com** → inicia sesión o crea una cuenta → **API
+   Keys** → **Create Key**. Copia el valor (empieza por `sk-ant-...`).
+2. En Vercel → Environment Variables, añade:
+   - **`ANTHROPIC_API_KEY`**: pega la clave que acabas de crear. Márcala
+     como "Sensitive" — esta sí es una clave que debe quedarse en el
+     servidor, no lleva `NEXT_PUBLIC_`.
+   - **`ANTHROPIC_MODEL`** (opcional): déjalo vacío para usar el modelo por
+     defecto, o pon `claude-haiku-4-5-20251001` si prefieres respuestas más
+     rápidas y baratas en vez de la calidad por defecto.
+3. Redeploy.
+
+**Coste:** es de pago por uso (no una suscripción), y para este tipo de
+mensajes cortos el gasto es de céntimos por cada tanda de sugerencias — no
+debería notarse en la factura salvo que lo uséis muchísimo. Puedes ver el
+consumo real en console.anthropic.com → Usage.
+
+**Cómo se usa:** en Contactos, dentro de cada ficha, el icono de estrellas
+(✨) junto al de notas. Pegas lo que te ha escrito esa persona y te da 3
+respuestas distintas, usando como contexto el nombre, la etapa, el origen y
+las notas guardadas de esa ficha.
 
 ## Novedades de esta versión
 
