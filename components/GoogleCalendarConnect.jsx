@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CalendarCheck, CalendarX } from 'lucide-react';
+import { CalendarCheck, CalendarX, RefreshCw } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui';
 
@@ -10,6 +10,7 @@ export default function GoogleCalendarConnect() {
   const [connected, setConnected] = useState(null);
   const [msg, setMsg] = useState('');
   const [msgColor, setMsgColor] = useState('#5ECCFA');
+  const [syncing, setSyncing] = useState(false);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -25,7 +26,7 @@ export default function GoogleCalendarConnect() {
   useEffect(() => {
     const g = searchParams.get('google');
     if (g === 'connected') {
-      setMsg('¡Conectado! Lo que programes en el Calendario se sincroniza solo a partir de ahora.');
+      setMsg('¡Conectado! Lo que programes en el Calendario a partir de ahora se sincroniza solo. Si ya tenías cosas puestas antes de conectar, dale a "Sincronizar todo ahora" para empujarlas también.');
       setMsgColor('#4ADE80');
       setConnected(true);
     } else if (g === 'error') {
@@ -46,6 +47,36 @@ export default function GoogleCalendarConnect() {
     setMsg('');
   };
 
+  const syncAllNow = async () => {
+    setSyncing(true);
+    setMsg('');
+    try {
+      const supabase = createClient();
+      const { data: entries } = await supabase.from('calendar_entries').select('id');
+      const total = entries?.length || 0;
+      let ok = 0;
+      for (const e of entries || []) {
+        try {
+          const res = await fetch('/api/google/sync-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ calendarEntryId: e.id, action: 'upsert' }),
+          });
+          const data = await res.json();
+          if (data.synced) ok++;
+        } catch {
+          // sigue con el siguiente
+        }
+      }
+      setMsg(`Sincronizados ${ok} de ${total} elementos con Google Calendar.`);
+      setMsgColor(ok === total && total > 0 ? '#4ADE80' : '#FBBF24');
+    } catch {
+      setMsg('No se pudo completar la sincronización. Inténtalo de nuevo.');
+      setMsgColor('#F87171');
+    }
+    setSyncing(false);
+  };
+
   if (connected === null) return null;
 
   return (
@@ -59,23 +90,35 @@ export default function GoogleCalendarConnect() {
         Calendar. Cada cuenta conecta el suyo — es independiente de la de Ana.
       </div>
       {msg && <div className="text-xs" style={{ color: msgColor }}>{msg}</div>}
-      {connected ? (
-        <button
-          onClick={disconnect}
-          className="rounded-lg px-4 py-2 font-semibold text-sm w-fit"
-          style={{ background: 'transparent', color: '#F87171', border: '1px solid #F87171' }}
-        >
-          Desconectar
-        </button>
-      ) : (
-        <a
-          href="/api/google/connect"
-          className="rounded-lg px-4 py-2 font-semibold text-sm w-fit inline-block"
-          style={{ background: '#5ECCFA', color: '#00161C' }}
-        >
-          Conectar Google Calendar
-        </a>
-      )}
+      <div className="flex items-center gap-2 flex-wrap">
+        {connected ? (
+          <>
+            <button
+              onClick={syncAllNow}
+              disabled={syncing}
+              className="rounded-lg px-4 py-2 font-semibold text-sm flex items-center gap-1.5 disabled:opacity-50"
+              style={{ background: '#5ECCFA', color: '#00161C' }}
+            >
+              <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Sincronizando…' : 'Sincronizar todo ahora'}
+            </button>
+            <button
+              onClick={disconnect}
+              className="rounded-lg px-4 py-2 font-semibold text-sm w-fit"
+              style={{ background: 'transparent', color: '#F87171', border: '1px solid #F87171' }}
+            >
+              Desconectar
+            </button>
+          </>
+        ) : (
+          <a
+            href="/api/google/connect"
+            className="rounded-lg px-4 py-2 font-semibold text-sm w-fit inline-block"
+            style={{ background: '#5ECCFA', color: '#00161C' }}
+          >
+            Conectar Google Calendar
+          </a>
+        )}
+      </div>
     </Card>
   );
 }
