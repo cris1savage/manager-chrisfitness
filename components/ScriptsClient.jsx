@@ -5,10 +5,9 @@ import { Plus, Trash2, FileText, X, Download, Film, Pencil, Check, Bold, Heading
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
-import { SCRIPT_STATUSES, PRODUCTION_STATUSES, todayISO } from '@/lib/config';
+import { SCRIPT_STATUSES, SCRIPT_STATUS_COLORS, PRODUCTION_STATUSES, todayISO } from '@/lib/config';
 import { useCategories } from '@/components/CategoriesProvider';
 
-const STATUS_COLORS = { Borrador: '#7C878B', Listo: '#FBBF24', Grabado: '#4ADE80' };
 const SCHEDULABLE = ['Editado', 'Programado'];
 
 /* ---------------------------------------------------------------------- */
@@ -513,6 +512,8 @@ export default function ScriptsClient() {
   const [statusFilter, setStatusFilter] = useState('Todos');
   const [openId, setOpenId] = useState(null);
   const [draft, setDraft] = useState({});
+  const emptyQuickForm = { title: '', category: 'General', status: 'Idea' };
+  const [quickForm, setQuickForm] = useState(emptyQuickForm);
 
   const load = async () => {
     const { data } = await supabase.from('scripts').select('*').order('updated_at', { ascending: false });
@@ -535,18 +536,18 @@ export default function ScriptsClient() {
     return ['Todas', ...Array.from(set)];
   }, [scripts]);
 
-  const createNew = async () => {
+  const quickAdd = async () => {
+    if (!quickForm.title.trim()) return;
     const { data: userData } = await supabase.auth.getUser();
-    const { data } = await supabase
-      .from('scripts')
-      .insert({ title: 'Nuevo guion', category: 'General', content: '', status: 'Borrador', created_by: userData.user.id })
-      .select()
-      .single();
-    if (data) {
-      setOpenId(data.id);
-      setDraft(data);
-      load();
-    }
+    await supabase.from('scripts').insert({
+      title: quickForm.title.trim(),
+      category: quickForm.category || 'General',
+      content: '',
+      status: quickForm.status,
+      created_by: userData.user.id,
+    });
+    setQuickForm(emptyQuickForm);
+    load();
   };
 
   const openEditor = (s) => {
@@ -629,15 +630,49 @@ export default function ScriptsClient() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h2 className="font-display text-ink text-[22px] tracking-wide">GUIONES</h2>
-          <div className="text-muted text-xs">Biblioteca de guiones para grabar. Tú y Ana podéis leer y corregir. Toca un guion para abrirlo.</div>
+      <div>
+        <h2 className="font-display text-ink text-[22px] tracking-wide">GUIONES</h2>
+        <div className="text-muted text-xs">
+          Desde una idea suelta hasta el guion grabado, todo en un sitio. Tú y Ana podéis leer y corregir. Toca uno para abrirlo y escribir.
         </div>
-        <button onClick={createNew} className="rounded-lg px-3 py-2 flex items-center gap-1 font-semibold text-sm bg-cyan text-[#00161C] shrink-0">
-          <Plus size={16} /> Nuevo guion
-        </button>
       </div>
+
+      <Card className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-end sm:flex-wrap">
+          <div className="w-full sm:flex-1 sm:min-w-[180px]">
+            <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Título / idea</div>
+            <input
+              value={quickForm.title}
+              onChange={(e) => setQuickForm({ ...quickForm, title: e.target.value })}
+              onKeyDown={(e) => e.key === 'Enter' && quickAdd()}
+              placeholder="Ej. 3 errores al hacer déficit calórico"
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
+            />
+          </div>
+          <div className="w-full sm:flex-1 sm:min-w-[140px]">
+            <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Categoría</div>
+            <input
+              value={quickForm.category}
+              onChange={(e) => setQuickForm({ ...quickForm, category: e.target.value })}
+              placeholder="Ej. Pierna, Octubre..."
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
+            />
+          </div>
+          <div className="w-full sm:flex-1 sm:min-w-[140px]">
+            <div className="text-muted text-[10.5px] mb-1 uppercase tracking-wide">Etapa</div>
+            <select
+              value={quickForm.status}
+              onChange={(e) => setQuickForm({ ...quickForm, status: e.target.value })}
+              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-sm w-full outline-none focus:border-cyan"
+            >
+              {SCRIPT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <button onClick={quickAdd} className="rounded-lg px-3 py-2 flex items-center justify-center gap-1 font-semibold text-sm bg-cyan text-[#00161C] shrink-0 w-full sm:w-auto">
+            <Plus size={16} /> Añadir
+          </button>
+        </div>
+      </Card>
 
       <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex gap-1.5" style={{ minWidth: 'max-content' }}>
@@ -666,9 +701,9 @@ export default function ScriptsClient() {
               onClick={() => setStatusFilter(s)}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0"
               style={{
-                background: statusFilter === s ? `${STATUS_COLORS[s] || '#5ECCFA'}22` : 'transparent',
-                border: `1px solid ${statusFilter === s ? (STATUS_COLORS[s] || '#5ECCFA') : '#212729'}`,
-                color: statusFilter === s ? (STATUS_COLORS[s] || '#5ECCFA') : '#7C878B',
+                background: statusFilter === s ? `${SCRIPT_STATUS_COLORS[s] || '#5ECCFA'}22` : 'transparent',
+                border: `1px solid ${statusFilter === s ? (SCRIPT_STATUS_COLORS[s] || '#5ECCFA') : '#212729'}`,
+                color: statusFilter === s ? (SCRIPT_STATUS_COLORS[s] || '#5ECCFA') : '#7C878B',
               }}
             >
               {s}
@@ -712,7 +747,7 @@ export default function ScriptsClient() {
             <div className="flex items-center justify-between">
               <span
                 className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded"
-                style={{ background: `${STATUS_COLORS[s.status]}22`, color: STATUS_COLORS[s.status] }}
+                style={{ background: `${SCRIPT_STATUS_COLORS[s.status]}22`, color: SCRIPT_STATUS_COLORS[s.status] }}
               >
                 {s.status}
               </span>

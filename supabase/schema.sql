@@ -559,6 +559,122 @@ alter table public.ad_spend add column if not exists clicks bigint;
 alter table public.ad_spend add column if not exists ctr numeric;
 
 -- ---------------------------------------------------------------------------
+-- HISTORIAL MENSUAL
+-- Una fila por mes con los números clave (gasto en ads, altas, ventas,
+-- facturación, contenido subido, tareas cumplidas). El aviso diario ya
+-- programado actualiza el mes en curso cada día; en cuanto cambia de mes,
+-- esa fila queda congelada como historial — nunca se reescribe sola.
+-- ---------------------------------------------------------------------------
+create table if not exists public.monthly_history (
+  month text primary key, -- 'YYYY-MM'
+  ad_spend numeric not null default 0,
+  new_contacts int not null default 0,
+  new_clients int not null default 0,
+  revenue numeric not null default 0,
+  active_clients_count int,
+  content_uploaded int not null default 0,
+  tasks_completed int not null default 0,
+  updated_at timestamptz not null default now()
+);
+alter table public.monthly_history enable row level security;
+drop policy if exists "monthly_history_full_access_authenticated" on public.monthly_history;
+create policy "monthly_history_full_access_authenticated" on public.monthly_history for all to authenticated using (true) with check (true);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.monthly_history;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- Relleno único de los últimos 12 meses con datos reales ya existentes
+-- (gasto en ads reconstruido por solape de fechas, altas/ventas/contenido/
+-- tareas por su fecha real). No se pierde nada al volver a pegar esto: solo
+-- rellena meses que todavía no tengan fila (on conflict do nothing).
+insert into public.monthly_history (month, ad_spend, new_contacts, new_clients, revenue, content_uploaded, tasks_completed)
+select
+  to_char(m, 'YYYY-MM'),
+  coalesce((
+    select sum(greatest(0, (least(coalesce(a.paused_at, current_date), (m + interval '1 month - 1 day')::date) - greatest(a.start_date, m::date) + 1)) * a.daily_amount)
+    from public.ad_spend a
+    where a.start_date <= (m + interval '1 month - 1 day')::date
+      and coalesce(a.paused_at, current_date) >= m::date
+  ), 0),
+  (select count(*) from public.contacts c where c.created_at >= m and c.created_at < (m + interval '1 month')),
+  (select count(*) from public.contacts c where c.stage = 'Cliente' and c.stage_updated_at >= m and c.stage_updated_at < (m + interval '1 month')),
+  coalesce((select sum(c.amount) from public.contacts c where c.stage = 'Cliente' and c.stage_updated_at >= m and c.stage_updated_at < (m + interval '1 month')), 0),
+  coalesce((select count(*) from public.calendar_entries ce where ce.status = 'hecho' and ce.script_id is null and ce.date >= m::date and ce.date < (m + interval '1 month')::date), 0)
+    + coalesce((select count(*) from public.videos v where v.uploaded and v.uploaded_at >= m and v.uploaded_at < (m + interval '1 month')), 0),
+  coalesce((select count(*) from public.tasks t where t.completed_at >= m and t.completed_at < (m + interval '1 month')), 0)
+from generate_series(date_trunc('month', current_date) - interval '11 months', date_trunc('month', current_date), interval '1 month') as m
+on conflict (month) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- HISTORIAL SEMANAL
+-- Apartado aparte del mensual, a propósito (corto plazo vs. largo plazo).
+-- Semana de lunes a domingo. El mismo aviso diario actualiza la semana en
+-- curso cada día; al cambiar de semana, queda congelada como historial.
+-- ---------------------------------------------------------------------------
+create table if not exists public.weekly_history (
+  week_start date primary key, -- lunes de esa semana
+  ad_spend numeric not null default 0,
+  new_contacts int not null default 0,
+  new_clients int not null default 0,
+  revenue numeric not null default 0,
+  updated_at timestamptz not null default now()
+);
+alter table public.weekly_history enable row level security;
+drop policy if exists "weekly_history_full_access_authenticated" on public.weekly_history;
+create policy "weekly_history_full_access_authenticated" on public.weekly_history for all to authenticated using (true) with check (true);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.weekly_history;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- Relleno único de las últimas 12 semanas con datos reales ya existentes.
+insert into public.weekly_history (week_start, ad_spend, new_contacts, new_clients, revenue)
+select
+  w::date,
+  coalesce((
+    select sum(greatest(0, (least(coalesce(a.paused_at, current_date), (w + interval '6 days')::date) - greatest(a.start_date, w::date) + 1)) * a.daily_amount)
+    from public.ad_spend a
+    where a.start_date <= (w + interval '6 days')::date
+      and coalesce(a.paused_at, current_date) >= w::date
+  ), 0),
+  (select count(*) from public.contacts c where c.created_at >= w and c.created_at < (w + interval '7 days')),
+  (select count(*) from public.contacts c where c.stage = 'Cliente' and c.stage_updated_at >= w and c.stage_updated_at < (w + interval '7 days')),
+  coalesce((select sum(c.amount) from public.contacts c where c.stage = 'Cliente' and c.stage_updated_at >= w and c.stage_updated_at < (w + interval '7 days')), 0)
+from generate_series(
+  date_trunc('week', current_date) - interval '11 weeks',
+  date_trunc('week', current_date),
+  interval '1 week'
+) as w
+on conflict (week_start) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- GUIONES: se fusiona el Banco de ideas en el propio flujo de Guiones.
+-- Una idea ya no es una tabla y página aparte — es simplemente un guion en
+-- su primera etapa. Etapas: Idea -> Borrador -> Listo -> Grabado.
+-- ---------------------------------------------------------------------------
+alter table public.scripts add column if not exists migrated_from_idea_id uuid;
+
+insert into public.scripts (created_by, title, category, content, status, migrated_from_idea_id, created_at, updated_at)
+select
+  ci.created_by,
+  ci.title,
+  case ci.type when 'reel' then 'Reel' when 'video' then 'Video' when 'historia' then 'Historia' else 'General' end,
+  coalesce(ci.notes, ''),
+  case when ci.used then 'Grabado' else 'Idea' end,
+  ci.id,
+  ci.created_at,
+  ci.created_at
+from public.content_ideas ci
+where not exists (select 1 from public.scripts s where s.migrated_from_idea_id = ci.id);
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto

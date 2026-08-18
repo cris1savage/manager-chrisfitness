@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
-// Se ejecuta una vez al día (ver vercel.json). Primero genera las tareas de
-// hoy a partir de las rutinas activas (task_templates), y después manda a
-// cada cuenta un único aviso con sus tareas pendientes de los próximos
-// 3-4 días. Nada compartido: cada uno solo ve las suyas.
+// Se ejecuta una vez al día (ver vercel.json). Genera las tareas de hoy a
+// partir de las rutinas activas (task_templates), actualiza el histórico
+// del mes en curso (Historial mensual), y manda a cada cuenta un único
+// aviso con sus tareas pendientes de los próximos 3-4 días. Nada
+// compartido: cada uno solo ve las suyas.
 
 export async function GET(request) {
   const authHeader = request.headers.get('authorization');
@@ -64,6 +65,84 @@ export async function GET(request) {
     }
   }
 
+  // --- Actualizar el histórico del mes en curso (siempre, aunque no haya tareas que avisar) ---
+  const monthKey = todayISO.slice(0, 7);
+  const monthStart = `${monthKey}-01`;
+  const nextMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1)).toISOString();
+
+  const [adSpendRows, contactsRows, calendarRows, videosRows, tasksCompletedRows, activeClientsRows] = await Promise.all([
+    supabase.from('ad_spend').select('start_date, daily_amount, paused_at'),
+    supabase.from('contacts').select('created_at, stage, stage_updated_at, amount'),
+    supabase.from('calendar_entries').select('status, date, script_id'),
+    supabase.from('videos').select('uploaded, uploaded_at'),
+    supabase.from('tasks').select('completed_at').gte('completed_at', `${monthStart}T00:00:00Z`).lt('completed_at', nextMonthStart),
+    supabase.from('active_clients').select('status').eq('status', 'Activo'),
+  ]);
+
+  const daysBetween = (a, b) => Math.max(0, Math.floor((new Date(b) - new Date(a)) / 86400000));
+  const monthEndISO = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  const adSpendThisMonth = (adSpendRows.data || []).reduce((sum, ad) => {
+    const from = ad.start_date > monthStart ? ad.start_date : monthStart;
+    const to = (ad.paused_at || todayISO) < monthEndISO ? (ad.paused_at || todayISO) : monthEndISO;
+    if (to < from) return sum;
+    return sum + (daysBetween(from, to) + 1) * (Number(ad.daily_amount) || 0);
+  }, 0);
+
+  const contactsThisMonth = (contactsRows.data || []).filter((c) => c.created_at.slice(0, 7) === monthKey);
+  const clientsThisMonth = (contactsRows.data || []).filter((c) => c.stage === 'Cliente' && c.stage_updated_at.slice(0, 7) === monthKey);
+  const revenueThisMonth = clientsThisMonth.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  const contentFromCalendar = (calendarRows.data || []).filter((e) => e.status === 'hecho' && !e.script_id && e.date.slice(0, 7) === monthKey).length;
+  const contentFromVideos = (videosRows.data || []).filter((v) => v.uploaded && v.uploaded_at && v.uploaded_at.slice(0, 7) === monthKey).length;
+
+  await supabase.from('monthly_history').upsert(
+    {
+      month: monthKey,
+      ad_spend: Math.round(adSpendThisMonth * 100) / 100,
+      new_contacts: contactsThisMonth.length,
+      new_clients: clientsThisMonth.length,
+      revenue: revenueThisMonth,
+      active_clients_count: (activeClientsRows.data || []).length,
+      content_uploaded: contentFromCalendar + contentFromVideos,
+      tasks_completed: (tasksCompletedRows.data || []).length,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'month' }
+  );
+
+  // --- Actualizar el histórico de la semana en curso (lunes a domingo) ---
+  const weekStartDate = new Date(today);
+  const weekday = (weekStartDate.getUTCDay() + 6) % 7; // 0 = lunes
+  weekStartDate.setUTCDate(weekStartDate.getUTCDate() - weekday);
+  const weekStartISO = weekStartDate.toISOString().slice(0, 10);
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setUTCDate(weekEndDate.getUTCDate() + 6);
+  const weekEndISO = weekEndDate.toISOString().slice(0, 10);
+
+  const adSpendThisWeek = (adSpendRows.data || []).reduce((sum, ad) => {
+    const from = ad.start_date > weekStartISO ? ad.start_date : weekStartISO;
+    const to = (ad.paused_at || todayISO) < weekEndISO ? (ad.paused_at || todayISO) : weekEndISO;
+    if (to < from) return sum;
+    return sum + (daysBetween(from, to) + 1) * (Number(ad.daily_amount) || 0);
+  }, 0);
+
+  const contactsThisWeek = (contactsRows.data || []).filter((c) => c.created_at.slice(0, 10) >= weekStartISO && c.created_at.slice(0, 10) <= weekEndISO);
+  const clientsThisWeek = (contactsRows.data || []).filter(
+    (c) => c.stage === 'Cliente' && c.stage_updated_at.slice(0, 10) >= weekStartISO && c.stage_updated_at.slice(0, 10) <= weekEndISO
+  );
+  const revenueThisWeek = clientsThisWeek.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+
+  await supabase.from('weekly_history').upsert(
+    {
+      week_start: weekStartISO,
+      ad_spend: Math.round(adSpendThisWeek * 100) / 100,
+      new_contacts: contactsThisWeek.length,
+      new_clients: clientsThisWeek.length,
+      revenue: revenueThisWeek,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'week_start' }
+  );
+
   const { data: tasks, error: tasksErr } = await supabase
     .from('tasks')
     .select('*')
@@ -73,7 +152,7 @@ export async function GET(request) {
     .lte('due_date', windowEnd);
 
   if (tasksErr) return NextResponse.json({ error: tasksErr.message }, { status: 500 });
-  if (!tasks || tasks.length === 0) return NextResponse.json({ sent: 0, generated, reason: 'Sin tareas en los próximos días' });
+  if (!tasks || tasks.length === 0) return NextResponse.json({ sent: 0, generated, monthSnapshot: monthKey, reason: 'Sin tareas en los próximos días' });
 
   const byUser = {};
   tasks.forEach((t) => {
@@ -123,5 +202,5 @@ export async function GET(request) {
     }
   }
 
-  return NextResponse.json({ sent, removedStale, generated });
+  return NextResponse.json({ sent, removedStale, generated, monthSnapshot: monthKey });
 }

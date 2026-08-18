@@ -7,6 +7,34 @@ sonará.
 
 ## Novedades de este ajuste (la más reciente)
 
+- **Guiones fusionado con Banco de ideas**: ya no son dos secciones
+  separadas. Ahora Guiones tiene 4 etapas — Idea → Borrador → Listo →
+  Grabado — y se añade igual que Contactos (formulario rápido arriba,
+  pestañas por etapa). Una idea suelta es simplemente un guion en su
+  primera etapa; lo abres cuando quieras escribirlo de verdad. El Banco de
+  ideas antiguo se migra solo la primera vez que pegues el `schema.sql`
+  (nada se pierde, tus ideas pasan a ser guiones en etapa "Idea").
+- **Historial semanal** (`/historial-semanal`), aparte del mensual a
+  propósito: inversión en ads, altas y facturación semana a semana, para
+  el pulso a corto plazo. El mensual sigue siendo el de referencia para
+  tendencias reales — el semanal es más ruidoso por diseño, úsalo para
+  "¿cómo voy esta semana?", no para sacar conclusiones grandes.
+
+## Novedades de este ajuste (la más reciente)
+
+- **Historial mensual** (`/historial`): un resumen automático de cada mes
+  (inversión en ads, contactos nuevos, clientes nuevos, facturación,
+  beneficio, clientes activos, contenido subido, tareas cumplidas), con un
+  gráfico comparando facturación vs. inversión y el % de cambio respecto al
+  mes anterior. Se actualiza solo cada día vía el mismo aviso diario que ya
+  tenías — el mes en curso se ve marcado como "En curso" y en cuanto cambia
+  de mes, esa fila queda congelada como historial para siempre.
+  Al pegar el `schema.sql`, se rellenan también los últimos 12 meses con
+  datos reales que ya tenías (inversión reconstruida por fechas, altas,
+  ventas, contenido, tareas — todo a partir de fechas reales ya guardadas).
+
+## Novedades de este ajuste (la más reciente)
+
 - **Bug arreglado (importante)**: `schema.sql` tenía dos instrucciones que
   borraban y recreaban las tablas de **Anuncios** y **Objetivos** enteras
   cada vez que se volvía a pegar el archivo — eran de cuando cambiamos su
