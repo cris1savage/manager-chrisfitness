@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { todayISO, dateToISO } from '@/lib/config';
 import { useCategories } from '@/components/CategoriesProvider';
 import CategoriesManager from '@/components/CategoriesManager';
+import { syncToGoogle } from '@/lib/googleSync';
 
 function startOfWeek(d) {
   const x = new Date(d);
@@ -218,19 +219,23 @@ export default function CalendarClient() {
 
   const add = async (entry) => {
     const { data: userData } = await supabase.auth.getUser();
-    await supabase.from('calendar_entries').insert({ ...entry, created_by: userData.user.id });
+    const { data } = await supabase.from('calendar_entries').insert({ ...entry, created_by: userData.user.id }).select().single();
     load();
+    if (data) syncToGoogle(data.id, 'upsert');
   };
   const update = async (id, patch) => {
     await supabase.from('calendar_entries').update(patch).eq('id', id);
     load();
+    syncToGoogle(id, 'upsert');
   };
   const toggle = async (entry) => {
     const nextStatus = entry.status === 'hecho' ? 'pendiente' : 'hecho';
     await supabase.from('calendar_entries').update({ status: nextStatus }).eq('id', entry.id);
     load();
+    syncToGoogle(entry.id, 'upsert');
   };
   const del = async (id) => {
+    await syncToGoogle(id, 'delete');
     await supabase.from('calendar_entries').delete().eq('id', id);
     load();
   };

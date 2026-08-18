@@ -7,6 +7,16 @@ sonará.
 
 ## Novedades de este ajuste (la más reciente)
 
+- **Sincronización con Google Calendar**: lo que se programa en el
+  Calendario del panel (crear, editar, borrar) se sincroniza solo con el
+  Google Calendar de cada cuenta conectada. Cada uno conecta el suyo desde
+  Cuenta y Seguridad → Google Calendar. Ver la sección "Google Calendar"
+  más abajo para la configuración (requiere un proyecto en Google Cloud,
+  más sencillo que lo de Meta porque no hace falta pasar revisión para
+  solo 2 usuarios).
+
+## Novedades de este ajuste (la más reciente)
+
 - **Bug arreglado en Guiones**: el editor de texto no tenía forma de quitar
   un título o negrita una vez aplicados — había que borrar y reescribir.
   Añadido un botón "Aa" en la barra de formato que quita el formato del
@@ -390,6 +400,46 @@ consumo real en console.anthropic.com → Usage.
 (✨) junto al de notas. Pegas lo que te ha escrito esa persona y te da 3
 respuestas distintas, usando como contexto el nombre, la etapa, el origen y
 las notas guardadas de esa ficha.
+
+## 8. Google Calendar (opcional)
+
+Más sencillo que lo de Meta Ads: para una app de uso interno con pocas
+cuentas, Google no exige pasar por su proceso largo de verificación — basta
+con dejarla en modo "Prueba" y añadir vuestros emails como usuarios de prueba.
+
+1. Ve a **console.cloud.google.com** → crea un proyecto nuevo (o usa uno
+   existente) → dale un nombre, ej. "Chris Fitness Panel".
+2. Menú → **APIs y servicios** → **Biblioteca** → busca "Google Calendar
+   API" → **Habilitar**.
+3. Menú → **APIs y servicios** → **Pantalla de consentimiento de OAuth**:
+   - Tipo de usuario: **Externo**
+   - Nombre de la app, tu email de soporte, etc. (lo básico)
+   - En **Público objetivo** / **Estado de publicación**, déjalo en
+     **Prueba** (no lo publiques)
+   - En **Usuarios de prueba**, añade tu email y el de Ana
+4. Menú → **APIs y servicios** → **Credenciales** → **Crear credenciales**
+   → **ID de cliente de OAuth**:
+   - Tipo de aplicación: **Aplicación web**
+   - En **URIs de redireccionamiento autorizados**, añade:
+     `https://TU-DOMINIO/api/google/callback` (con tu dominio real, ej.
+     `https://panel.chrisfitness.online/api/google/callback`)
+   - Copia el **ID de cliente** y el **Secreto del cliente**
+5. En Vercel → Environment Variables, añade:
+   - **`GOOGLE_CLIENT_ID`**: el ID de cliente
+   - **`GOOGLE_CLIENT_SECRET`**: el secreto (márcala como "Sensitive")
+   - **`NEXT_PUBLIC_APP_URL`**: la URL de tu panel ya desplegado, sin barra
+     al final (ej. `https://panel.chrisfitness.online`)
+6. Redeploy.
+
+**Cómo se usa:** cada uno entra en Cuenta y Seguridad → Google Calendar →
+"Conectar Google Calendar", autoriza una vez, y listo. A partir de ahí, todo
+lo que se cree, edite o borre en el Calendario del panel se sincroniza solo
+con su Google Calendar. Si los dos lo conectáis, lo que programa uno
+aparece también en el Google del otro.
+
+⚠️ Como está en modo "Prueba" (no publicada), Google puede pedir reautorizar
+cada 7 días en algunos casos — si un día deja de sincronizar, solo hay que
+volver a pulsar "Conectar" en Cuenta y Seguridad.
 
 ## Novedades de esta versión
 

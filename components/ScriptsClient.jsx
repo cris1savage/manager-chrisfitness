@@ -7,6 +7,7 @@ import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { SCRIPT_STATUSES, SCRIPT_STATUS_COLORS, PRODUCTION_STATUSES, todayISO } from '@/lib/config';
 import { useCategories } from '@/components/CategoriesProvider';
+import { syncToGoogle } from '@/lib/googleSync';
 
 const SCHEDULABLE = ['Editado', 'Programado'];
 
@@ -366,13 +367,17 @@ function ScriptVideos({ scriptId }) {
       .single();
     if (entry) {
       await supabase.from('videos').update({ calendar_entry_id: entry.id, production_status: 'Programado' }).eq('id', v.id);
+      syncToGoogle(entry.id, 'upsert');
     }
     setSchedulingId(null);
     load();
   };
 
   const unscheduleFromCalendar = async (v) => {
-    if (v.calendar_entry_id) await supabase.from('calendar_entries').delete().eq('id', v.calendar_entry_id);
+    if (v.calendar_entry_id) {
+      await syncToGoogle(v.calendar_entry_id, 'delete');
+      await supabase.from('calendar_entries').delete().eq('id', v.calendar_entry_id);
+    }
     await supabase.from('videos').update({ calendar_entry_id: null }).eq('id', v.id);
     load();
   };

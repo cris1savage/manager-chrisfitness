@@ -675,6 +675,38 @@ from public.content_ideas ci
 where not exists (select 1 from public.scripts s where s.migrated_from_idea_id = ci.id);
 
 -- ---------------------------------------------------------------------------
+-- GOOGLE CALENDAR
+-- Cada cuenta conecta su propio Google Calendar. Lo que se programa en el
+-- Calendario del panel se sincroniza solo (creación, edición y borrado),
+-- hacia el Google Calendar de cada cuenta conectada.
+-- ---------------------------------------------------------------------------
+create table if not exists public.google_calendar_connections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade unique not null,
+  access_token text not null,
+  refresh_token text not null,
+  expiry_date bigint,
+  connected_at timestamptz not null default now()
+);
+alter table public.google_calendar_connections enable row level security;
+drop policy if exists "google_calendar_connections_own" on public.google_calendar_connections;
+create policy "google_calendar_connections_own" on public.google_calendar_connections for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Qué evento de Google corresponde a cada entrada del Calendario, por cuenta
+-- (cada persona conectada tiene su propio evento, en su propio calendario).
+create table if not exists public.google_calendar_events (
+  id uuid primary key default gen_random_uuid(),
+  calendar_entry_id uuid references public.calendar_entries(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete cascade,
+  google_event_id text not null,
+  created_at timestamptz not null default now(),
+  unique (calendar_entry_id, user_id)
+);
+alter table public.google_calendar_events enable row level security;
+drop policy if exists "google_calendar_events_full_access_authenticated" on public.google_calendar_events;
+create policy "google_calendar_events_full_access_authenticated" on public.google_calendar_events for all to authenticated using (true) with check (true);
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto

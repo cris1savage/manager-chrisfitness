@@ -6,6 +6,7 @@ import { ShieldCheck, ShieldOff, Trash2, User, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui';
 import PushNotifications from '@/components/PushNotifications';
+import GoogleCalendarConnect from '@/components/GoogleCalendarConnect';
 
 function ProfileCard({ profile, onSaved }) {
   const supabase = useMemo(() => createClient(), []);
@@ -135,6 +136,11 @@ export default function SecurityClient({ profile }) {
         <div className="text-ink font-semibold text-sm mb-3">Notificaciones</div>
       </div>
       <PushNotifications />
+
+      <div className="border-t border-border pt-4">
+        <div className="text-ink font-semibold text-sm mb-3">Google Calendar</div>
+      </div>
+      <GoogleCalendarConnect />
 
       <div className="border-t border-border pt-4">
         <div className="text-ink font-semibold text-sm mb-3">Verificación en dos pasos</div>
