@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 
 // Google vuelve aquí después de que el usuario autoriza. Cambia el código
 // por tokens, y guarda el refresh_token (solo viene la primera vez, con
@@ -9,10 +10,20 @@ export async function GET(request) {
   const { searchParams, origin } = new URL(request.url);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
   const code = searchParams.get('code');
-  const state = searchParams.get('state'); // id del usuario
+  const state = searchParams.get('state'); // id del usuario que inició el flujo
   const error = searchParams.get('error');
 
   if (error || !code || !state) {
+    return NextResponse.redirect(`${appUrl}/seguridad?google=error`);
+  }
+
+  // Nunca te fíes solo del "state": confirma que la sesión real que vuelve
+  // aquí es la misma cuenta que lo inició, no solo lo que diga el parámetro.
+  const sessionClient = createClient();
+  const {
+    data: { user: sessionUser },
+  } = await sessionClient.auth.getUser();
+  if (!sessionUser || sessionUser.id !== state) {
     return NextResponse.redirect(`${appUrl}/seguridad?google=error`);
   }
 

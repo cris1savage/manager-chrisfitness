@@ -55,6 +55,7 @@ export default function GoogleCalendarConnect() {
       const { data: entries } = await supabase.from('calendar_entries').select('id');
       const total = entries?.length || 0;
       let ok = 0;
+      let firstError = null;
       for (const e of entries || []) {
         try {
           const res = await fetch('/api/google/sync-event', {
@@ -63,13 +64,22 @@ export default function GoogleCalendarConnect() {
             body: JSON.stringify({ calendarEntryId: e.id, action: 'upsert' }),
           });
           const data = await res.json();
-          if (data.synced) ok++;
+          if (data.synced > 0) ok++;
+          else if (!firstError && data.error) firstError = data.error;
         } catch {
           // sigue con el siguiente
         }
       }
-      setMsg(`Sincronizados ${ok} de ${total} elementos con Google Calendar.`);
-      setMsgColor(ok === total && total > 0 ? '#4ADE80' : '#FBBF24');
+      if (ok === total && total > 0) {
+        setMsg(`Sincronizados ${ok} de ${total} elementos con Google Calendar.`);
+        setMsgColor('#4ADE80');
+      } else if (firstError) {
+        setMsg(`Sincronizados ${ok} de ${total}. Google respondió con un error, ejemplo: ${firstError}`);
+        setMsgColor('#F87171');
+      } else {
+        setMsg(`Sincronizados ${ok} de ${total} elementos con Google Calendar.`);
+        setMsgColor(total > 0 ? '#FBBF24' : '#7C878B');
+      }
     } catch {
       setMsg('No se pudo completar la sincronización. Inténtalo de nuevo.');
       setMsgColor('#F87171');

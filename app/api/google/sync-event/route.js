@@ -51,6 +51,7 @@ export async function POST(request) {
   }
 
   let synced = 0;
+  let lastError = null;
 
   for (const conn of connections) {
     try {
@@ -64,6 +65,7 @@ export async function POST(request) {
             .update({ access_token: accessToken, expiry_date: Date.now() + (refreshed.expires_in || 3600) * 1000 })
             .eq('id', conn.id);
         } else {
+          lastError = `No se pudo renovar el acceso a Google (${refreshed.error || 'motivo desconocido'}). Puede que haga falta reconectar.`;
           continue; // no se pudo renovar el token de esta cuenta, se salta
         }
       }
@@ -77,13 +79,21 @@ export async function POST(request) {
 
       if (action === 'delete') {
         if (mapping) {
-          await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${mapping.google_event_id}`, {
+          const delRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${mapping.google_event_id}`, {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${accessToken}` },
           });
-          await admin.from('google_calendar_events').delete().eq('id', mapping.id);
+          // 410/404 = ya no existe en Google, lo damos por borrado igualmente
+          if (delRes.ok || delRes.status === 410 || delRes.status === 404) {
+            await admin.from('google_calendar_events').delete().eq('id', mapping.id);
+            synced++;
+          } else {
+            const errText = await delRes.text().catch(() => '');
+            lastError = `Google respondió ${delRes.status} al borrar: ${errText.slice(0, 200)}`;
+          }
+        } else {
+          synced++; // nada que borrar en Google, no es un fallo
         }
-        synced++;
         continue;
       }
 
@@ -99,27 +109,36 @@ export async function POST(request) {
       };
 
       if (mapping) {
-        await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${mapping.google_event_id}`, {
+        const patchRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${mapping.google_event_id}`, {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(eventBody),
         });
+        if (patchRes.ok) {
+          synced++;
+        } else {
+          const errText = await patchRes.text().catch(() => '');
+          lastError = `Google respondió ${patchRes.status} al actualizar: ${errText.slice(0, 200)}`;
+        }
       } else {
         const createRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
           method: 'POST',
           headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify(eventBody),
         });
-        const created = await createRes.json();
-        if (created.id) {
+        const created = await createRes.json().catch(() => ({}));
+        if (createRes.ok && created.id) {
           await admin.from('google_calendar_events').insert({ calendar_entry_id: calendarEntryId, user_id: conn.user_id, google_event_id: created.id });
+          synced++;
+        } else {
+          lastError = `Google respondió ${createRes.status} al crear: ${JSON.stringify(created).slice(0, 200)}`;
         }
       }
-      synced++;
     } catch (e) {
+      lastError = e.message || 'Error desconocido';
       console.error('Error sincronizando con Google para', conn.user_id, e);
     }
   }
 
-  return NextResponse.json({ synced });
+  return NextResponse.json({ synced, total: connections.length, error: lastError || undefined });
 }

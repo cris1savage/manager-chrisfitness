@@ -5,6 +5,40 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Novedades de este ajuste (la más reciente) — revisión de seguridad
+
+- **Next.js actualizado**: de 14.2.15 a **14.2.35** (la última versión
+  parcheada dentro de tu misma rama). Cubre varios fallos conocidos hasta
+  diciembre 2025. Probado con una compilación de producción real antes de
+  dártelo, no solo revisión de sintaxis.
+  - Nota honesta: hay un lote de vulnerabilidades más reciente (julio 2026)
+    que Vercel ya no está parcheando en la rama 14.x, solo en la 15.x/16.x.
+    Pasar a Next 15 es un salto de versión mayor con algunos cambios de
+    código a revisar — no lo he hecho hoy porque merece su propia sesión
+    con más pruebas, pero es la mejora pendiente más importante a medio
+    plazo. La vulnerabilidad más grave de tu versión actual (bypass de
+    autenticación en middleware, CVE-2025-29927) ya está mitigada
+    automáticamente por estar desplegado en Vercel.
+- **⚠️ Claves rotadas**: `.env.local.example` tenía valores REALES de
+  `VAPID_PRIVATE_KEY` y `CRON_SECRET` en vez de texto de relleno — un fallo
+  mío de cuando lo generé. Como ese archivo se sube a GitHub, esas claves
+  deben darse por expuestas. Te generé unas nuevas (te las pasé en el
+  chat) — tienes que actualizarlas en Vercel y volver a desplegar. El
+  archivo de ejemplo ya solo tiene placeholders, nunca más valores reales.
+- **Fallo corregido en el login de Google Calendar**: el callback confiaba
+  en el parámetro `state` sin comprobar que la sesión que completaba el
+  proceso fuera realmente esa misma cuenta. Riesgo bajo en la práctica (los
+  IDs de usuario son UUID prácticamente imposibles de adivinar), pero
+  corregido para no depender solo de eso.
+- **Revisado y todo correcto**: ninguna clave real filtrada en el código,
+  ningún componente de navegador toca variables privadas del servidor,
+  cada ruta del servidor comprueba usuario o clave secreta antes de hacer
+  nada, las tablas de tokens (Google, notificaciones) están bloqueadas por
+  fila — ni Ana puede leer tus tokens aunque quisiera —, `.env.local` (tus
+  claves reales) nunca se sube a GitHub, y el único uso de HTML "crudo" en
+  toda la app es el código QR del 2FA, que viene de Supabase, no de nada
+  que nadie escriba.
+
 ## Novedades de este ajuste (la más reciente)
 
 - **Sincronización con Google Calendar**: lo que se programa en el
