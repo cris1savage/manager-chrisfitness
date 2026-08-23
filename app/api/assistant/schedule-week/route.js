@@ -46,11 +46,17 @@ export async function POST(request) {
     ...(tasksRes.data || []).filter((t) => t.due_time).map((t) => `- ${t.due_date} ${t.due_time.slice(0, 5)}${t.duration_minutes ? ` (${t.duration_minutes} min)` : ''}: ${t.title}`),
     ...(calendarRes.data || []).map((c) => `- ${c.date} (todo el día, contenido programado): ${c.title}`),
   ];
+  // No dejar que el contexto de "ya ocupado" crezca sin límite — con meses
+  // de uso puede haber cientos de líneas, y eso solo estorba al modelo.
+  const MAX_BUSY_LINES = 40;
+  const busyLinesCapped = busyLines.slice(0, MAX_BUSY_LINES);
+  const busyExtra = busyLines.length - busyLinesCapped.length;
+  if (busyExtra > 0) busyLinesCapped.push(`(+ ${busyExtra} más, ya no cabían aquí)`);
 
   const userPrompt = `Semana: del ${weekStart} al ${weekEnd}.
 
 Ya ocupado esta semana:
-${busyLines.length ? busyLines.join('\n') : '(nada todavía)'}
+${busyLinesCapped.length ? busyLinesCapped.join('\n') : '(nada todavía)'}
 
 Lo que necesito organizar esta semana:
 """
@@ -79,8 +85,24 @@ ${requestText.trim()}
     }
 
     const data = await res.json();
+
+    if (data.type === 'error') {
+      return NextResponse.json({ error: `Error de la API de IA: ${data.error?.message || JSON.stringify(data).slice(0, 200)}` }, { status: 500 });
+    }
+
     const textBlock = (data.content || []).find((c) => c.type === 'text');
     const rawText = textBlock?.text || '';
+
+    if (!rawText) {
+      // Diagnóstico real en vez de un mensaje vacío: por qué no hay texto.
+      const reason = data.stop_reason || 'desconocido';
+      const dump = JSON.stringify(data).slice(0, 300);
+      return NextResponse.json(
+        { error: `La IA no devolvió texto (motivo: ${reason}). Prueba con una descripción más corta. Detalle: ${dump}` },
+        { status: 500 }
+      );
+    }
+
     let parsed;
     try {
       const cleaned = rawText.replace(/```json|```/g, '').trim();
@@ -98,7 +120,7 @@ ${requestText.trim()}
         }
       } catch {
         return NextResponse.json(
-          { error: `La IA respondió en un formato inesperado. Prueba con una descripción más corta, o inténtalo de nuevo. (${rawText.slice(0, 120)}...)` },
+          { error: `La IA respondió en un formato inesperado (motivo: ${data.stop_reason || 'desconocido'}). Prueba con una descripción más corta, o inténtalo de nuevo. Texto recibido: "${rawText.slice(0, 150)}"` },
           { status: 500 }
         );
       }
