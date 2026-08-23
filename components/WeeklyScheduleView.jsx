@@ -83,8 +83,18 @@ export default function WeeklyScheduleView() {
         body: JSON.stringify({ requestText, weekStart: weekStartISO, weekEnd: weekEndISO }),
       });
       const data = await res.json();
-      if (!res.ok) setAiError(data.error || 'Algo falló.');
-      else setProposal((data.items || []).map((it, i) => ({ ...it, _id: i })));
+      if (!res.ok) {
+        setAiError(data.error || 'Algo falló.');
+      } else {
+        const todayISO = dateToISO(new Date());
+        const items = data.items || [];
+        const valid = items.filter((it) => it.date >= todayISO);
+        const dropped = items.length - valid.length;
+        setProposal(valid.map((it, i) => ({ ...it, _id: i })));
+        if (dropped > 0) {
+          setAiError(`Se descartaron ${dropped} elemento(s) que la IA propuso en fechas ya pasadas.`);
+        }
+      }
     } catch {
       setAiError('No se pudo conectar. Inténtalo de nuevo.');
     }

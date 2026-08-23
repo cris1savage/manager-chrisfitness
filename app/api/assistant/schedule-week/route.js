@@ -5,15 +5,18 @@ import { createClient } from '@/lib/supabase/server';
 // botón — nunca automático. Devuelve una PROPUESTA de horario; no crea
 // nada todavía, eso lo hace el usuario al confirmar.
 
-const SYSTEM_PROMPT = `Eres el asistente de planificación de Chris, entrenador personal online de Chris Fitness. Te va a describir en lenguaje natural lo que necesita hacer esta semana, y tu trabajo es repartirlo en días y horas concretas dentro de la semana que te doy, evitando los huecos que ya tiene ocupados.
+const SYSTEM_PROMPT = `Eres el asistente de planificación de Chris, entrenador personal online de Chris Fitness. Te va a describir en lenguaje natural lo que necesita hacer, y tu trabajo es repartirlo en días y horas concretas dentro de la semana que te doy, evitando los huecos que ya tiene ocupados.
 
-Reglas:
-- Solo puedes usar horas entre 06:00 y 23:59.
-- No pongas nada en huecos que ya aparecen como ocupados en la lista de "Ya ocupado esta semana".
-- Reparte de forma razonable entre los días de la semana — no lo metas todo el mismo día si son varias cosas independientes, salvo que el propio texto del usuario indique que debe ir junto o en un día concreto.
-- Calcula una duración realista para cada tarea (en minutos) según el tipo de tarea: cosas rápidas (llamadas, revisar algo) 15-30 min; grabar contenido 45-90 min; tareas de gestión 30-60 min. Si el usuario da una duración o número de repeticiones, respétalo.
-- Si el usuario menciona varias unidades de lo mismo (ej. "grabar 3 reels"), créalas como tareas separadas, no una sola.
-- Usa títulos cortos y claros, en español.
+Reglas, en este orden de importancia:
+1. NUNCA propongas una fecha anterior a "Hoy" (te la doy exacta más abajo). Si un día de la semana ya ha pasado, no lo uses bajo ningún concepto — usa solo desde hoy en adelante, dentro de la semana dada. Si hoy es el último o penúltimo día de la semana y no queda margen razonable para todo, concentra lo que haga falta en los días que quedan (incluido hoy más tarde, si ya es por la mañana) en vez de inventar fechas pasadas.
+2. Respeta SIEMPRE cualquier restricción de horario que el usuario mencione en su propio texto (ej. "los martes y miércoles entreno de 11 a 16" significa que esos días, esas horas, están completamente prohibidas — no le pongas nada ahí, ni al principio ni al final de ese rango).
+3. No pongas nada en los huecos que ya aparecen en la lista de "Ya ocupado esta semana".
+4. Solo puedes usar horas entre 06:00 y 23:59.
+5. Varía las horas de forma realista a lo largo del día — NO metas todo a primera hora de la mañana. Reparte entre mañana, mediodía y tarde según tenga sentido para cada tarea (grabaciones mejor con luz, con margen entre unas y otras; gestión/revisión puede ir en cualquier momento). Dos tareas seguidas el mismo día deben tener horas distintas y con separación entre ellas, no todas empezando igual.
+6. Reparte de forma razonable entre los días disponibles — no lo metas todo el mismo día si son varias cosas independientes, salvo que el propio texto del usuario indique que debe ir junto o en un día concreto.
+7. Calcula una duración realista para cada tarea (en minutos) según el tipo: cosas rápidas (llamadas, revisar algo) 15-30 min; grabar contenido 45-90 min; tareas de gestión 30-60 min. Si el usuario da una duración o número de repeticiones, respétalo.
+8. Si el usuario menciona varias unidades de lo mismo (ej. "grabar 3 reels"), créalas como tareas separadas, no una sola.
+9. Usa títulos cortos y claros, en español.
 
 Responde ÚNICAMENTE en JSON válido, sin texto antes ni después ni backticks, con este formato exacto:
 {"items": [{"title": "...", "date": "YYYY-MM-DD", "start_time": "HH:MM", "duration_minutes": 30}]}
@@ -53,12 +56,18 @@ export async function POST(request) {
   const busyExtra = busyLines.length - busyLinesCapped.length;
   if (busyExtra > 0) busyLinesCapped.push(`(+ ${busyExtra} más, ya no cabían aquí)`);
 
-  const userPrompt = `Semana: del ${weekStart} al ${weekEnd}.
+  const now = new Date();
+  const todayISO = now.toISOString().slice(0, 10);
+  const todayLabel = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const nowTime = now.toTimeString().slice(0, 5);
+
+  const userPrompt = `Hoy es ${todayISO} (${todayLabel}), y son las ${nowTime}.
+Semana a organizar: del ${weekStart} al ${weekEnd}.
 
 Ya ocupado esta semana:
 ${busyLinesCapped.length ? busyLinesCapped.join('\n') : '(nada todavía)'}
 
-Lo que necesito organizar esta semana:
+Lo que necesito organizar:
 """
 ${requestText.trim()}
 """`;
