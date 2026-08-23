@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { todayISO } from '@/lib/config';
+import WeeklyScheduleView from '@/components/WeeklyScheduleView';
 
 const WEEKDAYS = [
   { v: 1, l: 'Lunes' }, { v: 2, l: 'Martes' }, { v: 3, l: 'Miércoles' }, { v: 4, l: 'Jueves' },
@@ -159,6 +160,7 @@ export default function TasksClient() {
   const [dueTime, setDueTime] = useState('');
   const [meId, setMeId] = useState(null);
   const [view, setView] = useState('mias'); // mias | todas
+  const [layout, setLayout] = useState('lista'); // lista | semana
 
   const profileList = Object.values(profiles || {});
 
@@ -220,20 +222,40 @@ export default function TasksClient() {
           <h2 className="font-display text-ink text-[22px] tracking-wide">TAREAS ASIGNADAS</h2>
           <div className="text-muted text-xs">Reparte el trabajo de la semana entre las dos cuentas.</div>
         </div>
-        <div className="flex rounded-lg overflow-hidden border border-border shrink-0">
-          {[{ k: 'mias', l: 'Mis tareas' }, { k: 'todas', l: 'Todas' }].map(({ k, l }) => (
-            <button
-              key={k}
-              onClick={() => setView(k)}
-              className="px-3 py-1.5 text-xs font-semibold"
-              style={{ background: view === k ? '#5ECCFA' : 'transparent', color: view === k ? '#00161C' : '#7C878B' }}
-            >
-              {l}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex rounded-lg overflow-hidden border border-border shrink-0">
+            {[{ k: 'lista', l: 'Lista' }, { k: 'semana', l: 'Semana' }].map(({ k, l }) => (
+              <button
+                key={k}
+                onClick={() => setLayout(k)}
+                className="px-3 py-1.5 text-xs font-semibold"
+                style={{ background: layout === k ? '#4ADE80' : 'transparent', color: layout === k ? '#00220C' : '#7C878B' }}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          {layout === 'lista' && (
+            <div className="flex rounded-lg overflow-hidden border border-border shrink-0">
+              {[{ k: 'mias', l: 'Mis tareas' }, { k: 'todas', l: 'Todas' }].map(({ k, l }) => (
+                <button
+                  key={k}
+                  onClick={() => setView(k)}
+                  className="px-3 py-1.5 text-xs font-semibold"
+                  style={{ background: view === k ? '#5ECCFA' : 'transparent', color: view === k ? '#00161C' : '#7C878B' }}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
+      {layout === 'semana' ? (
+        <WeeklyScheduleView />
+      ) : (
+      <>
       <Card className="space-y-2">
         <input
           value={title}
@@ -335,6 +357,8 @@ export default function TasksClient() {
             </Card>
           ))}
         </div>
+      )}
+      </>
       )}
 
       <div className="border-t border-border pt-4">

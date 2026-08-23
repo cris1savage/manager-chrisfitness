@@ -5,6 +5,17 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Novedades de este ajuste (la más reciente)
+
+- **Organiza tu semana con IA** (en Tareas → pestaña "Semana"): escribes en
+  lenguaje normal lo que necesitas hacer ("grabar 3 reels, llamar a los
+  leads fríos, hacer la compra...") y la IA te propone día y hora para cada
+  cosa, evitando lo que ya tienes ocupado esa semana. Revisas y ajustas
+  antes de confirmar — no se crea nada sin que lo veas primero.
+- **Vista semanal por horas**: las tareas con hora puesta se ven como
+  bloques en una cuadrícula (6:00 a 23:59), igual que un Google Calendar.
+  Las tareas sin hora se ven aparte, arriba de cada día.
+
 ## Novedades de este ajuste (la más reciente) — revisión de seguridad
 
 - **Next.js actualizado**: de 14.2.15 a **14.2.35** (la última versión

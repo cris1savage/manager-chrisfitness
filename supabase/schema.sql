@@ -707,6 +707,12 @@ drop policy if exists "google_calendar_events_full_access_authenticated" on publ
 create policy "google_calendar_events_full_access_authenticated" on public.google_calendar_events for all to authenticated using (true) with check (true);
 
 -- ---------------------------------------------------------------------------
+-- DURACIÓN DE TAREAS
+-- Para la vista semanal por horas — cuánto ocupa cada tarea en el calendario.
+-- ---------------------------------------------------------------------------
+alter table public.tasks add column if not exists duration_minutes int;
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto
