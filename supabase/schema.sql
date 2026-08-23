@@ -706,6 +706,12 @@ alter table public.google_calendar_events enable row level security;
 drop policy if exists "google_calendar_events_full_access_authenticated" on public.google_calendar_events;
 create policy "google_calendar_events_full_access_authenticated" on public.google_calendar_events for all to authenticated using (true) with check (true);
 
+-- Extiende la tabla anterior para que también sirva para Tareas (con hora),
+-- no solo para el Calendario de contenido — mismo mecanismo, misma tabla.
+alter table public.google_calendar_events alter column calendar_entry_id drop not null;
+alter table public.google_calendar_events add column if not exists task_id uuid references public.tasks(id) on delete cascade;
+create unique index if not exists google_calendar_events_task_user_uidx on public.google_calendar_events (task_id, user_id) where task_id is not null;
+
 -- ---------------------------------------------------------------------------
 -- DURACIÓN DE TAREAS
 -- Para la vista semanal por horas — cuánto ocupa cada tarea en el calendario.

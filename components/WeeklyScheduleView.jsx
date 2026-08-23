@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Sparkles, Loader2, Check, X, Trash2 } from '
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui';
 import { dateToISO } from '@/lib/config';
+import { syncTaskToGoogle } from '@/lib/googleSync';
 
 const START_HOUR = 6;
 const END_HOUR = 24; // hasta 23:59
@@ -109,7 +110,8 @@ export default function WeeklyScheduleView() {
       assigned_to: userData.user.id,
       created_by: userData.user.id,
     }));
-    await supabase.from('tasks').insert(rows);
+    const { data: inserted } = await supabase.from('tasks').insert(rows).select();
+    (inserted || []).forEach((t) => syncTaskToGoogle(t.id, 'upsert'));
     setProposal(null);
     setRequestText('');
     setConfirming(false);
@@ -124,6 +126,7 @@ export default function WeeklyScheduleView() {
   };
   const deleteTask = async (id) => {
     setTasks((t) => t.filter((x) => x.id !== id));
+    syncTaskToGoogle(id, 'delete');
     await supabase.from('tasks').delete().eq('id', id);
   };
 

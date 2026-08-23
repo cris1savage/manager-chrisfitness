@@ -7,6 +7,20 @@ sonará.
 
 ## Novedades de este ajuste (la más reciente)
 
+- **Tareas con hora también sincronizan con Google Calendar**: se me
+  quedó pendiente al construir la vista Semana — ahora sí, cualquier tarea
+  con hora puesta (a mano o propuesta por la IA) se crea como evento con
+  hora real en tu Google Calendar, no de todo el día. A diferencia del
+  Calendario de contenido (que se sincroniza a las dos cuentas), las
+  tareas son personales: cada una solo va al Google de la cuenta a la que
+  está asignada.
+- **Bug arreglado en "Organiza mi semana con IA"**: la respuesta se
+  cortaba a media respuesta con peticiones largas. Igual que ya arreglamos
+  en "Analizar anuncios" — subido el límite y añadido un rescate por si la
+  IA responde con texto extra alrededor del JSON.
+
+## Novedades de este ajuste (la más reciente)
+
 - **Organiza tu semana con IA** (en Tareas → pestaña "Semana"): escribes en
   lenguaje normal lo que necesitas hacer ("grabar 3 reels, llamar a los
   leads fríos, hacer la compra...") y la IA te propone día y hora para cada

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { todayISO } from '@/lib/config';
+import { syncTaskToGoogle } from '@/lib/googleSync';
 import WeeklyScheduleView from '@/components/WeeklyScheduleView';
 
 const WEEKDAYS = [
@@ -183,13 +184,18 @@ export default function TasksClient() {
   const add = async () => {
     if (!title.trim()) return;
     const { data: userData } = await supabase.auth.getUser();
-    await supabase.from('tasks').insert({
-      title: title.trim(),
-      assigned_to: assignedTo || userData.user.id,
-      due_date: dueDate,
-      due_time: dueTime || null,
-      created_by: userData.user.id,
-    });
+    const { data: inserted } = await supabase
+      .from('tasks')
+      .insert({
+        title: title.trim(),
+        assigned_to: assignedTo || userData.user.id,
+        due_date: dueDate,
+        due_time: dueTime || null,
+        created_by: userData.user.id,
+      })
+      .select()
+      .single();
+    if (inserted) syncTaskToGoogle(inserted.id, 'upsert');
     setTitle('');
     load();
   };
@@ -204,9 +210,11 @@ export default function TasksClient() {
   const update = async (id, key, value) => {
     setTasks((list) => list.map((t) => (t.id === id ? { ...t, [key]: value } : t)));
     await supabase.from('tasks').update({ [key]: value }).eq('id', id);
+    if (['due_date', 'due_time', 'title', 'assigned_to'].includes(key)) syncTaskToGoogle(id, 'upsert');
   };
 
   const del = async (id) => {
+    syncTaskToGoogle(id, 'delete');
     await supabase.from('tasks').delete().eq('id', id);
     load();
   };

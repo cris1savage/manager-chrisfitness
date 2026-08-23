@@ -16,7 +16,8 @@ Reglas:
 - Usa títulos cortos y claros, en español.
 
 Responde ÚNICAMENTE en JSON válido, sin texto antes ni después ni backticks, con este formato exacto:
-{"items": [{"title": "...", "date": "YYYY-MM-DD", "start_time": "HH:MM", "duration_minutes": 30}]}`;
+{"items": [{"title": "...", "date": "YYYY-MM-DD", "start_time": "HH:MM", "duration_minutes": 30}]}
+Sé conciso en los títulos (pocas palabras) para no alargar la respuesta innecesariamente.`;
 
 export async function POST(request) {
   const supabase = createClient();
@@ -66,7 +67,7 @@ ${requestText.trim()}
       },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
-        max_tokens: 1500,
+        max_tokens: 3000,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -79,12 +80,32 @@ ${requestText.trim()}
 
     const data = await res.json();
     const textBlock = (data.content || []).find((c) => c.type === 'text');
+    const rawText = textBlock?.text || '';
     let parsed;
     try {
-      const cleaned = (textBlock?.text || '').replace(/```json|```/g, '').trim();
+      const cleaned = rawText.replace(/```json|```/g, '').trim();
       parsed = JSON.parse(cleaned);
     } catch {
-      return NextResponse.json({ error: 'La IA respondió en un formato inesperado. Inténtalo de nuevo.' }, { status: 500 });
+      // Intento de rescate: a veces viene texto de más antes/después del JSON,
+      // o la respuesta se cortó — busca el primer { y el último } y reintenta.
+      try {
+        const start = rawText.indexOf('{');
+        const end = rawText.lastIndexOf('}');
+        if (start !== -1 && end !== -1 && end > start) {
+          parsed = JSON.parse(rawText.slice(start, end + 1));
+        } else {
+          throw new Error('no-json-found');
+        }
+      } catch {
+        return NextResponse.json(
+          { error: `La IA respondió en un formato inesperado. Prueba con una descripción más corta, o inténtalo de nuevo. (${rawText.slice(0, 120)}...)` },
+          { status: 500 }
+        );
+      }
+    }
+
+    if (!parsed || !Array.isArray(parsed.items)) {
+      return NextResponse.json({ error: 'La IA no devolvió una lista de tareas válida. Inténtalo de nuevo.' }, { status: 500 });
     }
 
     return NextResponse.json(parsed);
