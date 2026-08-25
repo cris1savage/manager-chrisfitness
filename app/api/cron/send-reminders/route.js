@@ -76,7 +76,7 @@ export async function GET(request) {
     supabase.from('calendar_entries').select('status, date, script_id'),
     supabase.from('videos').select('uploaded, uploaded_at'),
     supabase.from('tasks').select('completed_at').gte('completed_at', `${monthStart}T00:00:00Z`).lt('completed_at', nextMonthStart),
-    supabase.from('active_clients').select('status').eq('status', 'Activo'),
+    supabase.from('active_clients').select('id, status, duration').eq('status', 'Activo'),
   ]);
 
   const daysBetween = (a, b) => Math.max(0, Math.floor((new Date(b) - new Date(a)) / 86400000));
@@ -104,6 +104,36 @@ export async function GET(request) {
       active_clients_count: (activeClientsRows.data || []).length,
       content_uploaded: contentFromCalendar + contentFromVideos,
       tasks_completed: (tasksCompletedRows.data || []).length,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'month' }
+  );
+
+  // --- Facturación real (solo para ti): factura de cada cliente prorrateada
+  // según su duración (mensual/3 meses/6 meses/anual) para dar un MRR real,
+  // no inflado ni con huecos en los meses que no tocan pago. ---
+  const DURATION_MONTHS = { 'Mensual': 1, '3 meses': 3, '6 meses': 6, 'Anual': 12 };
+  const [billingRows] = await Promise.all([supabase.from('client_billing').select('active_client_id, price_amount')]);
+  const priceByClient = {};
+  (billingRows.data || []).forEach((b) => { priceByClient[b.active_client_id] = b.price_amount; });
+  const activeNow = (activeClientsRows.data || []).filter((c) => c.status === 'Activo');
+  const pricedActive = activeNow
+    .map((c) => {
+      const amount = priceByClient[c.id];
+      if (amount == null) return null;
+      const months = DURATION_MONTHS[c.duration] || 1;
+      return amount / months;
+    })
+    .filter((v) => v != null);
+  const mrr = pricedActive.reduce((s, v) => s + v, 0);
+  const avgTicket = pricedActive.length ? mrr / pricedActive.length : 0;
+
+  await supabase.from('billing_history').upsert(
+    {
+      month: monthKey,
+      mrr: Math.round(mrr * 100) / 100,
+      avg_ticket: Math.round(avgTicket * 100) / 100,
+      active_clients_count: activeNow.length,
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'month' }

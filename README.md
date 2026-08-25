@@ -5,6 +5,34 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Facturación completa: historial, prorrateo, y un fallo crítico corregido a tiempo
+
+- **⚠️ Fallo grave encontrado y arreglado antes de que llegara a producción**:
+  al construir el bloqueo de Facturación, la regla que permite a cada uno
+  editar su propio perfil no tenía ninguna restricción sobre qué campos
+  podía tocar — así que, tal como iba a quedar, **Ana habría podido
+  marcarse a sí misma como propietaria** con una simple actualización
+  desde su propia cuenta, dejando inútil toda la protección. Lo detecté
+  en la revisión de seguridad que me pediste y lo corregí: ahora esa
+  columna (`is_owner`) solo se puede cambiar desde fuera de la app (tú, a
+  mano, en Supabase), nunca por la propia cuenta.
+- **Clientes activos ahora también es solo tuyo** — nombres, precios, todo.
+  Ana deja de ver esa página y sus totales en el Dashboard (contador de
+  clientes activos y renovaciones próximas), tal como confirmaste.
+- **Prorrateo automático por duración**: si un cliente paga trimestral,
+  pones lo que paga cada 3 meses y el equivalente mensual se calcula solo
+  (÷3) — usa la misma duración que ya seleccionabas en Clientes activos,
+  no hay que repetir el dato.
+- **Historial de facturación real** dentro de la propia página de
+  Facturación — gráfico y lista mes a mes de lo que facturas de verdad
+  (no lo que anotas al cerrar una venta, sino la recurrencia real
+  prorrateada). Se rellena solo, día a día, desde ahora — no hay datos de
+  antes porque el precio por cliente es información nueva.
+- Repetida la revisión de seguridad completa que ya hicimos antes: sin
+  claves reales filtradas en el código, sin componentes de navegador
+  tocando variables privadas del servidor, `.env.local.example` con solo
+  placeholders.
+
 ## Facturación privada (solo tú)
 
 - **Nueva página `/facturacion`** — facturación mensual real, ticket medio

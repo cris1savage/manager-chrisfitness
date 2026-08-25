@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Lock, TrendingUp, TrendingDown, Users, Tag } from 'lucide-react';
+import { Lock, TrendingUp, TrendingDown, Users, Tag, Calendar as CalendarIcon } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui';
-import { eur } from '@/lib/config';
+import { eur, todayISO } from '@/lib/config';
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const DURATION_MONTHS = { 'Mensual': 1, '3 meses': 3, '6 meses': 6, 'Anual': 12 };
 
-function monthKey(dateStr) {
+function monthKeyOf(dateStr) {
   if (!dateStr) return null;
   return dateStr.slice(0, 7);
 }
@@ -16,22 +18,32 @@ function monthLabel(key) {
   const [y, m] = key.split('-');
   return `${MONTH_NAMES[Number(m) - 1]} ${y.slice(2)}`;
 }
+function monthLabelFull(key) {
+  const [y, m] = key.split('-');
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+}
+function monthsFor(duration) {
+  return DURATION_MONTHS[duration] || 1; // Personalizada u otros: se trata como si el importe ya fuera mensual
+}
 
 export default function BillingClient() {
   const supabase = useMemo(() => createClient(), []);
   const [clients, setClients] = useState([]);
   const [billing, setBilling] = useState({}); // active_client_id -> row
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
-    const [clientsRes, billingRes] = await Promise.all([
+    const [clientsRes, billingRes, historyRes] = await Promise.all([
       supabase.from('active_clients').select('*').order('name', { ascending: true }),
       supabase.from('client_billing').select('*'),
+      supabase.from('billing_history').select('*').order('month', { ascending: true }),
     ]);
     setClients(clientsRes.data || []);
     const map = {};
     (billingRes.data || []).forEach((b) => (map[b.active_client_id] = b));
     setBilling(map);
+    setHistory(historyRes.data || []);
     setLoading(false);
   };
 
@@ -39,7 +51,8 @@ export default function BillingClient() {
     load();
     const ch1 = supabase.channel('billing-active-clients').on('postgres_changes', { event: '*', schema: 'public', table: 'active_clients' }, load).subscribe();
     const ch2 = supabase.channel('billing-client-billing').on('postgres_changes', { event: '*', schema: 'public', table: 'client_billing' }, load).subscribe();
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); };
+    const ch3 = supabase.channel('billing-history').on('postgres_changes', { event: '*', schema: 'public', table: 'billing_history' }, load).subscribe();
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); supabase.removeChannel(ch3); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -51,30 +64,41 @@ export default function BillingClient() {
   };
 
   const activeClients = clients.filter((c) => c.status === 'Activo');
-  const priced = activeClients.filter((c) => billing[c.id]?.monthly_price != null && billing[c.id]?.monthly_price !== '');
-  const mrr = priced.reduce((s, c) => s + (Number(billing[c.id]?.monthly_price) || 0), 0);
+  const priced = activeClients
+    .map((c) => {
+      const amount = billing[c.id]?.price_amount;
+      if (amount == null || amount === '') return null;
+      const months = monthsFor(c.duration);
+      return { client: c, amount: Number(amount), months, monthlyEquivalent: Number(amount) / months };
+    })
+    .filter(Boolean);
+  const mrr = priced.reduce((s, p) => s + p.monthlyEquivalent, 0);
   const avgTicket = priced.length ? mrr / priced.length : 0;
   const annualProjection = mrr * 12;
 
   const tagGroups = {};
-  priced.forEach((c) => {
-    const tag = billing[c.id]?.price_tag?.trim() || 'Sin etiqueta';
+  priced.forEach((p) => {
+    const tag = billing[p.client.id]?.price_tag?.trim() || 'Sin etiqueta';
     if (!tagGroups[tag]) tagGroups[tag] = { count: 0, total: 0 };
     tagGroups[tag].count++;
-    tagGroups[tag].total += Number(billing[c.id]?.monthly_price) || 0;
+    tagGroups[tag].total += p.monthlyEquivalent;
   });
 
   const altasPorMes = {};
   clients.forEach((c) => {
-    const k = monthKey(c.start_date);
+    const k = monthKeyOf(c.start_date);
     if (k) altasPorMes[k] = (altasPorMes[k] || 0) + 1;
   });
   const bajasPorMes = {};
   clients.filter((c) => c.status === 'Finalizado').forEach((c) => {
-    const k = monthKey(c.status_changed_at?.slice(0, 10));
+    const k = monthKeyOf(c.status_changed_at?.slice(0, 10));
     if (k) bajasPorMes[k] = (bajasPorMes[k] || 0) + 1;
   });
   const allMonths = [...new Set([...Object.keys(altasPorMes), ...Object.keys(bajasPorMes)])].sort().slice(-6);
+
+  const currentMonth = todayISO().slice(0, 7);
+  const historySorted = [...history].sort((a, b) => b.month.localeCompare(a.month));
+  const chartData = history.slice(-12).map((h) => ({ label: monthLabel(h.month), 'Facturación real': Number(h.mrr) || 0 }));
 
   return (
     <div className="space-y-4">
@@ -94,7 +118,7 @@ export default function BillingClient() {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Card>
-              <div className="text-muted text-[11px] uppercase tracking-wide">Facturación mensual</div>
+              <div className="text-muted text-[11px] uppercase tracking-wide">Facturación mensual real</div>
               <div className="text-ink text-xl font-extrabold font-display">{eur(mrr)}</div>
             </Card>
             <Card>
@@ -113,6 +137,39 @@ export default function BillingClient() {
               )}
             </Card>
           </div>
+
+          {history.length > 0 && (
+            <Card>
+              <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3">Historial de facturación real — mes a mes</div>
+              <div className="w-full h-[200px] mb-3">
+                <ResponsiveContainer>
+                  <LineChart data={chartData}>
+                    <CartesianGrid stroke="#212729" vertical={false} />
+                    <XAxis dataKey="label" stroke="#7C878B" fontSize={9} tickLine={false} axisLine={{ stroke: '#212729' }} />
+                    <YAxis stroke="#7C878B" fontSize={10} tickLine={false} axisLine={{ stroke: '#212729' }} width={40} />
+                    <Tooltip contentStyle={{ background: '#151A1D', border: '1px solid #212729', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#F2F6F7' }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Line type="monotone" dataKey="Facturación real" stroke="#4ADE80" strokeWidth={2} dot={{ r: 3, fill: '#4ADE80' }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-1.5">
+                {historySorted.slice(0, 6).map((h) => (
+                  <div key={h.month} className="flex items-center justify-between rounded-lg p-2 bg-surfaceAlt border border-border" style={{ borderColor: h.month === currentMonth ? '#5ECCFA' : undefined }}>
+                    <div className="flex items-center gap-1.5">
+                      <CalendarIcon size={12} className={h.month === currentMonth ? 'text-cyan' : 'text-muted'} />
+                      <span className="text-ink text-sm capitalize">{monthLabelFull(h.month)}</span>
+                      {h.month === currentMonth && <span className="text-cyan text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-cyan/15">En curso</span>}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-ink text-sm font-semibold">{eur(h.mrr)}</div>
+                      <div className="text-muted text-[10px]">{h.active_clients_count} clientes · ticket {eur(h.avg_ticket)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {Object.keys(tagGroups).length > 0 && (
             <Card>
@@ -150,33 +207,46 @@ export default function BillingClient() {
 
           <Card>
             <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3 flex items-center gap-1.5"><Users size={13} /> Precio por cliente</div>
+            <div className="text-muted text-[10.5px] -mt-2 mb-2">
+              El importe es lo que paga cada vez que le toca (según su duración) — si es trimestral, pon lo que paga cada 3 meses; el equivalente mensual se calcula solo.
+            </div>
             <div className="space-y-2">
               {clients.length === 0 && <div className="text-muted text-sm text-center py-4">Sin clientes activos todavía.</div>}
-              {clients.map((c) => (
-                <div key={c.id} className="flex items-center gap-2 flex-wrap rounded-lg p-2.5 bg-surfaceAlt border border-border">
-                  <div className="flex-1 min-w-[120px]">
-                    <div className="text-ink text-sm font-medium">{c.name}</div>
-                    <div className="text-muted text-[10.5px]">{c.status}{c.program && ` · ${c.program}`}</div>
+              {clients.map((c) => {
+                const months = monthsFor(c.duration);
+                const amount = billing[c.id]?.price_amount;
+                const monthlyEq = amount != null && amount !== '' ? Number(amount) / months : null;
+                return (
+                  <div key={c.id} className="rounded-lg p-2.5 bg-surfaceAlt border border-border space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex-1 min-w-[120px]">
+                        <div className="text-ink text-sm font-medium">{c.name}</div>
+                        <div className="text-muted text-[10.5px]">{c.status} · {c.duration || 'Sin duración'}{c.program && ` · ${c.program}`}</div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted text-xs">€</span>
+                        <input
+                          type="number"
+                          value={amount ?? ''}
+                          onChange={(e) => updateBilling(c.id, 'price_amount', e.target.value ? Number(e.target.value) : null)}
+                          placeholder="0"
+                          className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-20 outline-none focus:border-cyan"
+                        />
+                        <span className="text-muted text-[10.5px]">/ {months === 1 ? 'mes' : `${months} meses`}</span>
+                      </div>
+                      <input
+                        value={billing[c.id]?.price_tag ?? ''}
+                        onChange={(e) => updateBilling(c.id, 'price_tag', e.target.value)}
+                        placeholder="Etiqueta (ej. Precio antiguo)"
+                        className="bg-surface border border-border text-ink rounded-lg px-2.5 py-1.5 text-xs w-full sm:w-48 outline-none focus:border-cyan"
+                      />
+                    </div>
+                    {monthlyEq != null && months > 1 && (
+                      <div className="text-muted text-[10.5px] pl-0.5">≈ {eur(monthlyEq)}/mes de media</div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-muted text-xs">€</span>
-                    <input
-                      type="number"
-                      value={billing[c.id]?.monthly_price ?? ''}
-                      onChange={(e) => updateBilling(c.id, 'monthly_price', e.target.value ? Number(e.target.value) : null)}
-                      placeholder="0"
-                      className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-20 outline-none focus:border-cyan"
-                    />
-                    <span className="text-muted text-[10.5px]">/mes</span>
-                  </div>
-                  <input
-                    value={billing[c.id]?.price_tag ?? ''}
-                    onChange={(e) => updateBilling(c.id, 'price_tag', e.target.value)}
-                    placeholder="Etiqueta (ej. Precio antiguo)"
-                    className="bg-surface border border-border text-ink rounded-lg px-2.5 py-1.5 text-xs w-full sm:w-48 outline-none focus:border-cyan"
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         </>

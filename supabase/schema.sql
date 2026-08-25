@@ -746,6 +746,19 @@ alter table public.contacts add column if not exists ai_last_conversation text;
 -- update public.profiles set is_owner = true where id = (select id from auth.users where email = 'tu-email@ejemplo.com');
 alter table public.profiles add column if not exists is_owner boolean not null default false;
 
+-- Refuerza la política de "editar mi propio perfil" para que NADIE pueda
+-- marcarse a sí mismo como propietario cambiando su propia fila — solo se
+-- puede hacer desde fuera (el UPDATE manual de arriba, o directamente en
+-- Supabase). Sin esto, cualquier cuenta podría auto-concederse acceso a
+-- Facturación y Clientes activos.
+drop policy if exists "profiles_update_own" on public.profiles;
+create policy "profiles_update_own" on public.profiles for update to authenticated
+  using (auth.uid() = id)
+  with check (
+    auth.uid() = id
+    and is_owner = (select p.is_owner from public.profiles p where p.id = auth.uid())
+  );
+
 -- Fecha en que cambió el estado (Activo/Pausado/Finalizado) — no es dato
 -- económico, se queda en la tabla compartida de Clientes activos para que
 -- Ana también la vea; solo el precio y la etiqueta van aparte.
@@ -754,13 +767,24 @@ alter table public.active_clients add column if not exists status_changed_at tim
 -- Precio real y etiqueta (ej. "Precio antiguo") de cada cliente activo.
 -- Tabla separada a propósito: nunca visible para nadie que no sea el
 -- propietario, aunque tenga acceso al resto del panel.
+-- "price_amount" es lo que paga cada vez que le toca pagar (según su
+-- duración: mensual/3 meses/6 meses/anual, ya la tenías en Clientes
+-- activos) — el equivalente mensual se calcula dividiendo entre esos meses,
+-- no hace falta un campo de frecuencia nuevo.
 create table if not exists public.client_billing (
   id uuid primary key default gen_random_uuid(),
   active_client_id uuid references public.active_clients(id) on delete cascade unique,
-  monthly_price numeric,
+  price_amount numeric,
   price_tag text,
   updated_at timestamptz not null default now()
 );
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_name = 'client_billing' and column_name = 'monthly_price')
+     and not exists (select 1 from information_schema.columns where table_name = 'client_billing' and column_name = 'price_amount') then
+    alter table public.client_billing rename column monthly_price to price_amount;
+  end if;
+end $$;
 alter table public.client_billing enable row level security;
 drop policy if exists "client_billing_owner_only" on public.client_billing;
 create policy "client_billing_owner_only" on public.client_billing for all to authenticated
@@ -770,6 +794,40 @@ create policy "client_billing_owner_only" on public.client_billing for all to au
 do $$
 begin
   alter publication supabase_realtime add table public.client_billing;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- Clientes activos pasa a ser SOLO tuyo también (nombres, precios, todo) —
+-- reemplaza la política compartida que tenía por una igual de restrictiva
+-- que la de Facturación. Ana deja de ver esta tabla por completo, incluidos
+-- los totales que salían en su Dashboard (contador de clientes activos y
+-- renovaciones próximas) — así lo confirmaste.
+drop policy if exists "active_clients_full_access_authenticated" on public.active_clients;
+create policy "active_clients_owner_only" on public.active_clients for all to authenticated
+  using (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true));
+
+-- Historial de facturación real, mes a mes — igual que el Historial normal,
+-- pero solo con lo que de verdad facturaste (usando el precio prorrateado
+-- de cada cliente), y solo visible para ti. Se actualiza sola cada día con
+-- el mismo aviso diario de siempre.
+create table if not exists public.billing_history (
+  month text primary key, -- 'YYYY-MM'
+  mrr numeric not null default 0,
+  avg_ticket numeric not null default 0,
+  active_clients_count int not null default 0,
+  updated_at timestamptz not null default now()
+);
+alter table public.billing_history enable row level security;
+drop policy if exists "billing_history_owner_only" on public.billing_history;
+create policy "billing_history_owner_only" on public.billing_history for all to authenticated
+  using (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true));
+
+do $$
+begin
+  alter publication supabase_realtime add table public.billing_history;
 exception
   when duplicate_object then null;
 end $$;
