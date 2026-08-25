@@ -1,26 +1,45 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-// Solo se llama cuando el usuario escribe lo que necesita hacer y pulsa el
-// botón — nunca automático. Devuelve una PROPUESTA de horario; no crea
-// nada todavía, eso lo hace el usuario al confirmar.
+// Conversacional: la IA puede preguntar (máx. 1-2 veces) antes de dar la
+// propuesta final. El cliente manda el historial completo cada vez (la API
+// no tiene memoria propia entre llamadas). Solo se llama cuando el usuario
+// escribe algo — nunca automático. La propuesta nunca crea nada por su
+// cuenta; eso lo hace el usuario al confirmar en pantalla.
 
-const SYSTEM_PROMPT = `Eres el asistente de planificación de Chris, entrenador personal online de Chris Fitness. Te va a describir en lenguaje natural lo que necesita hacer, y tu trabajo es repartirlo en días y horas concretas dentro de la semana que te doy, evitando los huecos que ya tiene ocupados.
+const SYSTEM_PROMPT = `Eres el asistente de planificación de Chris, entrenador personal online de Chris Fitness. Te va a describir en lenguaje natural lo que necesita hacer, y tu trabajo es repartirlo en días y horas concretas, evitando los huecos que ya tiene ocupados.
 
 Reglas, en este orden de importancia:
-1. NUNCA propongas una fecha anterior a "Hoy" (te la doy exacta más abajo). Si un día de la semana ya ha pasado, no lo uses bajo ningún concepto — usa solo desde hoy en adelante, dentro de la semana dada. Si hoy es el último o penúltimo día de la semana y no queda margen razonable para todo, concentra lo que haga falta en los días que quedan (incluido hoy más tarde, si ya es por la mañana) en vez de inventar fechas pasadas.
-2. Respeta SIEMPRE cualquier restricción de horario que el usuario mencione en su propio texto (ej. "los martes y miércoles entreno de 11 a 16" significa que esos días, esas horas, están completamente prohibidas — no le pongas nada ahí, ni al principio ni al final de ese rango).
+1. NUNCA propongas una fecha anterior a "Hoy" (te la doy exacta en el primer mensaje). Si un día de la semana ya ha pasado, no lo uses — usa solo desde hoy en adelante, dentro de la semana dada. Si hoy es el último o penúltimo día de la semana y no queda margen razonable, concentra lo que haga falta en los días que quedan en vez de inventar fechas pasadas.
+2. Respeta SIEMPRE cualquier restricción de horario que el usuario mencione (ej. "los martes y miércoles entreno de 11 a 16" significa que esos días, esas horas, están completamente prohibidas).
 3. No pongas nada en los huecos que ya aparecen en la lista de "Ya ocupado esta semana".
 4. Solo puedes usar horas entre 06:00 y 23:59.
-5. Varía las horas de forma realista a lo largo del día — NO metas todo a primera hora de la mañana. Reparte entre mañana, mediodía y tarde según tenga sentido para cada tarea (grabaciones mejor con luz, con margen entre unas y otras; gestión/revisión puede ir en cualquier momento). Dos tareas seguidas el mismo día deben tener horas distintas y con separación entre ellas, no todas empezando igual.
-6. Reparte de forma razonable entre los días disponibles — no lo metas todo el mismo día si son varias cosas independientes, salvo que el propio texto del usuario indique que debe ir junto o en un día concreto.
-7. Calcula una duración realista para cada tarea (en minutos) según el tipo: cosas rápidas (llamadas, revisar algo) 15-30 min; grabar contenido 45-90 min; tareas de gestión 30-60 min. Si el usuario da una duración o número de repeticiones, respétalo.
-8. Si el usuario menciona varias unidades de lo mismo (ej. "grabar 3 reels"), créalas como tareas separadas, no una sola.
-9. Usa títulos cortos y claros, en español.
+5. Varía las horas de forma realista a lo largo del día — NO metas todo a primera hora de la mañana. Reparte entre mañana, mediodía y tarde según tenga sentido, con separación entre tareas del mismo día.
+6. Reparte de forma razonable entre los días disponibles, salvo que el usuario indique que debe ir junto o en un día concreto.
+7. Duración realista por tipo de tarea: cosas rápidas 15-30 min; grabar contenido 45-90 min; gestión 30-60 min. Si el usuario da una duración, respétala.
+8. Si menciona varias unidades de lo mismo (ej. "grabar 3 reels"), créalas como tareas separadas.
+9. Títulos cortos y claros, en español.
 
-Responde ÚNICAMENTE en JSON válido, sin texto antes ni después ni backticks, con este formato exacto:
-{"items": [{"title": "...", "date": "YYYY-MM-DD", "start_time": "HH:MM", "duration_minutes": 30}]}
-Sé conciso en los títulos (pocas palabras) para no alargar la respuesta innecesariamente.`;
+Sobre preguntar antes de proponer: SOLO pregunta si de verdad te falta algo importante para organizar bien (por ejemplo, no sabes en qué franja prefiere un tipo de tarea, o cuántas veces a la semana hace algo y es ambiguo). Como mucho 1-2 preguntas en total, cortas y concretas — no alargues la conversación más de lo necesario. Si ya tienes información suficiente, no preguntes nada: da la propuesta final directamente.
+
+Responde ÚNICAMENTE en JSON válido, sin texto antes ni después ni backticks, en uno de estos dos formatos exactos:
+- Si necesitas preguntar algo antes de continuar: {"type": "question", "text": "tu pregunta, corta y concreta"}
+- Si ya puedes dar la propuesta final: {"type": "proposal", "items": [{"title": "...", "date": "YYYY-MM-DD", "start_time": "HH:MM", "duration_minutes": 30}]}
+Sé conciso para no alargar la respuesta innecesariamente.`;
+
+function extractJSON(rawText) {
+  const cleaned = rawText.replace(/```json|```/g, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = rawText.indexOf('{');
+    const end = rawText.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end > start) {
+      return JSON.parse(rawText.slice(start, end + 1));
+    }
+    throw new Error('no-json-found');
+  }
+}
 
 export async function POST(request) {
   const supabase = createClient();
@@ -34,34 +53,35 @@ export async function POST(request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { requestText, weekStart, weekEnd } = body;
-  if (!requestText || !requestText.trim() || !weekStart || !weekEnd) {
-    return NextResponse.json({ error: 'Falta la petición o el rango de la semana.' }, { status: 400 });
+  const { messages, weekStart, weekEnd } = body;
+  if (!Array.isArray(messages) || messages.length === 0 || !weekStart || !weekEnd) {
+    return NextResponse.json({ error: 'Falta el mensaje o el rango de la semana.' }, { status: 400 });
   }
 
-  // Contexto de lo que ya está ocupado esa semana, para no chocar cosas.
-  const [tasksRes, calendarRes] = await Promise.all([
-    supabase.from('tasks').select('title, due_date, due_time, duration_minutes').eq('assigned_to', user.id).eq('done', false).gte('due_date', weekStart).lte('due_date', weekEnd),
-    supabase.from('calendar_entries').select('title, date').gte('date', weekStart).lte('date', weekEnd),
-  ]);
+  // ¿Es el primer turno? (solo hay un mensaje de usuario y nada de la IA todavía)
+  const isFirstTurn = messages.filter((m) => m.role === 'user').length === 1 && messages.filter((m) => m.role === 'assistant').length === 0;
 
-  const busyLines = [
-    ...(tasksRes.data || []).filter((t) => t.due_time).map((t) => `- ${t.due_date} ${t.due_time.slice(0, 5)}${t.duration_minutes ? ` (${t.duration_minutes} min)` : ''}: ${t.title}`),
-    ...(calendarRes.data || []).map((c) => `- ${c.date} (todo el día, contenido programado): ${c.title}`),
-  ];
-  // No dejar que el contexto de "ya ocupado" crezca sin límite — con meses
-  // de uso puede haber cientos de líneas, y eso solo estorba al modelo.
-  const MAX_BUSY_LINES = 40;
-  const busyLinesCapped = busyLines.slice(0, MAX_BUSY_LINES);
-  const busyExtra = busyLines.length - busyLinesCapped.length;
-  if (busyExtra > 0) busyLinesCapped.push(`(+ ${busyExtra} más, ya no cabían aquí)`);
+  let apiMessages = messages;
+  if (isFirstTurn) {
+    const [tasksRes, calendarRes] = await Promise.all([
+      supabase.from('tasks').select('title, due_date, due_time, duration_minutes').eq('assigned_to', user.id).eq('done', false).gte('due_date', weekStart).lte('due_date', weekEnd),
+      supabase.from('calendar_entries').select('title, date').gte('date', weekStart).lte('date', weekEnd),
+    ]);
+    const busyLines = [
+      ...(tasksRes.data || []).filter((t) => t.due_time).map((t) => `- ${t.due_date} ${t.due_time.slice(0, 5)}${t.duration_minutes ? ` (${t.duration_minutes} min)` : ''}: ${t.title}`),
+      ...(calendarRes.data || []).map((c) => `- ${c.date} (todo el día, contenido programado): ${c.title}`),
+    ];
+    const MAX_BUSY_LINES = 40;
+    const busyLinesCapped = busyLines.slice(0, MAX_BUSY_LINES);
+    const busyExtra = busyLines.length - busyLinesCapped.length;
+    if (busyExtra > 0) busyLinesCapped.push(`(+ ${busyExtra} más, ya no cabían aquí)`);
 
-  const now = new Date();
-  const todayISO = now.toISOString().slice(0, 10);
-  const todayLabel = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-  const nowTime = now.toTimeString().slice(0, 5);
+    const now = new Date();
+    const todayISO = now.toISOString().slice(0, 10);
+    const todayLabel = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    const nowTime = now.toTimeString().slice(0, 5);
 
-  const userPrompt = `Hoy es ${todayISO} (${todayLabel}), y son las ${nowTime}.
+    const context = `Hoy es ${todayISO} (${todayLabel}), y son las ${nowTime}.
 Semana a organizar: del ${weekStart} al ${weekEnd}.
 
 Ya ocupado esta semana:
@@ -69,8 +89,11 @@ ${busyLinesCapped.length ? busyLinesCapped.join('\n') : '(nada todavía)'}
 
 Lo que necesito organizar:
 """
-${requestText.trim()}
+${messages[0].content.trim()}
 """`;
+
+    apiMessages = [{ role: 'user', content: context }, ...messages.slice(1)];
+  }
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -84,7 +107,7 @@ ${requestText.trim()}
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
         max_tokens: 3000,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userPrompt }],
+        messages: apiMessages,
       }),
     });
 
@@ -94,7 +117,6 @@ ${requestText.trim()}
     }
 
     const data = await res.json();
-
     if (data.type === 'error') {
       return NextResponse.json({ error: `Error de la API de IA: ${data.error?.message || JSON.stringify(data).slice(0, 200)}` }, { status: 500 });
     }
@@ -103,43 +125,27 @@ ${requestText.trim()}
     const rawText = textBlock?.text || '';
 
     if (!rawText) {
-      // Diagnóstico real en vez de un mensaje vacío: por qué no hay texto.
       const reason = data.stop_reason || 'desconocido';
-      const dump = JSON.stringify(data).slice(0, 300);
-      return NextResponse.json(
-        { error: `La IA no devolvió texto (motivo: ${reason}). Prueba con una descripción más corta. Detalle: ${dump}` },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: `La IA no devolvió texto (motivo: ${reason}). Prueba con una descripción más corta.` }, { status: 500 });
     }
 
     let parsed;
     try {
-      const cleaned = rawText.replace(/```json|```/g, '').trim();
-      parsed = JSON.parse(cleaned);
+      parsed = extractJSON(rawText);
     } catch {
-      // Intento de rescate: a veces viene texto de más antes/después del JSON,
-      // o la respuesta se cortó — busca el primer { y el último } y reintenta.
-      try {
-        const start = rawText.indexOf('{');
-        const end = rawText.lastIndexOf('}');
-        if (start !== -1 && end !== -1 && end > start) {
-          parsed = JSON.parse(rawText.slice(start, end + 1));
-        } else {
-          throw new Error('no-json-found');
-        }
-      } catch {
-        return NextResponse.json(
-          { error: `La IA respondió en un formato inesperado (motivo: ${data.stop_reason || 'desconocido'}). Prueba con una descripción más corta, o inténtalo de nuevo. Texto recibido: "${rawText.slice(0, 150)}"` },
-          { status: 500 }
-        );
-      }
+      return NextResponse.json(
+        { error: `La IA respondió en un formato inesperado (motivo: ${data.stop_reason || 'desconocido'}). Texto recibido: "${rawText.slice(0, 150)}"` },
+        { status: 500 }
+      );
     }
 
-    if (!parsed || !Array.isArray(parsed.items)) {
-      return NextResponse.json({ error: 'La IA no devolvió una lista de tareas válida. Inténtalo de nuevo.' }, { status: 500 });
+    if (parsed.type === 'question' && typeof parsed.text === 'string') {
+      return NextResponse.json({ type: 'question', text: parsed.text, raw: rawText });
     }
-
-    return NextResponse.json(parsed);
+    if (parsed.type === 'proposal' && Array.isArray(parsed.items)) {
+      return NextResponse.json({ type: 'proposal', items: parsed.items, raw: rawText });
+    }
+    return NextResponse.json({ error: 'La IA no devolvió una respuesta válida. Inténtalo de nuevo.' }, { status: 500 });
   } catch {
     return NextResponse.json({ error: 'No se pudo conectar con la IA.' }, { status: 500 });
   }

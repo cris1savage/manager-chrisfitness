@@ -5,6 +5,68 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Tres arreglos de esta vez
+
+- **Panel centrado en pantallas anchas**: en monitores grandes, el
+  contenido se veía pegado a la izquierda con un hueco negro enorme a la
+  derecha — faltaba centrarlo dentro del espacio libre junto al menú. Ya
+  se ve centrado, tanto en ordenador como en móvil.
+- **Editor de Guiones más cómodo**: letra más grande, más espacio entre
+  líneas y párrafos, más aire alrededor del texto — se escribe más como
+  en un documento de verdad, no como en un bloc de notas.
+- **Bug real arreglado en el PDF**: los títulos largos se cortaban en el
+  borde de la página en vez de bajar de línea — el texto normal ya lo
+  hacía bien, pero los títulos (incluido el de arriba del todo) usaban
+  otro código que no envolvía línea. Ahora todos wrappean igual.
+
+## Lead nuevo directo desde la IA
+
+- **"Lead nuevo con IA"** (botón arriba de Contactos): para cuando te
+  escribe alguien que todavía no está en tu CRM. Pones el nombre, pegas la
+  conversación, analizas, y con "Crear ficha de contacto" se crea ya con
+  todo el análisis dentro — no hace falta darlo de alta a mano primero y
+  luego volver a abrir el AI Closer. Sigue pidiéndote el nombre (eso no me
+  lo invento, tiene que decirlo alguien), pero es un solo paso en vez de dos.
+
+## Ajustes al AI Closer (confirmaciones + robustez)
+
+- **Confirmado**: cada lead tiene su propia ficha aislada — nada se
+  mezcla entre contactos. Ahora además, la conversación que pegas se
+  guarda dentro de esa misma ficha (no solo el análisis) al pulsar
+  "Guardar en la ficha", así la próxima vez que abras a ese lead la
+  encuentras ya puesta, lista para editar o actualizar.
+- **Límite de respuesta subido bastante** (a 4096, con margen de sobra) —
+  el mismo tipo de corte que ya tuvimos en Analizar anuncios y Organizar
+  semana, corregido aquí también antes de que diera el mismo problema.
+- Revisado con lupa: sin fallos al blindar la pantalla si algún campo
+  viniera vacío, y probado con una compilación de producción real de
+  las 31 páginas, sin errores.
+
+## Novedades de este ajuste (la más reciente) — AI Closer (MVP)
+
+- **AI Closer**: en Contactos, el icono de estrellas de cada ficha ahora es
+  mucho más completo. Pegas la conversación de Instagram y te da: estado
+  del lead, lead score (0-100) con motivo, si está listo para cierre o no
+  (y por qué), objetivo/problema/situación/objeciones detectados, próximo
+  paso, y 3 respuestas sugeridas con el porqué de cada una. Botón "Guardar
+  en la ficha" para que quede guardado en ese contacto (nunca automático),
+  y si sugiere cambiar de etapa, un botón para aplicarlo con un clic.
+- **Botón "¿Qué harías tú?"**: modo coach — te explica qué está pensando
+  el lead, qué no deberías hacer, y cuál sería tu siguiente paso, en vez
+  de solo darte un mensaje para copiar.
+- **Esto es el MVP, sin conexión directa con Instagram** (tal y como
+  acordamos): pegas tú la conversación a mano. La integración real con la
+  API de Instagram sería una fase futura, más grande, y solo tendría
+  sentido si este MVP demuestra que el análisis te aporta de verdad.
+
+## Novedades de este ajuste (la más reciente)
+
+- **"Organiza mi semana" ahora es una conversación de verdad**: si le falta
+  algo importante para organizarte bien, te pregunta (máximo 1-2 veces) y
+  le contestas ahí mismo, como un chat, antes de que te dé la propuesta
+  final. Si ya tiene información suficiente, no pregunta nada — va directa
+  a la propuesta, igual que antes.
+
 ## Novedades de este ajuste (la más reciente)
 
 - **Tareas con hora también sincronizan con Google Calendar**: se me

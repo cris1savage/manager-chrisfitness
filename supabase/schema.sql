@@ -719,6 +719,24 @@ create unique index if not exists google_calendar_events_task_user_uidx on publi
 alter table public.tasks add column if not exists duration_minutes int;
 
 -- ---------------------------------------------------------------------------
+-- AI CLOSER — ficha del lead
+-- Se guarda dentro del propio contacto (no una tabla aparte): estado, score,
+-- objetivo/problema/objeciones detectados, y el próximo paso sugerido. Se
+-- actualiza solo cuando TÚ le das a "Guardar en la ficha", nunca sola.
+-- ---------------------------------------------------------------------------
+alter table public.contacts add column if not exists ai_lead_state text;
+alter table public.contacts add column if not exists ai_lead_score int;
+alter table public.contacts add column if not exists ai_score_reason text;
+alter table public.contacts add column if not exists ai_objective text;
+alter table public.contacts add column if not exists ai_problem text;
+alter table public.contacts add column if not exists ai_situation text;
+alter table public.contacts add column if not exists ai_objections text;
+alter table public.contacts add column if not exists ai_next_step text;
+alter table public.contacts add column if not exists ai_probability text; -- Baja / Media / Alta
+alter table public.contacts add column if not exists ai_last_analysis_at timestamptz;
+alter table public.contacts add column if not exists ai_last_conversation text;
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto

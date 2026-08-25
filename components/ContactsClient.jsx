@@ -8,6 +8,7 @@ import { useProfiles } from '@/components/ProfilesProvider';
 import { STAGES, STAGE_COLORS, eur } from '@/lib/config';
 import CommentThread from '@/components/CommentThread';
 import AIReplyAssistant from '@/components/AIReplyAssistant';
+import NewLeadPanel from '@/components/NewLeadPanel';
 
 const SOURCES = ['Instagram', 'Anuncio', 'Referido', 'TusMacros', 'Otro'];
 
@@ -21,6 +22,7 @@ export default function ContactsClient() {
   const [search, setSearch] = useState('');
   const [openThread, setOpenThread] = useState(null);
   const [openAI, setOpenAI] = useState(null);
+  const [showNewLeadAI, setShowNewLeadAI] = useState(false);
 
   const emptyForm = { name: '', source: 'Instagram', source_ad_id: '', stage: 'Frío', notes: '' };
   const [form, setForm] = useState(emptyForm);
@@ -87,10 +89,28 @@ export default function ContactsClient() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="font-display text-ink text-[22px] tracking-wide">CONTACTOS</h2>
-        <div className="text-muted text-xs">Una ficha por persona. Muévela de etapa con el desplegable cuando avance.</div>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="font-display text-ink text-[22px] tracking-wide">CONTACTOS</h2>
+          <div className="text-muted text-xs">Una ficha por persona. Muévela de etapa con el desplegable cuando avance.</div>
+        </div>
+        {!showNewLeadAI && (
+          <button
+            onClick={() => setShowNewLeadAI(true)}
+            className="rounded-lg px-3 py-2 flex items-center gap-1.5 font-semibold text-sm shrink-0"
+            style={{ background: 'transparent', color: '#5ECCFA', border: '1px solid #5ECCFA55' }}
+          >
+            <Sparkles size={15} /> Lead nuevo con IA
+          </button>
+        )}
       </div>
+
+      {showNewLeadAI && (
+        <NewLeadPanel
+          onClose={() => setShowNewLeadAI(false)}
+          onCreated={() => { setShowNewLeadAI(false); load(); }}
+        />
+      )}
 
       {/* Filtro por etapa */}
       <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -215,7 +235,7 @@ export default function ContactsClient() {
                     <button
                       onClick={() => { setOpenAI(openAI === c.id ? null : c.id); setOpenThread(null); }}
                       className={`p-1.5 rounded-lg ${openAI === c.id ? 'text-cyan' : 'text-muted'}`}
-                      title="Sugerir respuesta con IA"
+                      title="AI Closer"
                     >
                       <Sparkles size={16} />
                     </button>

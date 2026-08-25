@@ -28,7 +28,8 @@ export default function WeeklyScheduleView() {
   const supabase = useMemo(() => createClient(), []);
   const [anchor, setAnchor] = useState(new Date());
   const [tasks, setTasks] = useState([]);
-  const [requestText, setRequestText] = useState('');
+  const [chat, setChat] = useState([]); // [{role:'user'|'assistant', content, displayText?}]
+  const [inputText, setInputText] = useState('');
   const [thinking, setThinking] = useState(false);
   const [proposal, setProposal] = useState(null); // array de items propuestos, editables
   const [aiError, setAiError] = useState('');
@@ -71,34 +72,52 @@ export default function WeeklyScheduleView() {
     setAnchor(d);
   };
 
-  const askAI = async () => {
-    if (!requestText.trim()) return;
+  const sendMessage = async () => {
+    if (!inputText.trim() || thinking) return;
+    const newChat = [...chat, { role: 'user', content: inputText.trim(), displayText: inputText.trim() }];
+    setChat(newChat);
+    setInputText('');
     setThinking(true);
     setAiError('');
-    setProposal(null);
     try {
       const res = await fetch('/api/assistant/schedule-week', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestText, weekStart: weekStartISO, weekEnd: weekEndISO }),
+        body: JSON.stringify({
+          messages: newChat.map((m) => ({ role: m.role, content: m.content })),
+          weekStart: weekStartISO,
+          weekEnd: weekEndISO,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
         setAiError(data.error || 'Algo falló.');
-      } else {
+        setChat(chat); // deshace el mensaje si falló, para no dejar la conversación coja
+        setInputText(newChat[newChat.length - 1].displayText);
+        return;
+      }
+      setChat([...newChat, { role: 'assistant', content: data.raw, displayText: data.type === 'question' ? data.text : null }]);
+      if (data.type === 'proposal') {
         const todayISO = dateToISO(new Date());
         const items = data.items || [];
         const valid = items.filter((it) => it.date >= todayISO);
         const dropped = items.length - valid.length;
         setProposal(valid.map((it, i) => ({ ...it, _id: i })));
-        if (dropped > 0) {
-          setAiError(`Se descartaron ${dropped} elemento(s) que la IA propuso en fechas ya pasadas.`);
-        }
+        if (dropped > 0) setAiError(`Se descartaron ${dropped} elemento(s) que la IA propuso en fechas ya pasadas.`);
       }
     } catch {
       setAiError('No se pudo conectar. Inténtalo de nuevo.');
+      setChat(chat);
+      setInputText(newChat[newChat.length - 1].displayText);
     }
     setThinking(false);
+  };
+
+  const resetChat = () => {
+    setChat([]);
+    setInputText('');
+    setProposal(null);
+    setAiError('');
   };
 
   const updateProposalItem = (id, key, value) => {
@@ -122,8 +141,7 @@ export default function WeeklyScheduleView() {
     }));
     const { data: inserted } = await supabase.from('tasks').insert(rows).select();
     (inserted || []).forEach((t) => syncTaskToGoogle(t.id, 'upsert'));
-    setProposal(null);
-    setRequestText('');
+    resetChat();
     setConfirming(false);
     load();
   };
@@ -143,23 +161,59 @@ export default function WeeklyScheduleView() {
   return (
     <div className="space-y-4">
       <Card className="space-y-2">
-        <div className="flex items-center gap-1.5 text-cyan text-xs font-semibold">
-          <Sparkles size={14} /> Organiza mi semana con IA
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-cyan text-xs font-semibold">
+            <Sparkles size={14} /> Organiza mi semana con IA
+          </div>
+          {chat.length > 0 && (
+            <button onClick={resetChat} className="text-muted text-[11px]">Empezar de nuevo</button>
+          )}
         </div>
-        <textarea
-          value={requestText}
-          onChange={(e) => setRequestText(e.target.value)}
-          placeholder="Ej. grabar 3 reels, llamar a los leads fríos, revisar anuncios, hacer la compra, preparar la sesión con Ana del viernes..."
-          rows={2}
-          className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan resize-y"
-        />
-        <button
-          onClick={askAI}
-          disabled={thinking || !requestText.trim()}
-          className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-cyan text-[#00161C] flex items-center gap-1.5 disabled:opacity-50"
-        >
-          {thinking ? <><Loader2 size={13} className="animate-spin" /> Organizando...</> : 'Organizar esta semana'}
-        </button>
+
+        {chat.length > 0 && (
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {chat.map((m, i) => {
+              if (m.role === 'user') {
+                return (
+                  <div key={i} className="flex justify-end">
+                    <div className="rounded-lg rounded-tr-sm px-2.5 py-1.5 text-xs max-w-[85%]" style={{ background: '#5ECCFA1A', color: '#F2F6F7' }}>
+                      {m.displayText}
+                    </div>
+                  </div>
+                );
+              }
+              if (m.displayText) {
+                return (
+                  <div key={i} className="flex justify-start">
+                    <div className="rounded-lg rounded-tl-sm px-2.5 py-1.5 text-xs max-w-[85%] flex items-start gap-1.5" style={{ background: '#151A1D', color: '#F2F6F7' }}>
+                      <Sparkles size={12} className="text-cyan shrink-0 mt-0.5" />
+                      <span>{m.displayText}</span>
+                    </div>
+                  </div>
+                );
+              }
+              return null; // turno de propuesta: no se muestra como burbuja, se ve abajo
+            })}
+          </div>
+        )}
+
+        <div className="flex items-end gap-2">
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+            placeholder={chat.length === 0 ? 'Ej. grabar 3 reels, llamar a los leads fríos, revisar anuncios, hacer la compra...' : 'Responde aquí...'}
+            rows={chat.length === 0 ? 2 : 1}
+            className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan resize-y"
+          />
+          <button
+            onClick={sendMessage}
+            disabled={thinking || !inputText.trim()}
+            className="rounded-lg px-3 py-2 text-xs font-semibold bg-cyan text-[#00161C] flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+          >
+            {thinking ? <Loader2 size={13} className="animate-spin" /> : chat.length === 0 ? 'Organizar' : 'Enviar'}
+          </button>
+        </div>
         {aiError && <div className="text-red text-xs">{aiError}</div>}
 
         {proposal && (
@@ -206,7 +260,7 @@ export default function WeeklyScheduleView() {
                 >
                   <Check size={13} /> {confirming ? 'Añadiendo...' : `Confirmar y añadir (${proposal.length})`}
                 </button>
-                <button onClick={() => setProposal(null)} className="text-muted text-xs flex items-center gap-1"><X size={13} /> Descartar</button>
+                <button onClick={resetChat} className="text-muted text-xs flex items-center gap-1"><X size={13} /> Descartar</button>
               </div>
             )}
           </div>

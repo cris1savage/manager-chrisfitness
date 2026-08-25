@@ -136,17 +136,24 @@ async function downloadScriptPDF(script) {
   doc.setTextColor(20, 20, 20);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text(script.title || 'Sin título', marginX, 52);
+  const titleLines = doc.splitTextToSize(script.title || 'Sin título', maxX - marginX);
+  let titleY = 52;
+  titleLines.forEach((line) => {
+    doc.text(line, marginX, titleY);
+    titleY += 7;
+  });
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(120, 120, 120);
-  doc.text(`Categoria: ${script.category || 'General'}    Estado: ${script.status}`, marginX, 59);
+  const metaY = titleY + 2;
+  doc.text(`Categoria: ${script.category || 'General'}    Estado: ${script.status}`, marginX, metaY);
 
   doc.setDrawColor(210, 210, 210);
-  doc.line(marginX, 64, pageWidth - marginX, 64);
+  const ruleY = metaY + 5;
+  doc.line(marginX, ruleY, pageWidth - marginX, ruleY);
 
-  let y = 76;
+  let y = ruleY + 12;
   const ensureSpace = (needed) => {
     if (y + needed > pageHeight - 16) {
       doc.addPage();
@@ -180,21 +187,28 @@ async function downloadScriptPDF(script) {
   }
   blocks.forEach((block) => {
     if (block.type === 'h1') {
-      ensureSpace(14);
-      y += 5;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
+      const lines = doc.splitTextToSize(block.text, maxX - marginX);
+      ensureSpace(5 + lines.length * 7);
+      y += 5;
       doc.setTextColor(58, 156, 196);
-      doc.text(block.text, marginX, y);
-      y += 8;
+      lines.forEach((line) => {
+        doc.text(line, marginX, y);
+        y += 7;
+      });
+      y += 1;
     } else if (block.type === 'h2') {
-      ensureSpace(12);
-      y += 4;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
+      const lines = doc.splitTextToSize(block.text, maxX - marginX);
+      ensureSpace(4 + lines.length * 6);
+      y += 4;
       doc.setTextColor(20, 20, 20);
-      doc.text(block.text, marginX, y);
-      y += 7;
+      lines.forEach((line) => {
+        doc.text(line, marginX, y);
+        y += 6;
+      });
     } else if (block.type === 'li') {
       ensureSpace(6);
       doc.setFont('helvetica', 'normal');
@@ -292,8 +306,8 @@ function RichEditor({ draft, setDraft }) {
         suppressContentEditableWarning
         onInput={handleInput}
         data-placeholder="Escribe el guion aquí... selecciona texto y usa la barra de arriba para darle formato."
-        className="rich-editor bg-surfaceAlt border border-border text-ink rounded-lg px-3 py-2.5 text-sm w-full outline-none focus:border-cyan leading-relaxed overflow-y-auto"
-        style={{ minHeight: 280 }}
+        className="rich-editor bg-surfaceAlt border border-border text-ink rounded-xl px-5 py-5 sm:px-8 sm:py-6 w-full outline-none focus:border-cyan overflow-y-auto"
+        style={{ minHeight: 420 }}
       />
       <div className="text-muted text-[10px]">Selecciona texto y pulsa un botón para aplicar formato — el último botón (Aa) lo quita y vuelve al texto normal.</div>
     </div>
