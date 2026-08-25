@@ -50,13 +50,24 @@ export async function GET(request) {
     if (!cycleDays) continue; // "Personalizada" no se auto-renueva, la gestionas tú a mano
     let newStart = c.renewal_date;
     let newRenewal = addDaysISO(newStart, cycleDays);
+    const cycleDates = [newStart]; // cada fecha en la que "le tocó pagar" durante el salto
     // por si han pasado varios ciclos sin que nadie lo mirara, salta hasta ponerse al día
     while (newRenewal < todayISO) {
       newStart = newRenewal;
       newRenewal = addDaysISO(newStart, cycleDays);
+      cycleDates.push(newStart);
     }
     await supabase.from('active_clients').update({ start_date: newStart, renewal_date: newRenewal }).eq('id', c.id);
     renewed++;
+
+    // Anota el cobro real (una fila por cada ciclo que se cumplió), con el
+    // precio real de ese cliente si ya lo has puesto en Facturación.
+    const { data: billingRow } = await supabase.from('client_billing').select('price_amount').eq('active_client_id', c.id).maybeSingle();
+    if (billingRow?.price_amount != null) {
+      await supabase.from('billing_events').insert(
+        cycleDates.map((eventDate) => ({ active_client_id: c.id, amount: billingRow.price_amount, event_date: eventDate }))
+      );
+    }
   }
 
   // --- Generar hoy las tareas de las rutinas activas (si no existen ya) ---

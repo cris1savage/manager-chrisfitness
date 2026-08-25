@@ -829,6 +829,31 @@ exception
   when duplicate_object then null;
 end $$;
 
+-- Registro real de cada cobro (no prorrateado): una fila por cada vez que
+-- a un cliente le toca pagar de verdad, con la fecha real. Esto es lo que
+-- alimenta las pestañas "Mensual" y "Anual" de Facturación — si un cliente
+-- es semestral, aquí solo aparece el mes en que de verdad paga, con el
+-- importe completo, no repartido en 6.
+create table if not exists public.billing_events (
+  id uuid primary key default gen_random_uuid(),
+  active_client_id uuid references public.active_clients(id) on delete cascade,
+  amount numeric not null,
+  event_date date not null,
+  created_at timestamptz not null default now()
+);
+alter table public.billing_events enable row level security;
+drop policy if exists "billing_events_owner_only" on public.billing_events;
+create policy "billing_events_owner_only" on public.billing_events for all to authenticated
+  using (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true));
+
+do $$
+begin
+  alter publication supabase_realtime add table public.billing_events;
+exception
+  when duplicate_object then null;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las

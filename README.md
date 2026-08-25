@@ -5,6 +5,43 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Facturación reorganizada en pestañas — cálculo real, no repartido
+
+- **Tres pestañas, como en Contactos** — Clientes / Mensual / Anual, en
+  vez de todo amontonado en una sola pantalla:
+  - **Clientes**: solo eso — la lista con el precio y la etiqueta de cada
+    cliente. Nada más.
+  - **Mensual**: navegas mes a mes, y ves lo que facturaste **de verdad**
+    ese mes en concreto, agrupado por duración (mensual/3 meses/6
+    meses/anual) — si un cliente es semestral, solo aparece en el mes
+    exacto en que le tocó pagar, con el importe completo, no repartido en
+    6 partes.
+  - **Anual**: navegas año a año, ves los 12 meses uno al lado del otro
+    (para comparar cuáles fueron mejores o peores), el total del año, y un
+    gráfico de línea con la evolución.
+- **Nuevo registro real de cobros** (`billing_events`): cada vez que un
+  cliente completa un ciclo de pago (al auto-renovarse, o al ponerle el
+  precio por primera vez), queda anotada esa fecha y ese importe — es lo
+  que alimenta Mensual y Anual. Solo tú lo ves, igual que el resto de
+  Facturación.
+- **Corregido**: el botón "Renovar vencidas ahora" ahora usa la clave de
+  servicio por dentro, para que el cobro quede bien anotado lo pulse quien
+  lo pulse (tú o Ana), sin toparse con el bloqueo de Facturación.
+- **Aviso importante**: como esto es un registro nuevo, no hay datos de
+  meses anteriores a hoy — se va a ir rellenando solo a partir de ahora,
+  cada vez que un cliente renueve de verdad o le pongas precio por primera
+  vez.
+
+## Botón para renovar vencidas ahora mismo
+
+- **"Renovar vencidas ahora"** en Clientes activos, dentro del aviso de
+  Renovaciones próximas — hace de inmediato lo mismo que el aviso diario
+  hace solo una vez al día. Útil hoy porque tienes clientes vencidos desde
+  hace tiempo (de antes de que existiera la renovación automática) y no
+  hace falta esperar a mañana para que se pongan al día. A partir de ahora,
+  el aviso diario los mantiene renovados solo, y este botón queda ahí por
+  si algún día quieres forzarlo tú.
+
 ## Clientes activos, compartida de nuevo — Facturación sigue solo tuya
 
 - **Ana vuelve a ver Clientes activos** (nombres, programas, fechas,

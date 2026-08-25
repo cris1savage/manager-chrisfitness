@@ -104,10 +104,23 @@ export default function ClientsClient() {
   const [search, setSearch] = useState('');
   const emptyForm = { name: '', program: '', start_date: todayISO(), duration: 'Mensual', renewal_date: addDaysISO(todayISO(), 30), status: 'Activo' };
   const [form, setForm] = useState(emptyForm);
+  const [renewing, setRenewing] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from('active_clients').select('*').order('renewal_date', { ascending: true });
     setClients(data || []);
+  };
+
+  const renewOverdueNow = async () => {
+    setRenewing(true);
+    try {
+      const res = await fetch('/api/clients/renew-overdue', { method: 'POST' });
+      await res.json();
+      await load();
+    } catch {
+      // si falla, se intentará de nuevo mañana con el aviso diario
+    }
+    setRenewing(false);
   };
 
   useEffect(() => {
@@ -175,9 +188,21 @@ export default function ClientsClient() {
 
       {renewalsSoon.length > 0 && (
         <Card style={{ border: '1px solid #FBBF24', boxShadow: '0 0 24px -8px #FBBF2455' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={16} color="#FBBF24" />
-            <span className="text-amber font-extrabold text-xs tracking-widest">RENOVACIONES PRÓXIMAS</span>
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} color="#FBBF24" />
+              <span className="text-amber font-extrabold text-xs tracking-widest">RENOVACIONES PRÓXIMAS</span>
+            </div>
+            {renewalsSoon.some((c) => c.renewal_date < soon) && (
+              <button
+                onClick={renewOverdueNow}
+                disabled={renewing}
+                className="rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                style={{ background: '#4ADE8022', color: '#4ADE80', border: '1px solid #4ADE8055' }}
+              >
+                {renewing ? 'Renovando…' : 'Renovar vencidas ahora'}
+              </button>
+            )}
           </div>
           <div className="space-y-1">
             {renewalsSoon.map((c) => {
