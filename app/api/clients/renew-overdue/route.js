@@ -52,7 +52,7 @@ export async function POST() {
       newRenewal = addDaysISO(newStart, cycleDays);
       cycleDates.push(newStart);
     }
-    await supabase.from('active_clients').update({ start_date: newStart, renewal_date: newRenewal }).eq('id', c.id);
+    await supabase.from('active_clients').update({ renewal_date: newRenewal }).eq('id', c.id);
     renewed++;
 
     const { data: billingRow } = await supabase.from('client_billing').select('price_amount').eq('active_client_id', c.id).maybeSingle();

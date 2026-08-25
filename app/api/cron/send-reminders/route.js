@@ -57,7 +57,7 @@ export async function GET(request) {
       newRenewal = addDaysISO(newStart, cycleDays);
       cycleDates.push(newStart);
     }
-    await supabase.from('active_clients').update({ start_date: newStart, renewal_date: newRenewal }).eq('id', c.id);
+    await supabase.from('active_clients').update({ renewal_date: newRenewal }).eq('id', c.id);
     renewed++;
 
     // Anota el cobro real (una fila por cada ciclo que se cumplió), con el
