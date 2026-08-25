@@ -5,6 +5,16 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Lead score visible en la propia lista
+
+- **Badge de puntuación junto al nombre**: en cuanto has analizado a
+  alguien con el AI Closer y le has dado a "Guardar en la ficha", su
+  puntuación aparece directamente en la tarjeta de Contactos (ej. "58%"),
+  coloreada igual que dentro del AI Closer — rojo/🔥 para los más
+  calientes, ámbar, cian, gris para los fríos. También se ve el estado
+  del lead (ej. "Problema identificado") junto al origen. Así ves de un
+  vistazo quién está más avanzado sin tener que abrir cada ficha.
+
 ## Bug real arreglado: las capturas no quedaban guardadas
 
 - **Confirmado**: cada análisis del AI Closer va atado al contacto exacto,

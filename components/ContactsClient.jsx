@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, MessageSquare, X, Search, Sparkles } from 'lucide-react';
+import { Plus, Trash2, MessageSquare, X, Search, Sparkles, Flame } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
@@ -10,6 +10,13 @@ import CommentThread from '@/components/CommentThread';
 import AIReplyAssistant from '@/components/AIReplyAssistant';
 import NewLeadPanel from '@/components/NewLeadPanel';
 import Modal from '@/components/Modal';
+
+function scoreColor(score) {
+  if (score >= 76) return '#F87171';
+  if (score >= 51) return '#FBBF24';
+  if (score >= 26) return '#5ECCFA';
+  return '#7C878B';
+}
 
 const SOURCES = ['Instagram', 'Anuncio', 'Referido', 'TusMacros', 'Otro'];
 
@@ -218,16 +225,29 @@ export default function ContactsClient() {
               <div className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="min-w-0 flex-1">
-                    <input
-                      value={c.name}
-                      onChange={(e) => update(c.id, 'name', e.target.value)}
-                      className="bg-transparent text-ink font-bold text-sm outline-none w-full"
-                    />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        value={c.name}
+                        onChange={(e) => update(c.id, 'name', e.target.value)}
+                        className="bg-transparent text-ink font-bold text-sm outline-none flex-1 min-w-[80px]"
+                      />
+                      {c.ai_lead_score != null && (
+                        <span
+                          className="text-[10.5px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 shrink-0"
+                          style={{ background: `${scoreColor(c.ai_lead_score)}22`, color: scoreColor(c.ai_lead_score) }}
+                          title={c.ai_score_reason || 'Lead score (AI Closer)'}
+                        >
+                          {c.ai_lead_score >= 76 && <Flame size={10} />}
+                          {c.ai_lead_score}%
+                        </span>
+                      )}
+                    </div>
                     <div className="text-muted text-[11px]">
                       {c.source}
                       {c.source === 'Anuncio' && c.source_ad_id && (
                         <> · {ads.find((a) => a.id === c.source_ad_id)?.campaign || 'anuncio borrado'}</>
                       )}
+                      {c.ai_lead_state && <> · {c.ai_lead_state}</>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
