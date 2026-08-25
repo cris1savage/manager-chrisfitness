@@ -168,7 +168,7 @@ export default function ClientsClient() {
     <div className="space-y-4">
       <div>
         <h2 className="font-display text-ink text-[22px] tracking-wide">CLIENTES ACTIVOS</h2>
-        <div className="text-muted text-xs">Elige la duración y la renovación se calcula sola. Ámbar = ≤7 días, rojo = vencida.</div>
+        <div className="text-muted text-xs">Elige la duración y la renovación se calcula sola. Se renueva sola cada ciclo hasta que la pauses o finalices a mano — nunca se queda "vencida" para siempre. Ámbar = ≤7 días, rojo = vencida.</div>
       </div>
 
       <ActiveClientsGoal activeCount={clients.filter((c) => c.status === 'Activo').length} />

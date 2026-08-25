@@ -5,6 +5,34 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Clientes activos, compartida de nuevo — Facturación sigue solo tuya
+
+- **Ana vuelve a ver Clientes activos** (nombres, programas, fechas,
+  renovaciones) — el precio nunca vivió ahí, siempre estuvo en una tabla
+  aparte (`client_billing`), así que devolver el acceso a esta página no
+  filtra ningún dato de dinero. Su Dashboard también recupera el contador
+  de clientes activos y las renovaciones próximas.
+- **Facturación no se ha tocado — sigue 100% solo tuya**, con sus tres
+  capas de protección intactas (regla en la base de datos, comprobación en
+  el servidor, y escondida del menú para quien no sea el propietario).
+
+## Renovación automática + Facturación más pulida
+
+- **Clientes activos se renueva solo**: antes, si pasaba la fecha de
+  renovación, se quedaba "vencida" para siempre hasta tocarlo a mano. Ahora
+  el aviso diario la va empujando sola, ciclo tras ciclo (mensual/3
+  meses/6 meses/anual), hasta que tú pauses o finalices a ese cliente —
+  nunca más se queda pillada. Si llevaba tiempo sin mirarlo y se pasaron
+  varios ciclos, se pone al día de golpe.
+- **Facturación, aviso visual en Clientes activos también**: el mismo
+  candado amarillo "Solo tú ves esta página" que ya tenías en Facturación.
+- **Números de arriba más "pro"**: los 4 datos clave ahora llevan icono y
+  color distinto cada uno (verde, cian, morado, ámbar), igual que el resto
+  del panel — menos "letras blancas sueltas", más panel de verdad.
+- **Historial mensual/anual, plegado**: ya no se ve de primeras — es un
+  desplegable con su propio icono, le das clic cuando quieras verlo. Menos
+  agobio al entrar a la página.
+
 ## Facturación completa: historial, prorrateo, y un fallo crítico corregido a tiempo
 
 - **⚠️ Fallo grave encontrado y arreglado antes de que llegara a producción**:

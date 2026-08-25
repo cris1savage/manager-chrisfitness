@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import webpush from 'web-push';
 
-// Se ejecuta una vez al día (ver vercel.json). Genera las tareas de hoy a
-// partir de las rutinas activas (task_templates), actualiza el histórico
-// del mes en curso (Historial mensual), y manda a cada cuenta un único
-// aviso con sus tareas pendientes de los próximos 3-4 días. Nada
+// Se ejecuta una vez al día (ver vercel.json). Renueva solos los clientes
+// activos vencidos (hasta que tú los pauses a mano), genera las tareas de
+// hoy a partir de las rutinas activas (task_templates), actualiza el
+// histórico del mes en curso (Historial mensual), y manda a cada cuenta un
+// único aviso con sus tareas pendientes de los próximos 3-4 días. Nada
 // compartido: cada uno solo ve las suyas.
 
 export async function GET(request) {
@@ -26,6 +27,37 @@ export async function GET(request) {
   const todayISO = today.toISOString().slice(0, 10);
   const tomorrowISO = new Date(today.getTime() + 86400000).toISOString().slice(0, 10);
   const windowEnd = new Date(today.getTime() + 3 * 86400000).toISOString().slice(0, 10); // hoy + 3 días más = ventana de 4 días
+
+  // --- Auto-renovar clientes activos cuya renovación ya pasó ---
+  // Sigue renovando sola, ciclo tras ciclo, hasta que TÚ pauses o finalices
+  // a ese cliente a mano — así nunca se queda "vencida" pillada para siempre.
+  const DURATION_DAYS = { 'Mensual': 30, '3 meses': 90, '6 meses': 180, 'Anual': 365 };
+  const addDaysISO = (dateISO, days) => {
+    const d = new Date(`${dateISO}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+  const { data: dueClients } = await supabase
+    .from('active_clients')
+    .select('id, start_date, renewal_date, duration')
+    .eq('status', 'Activo')
+    .not('renewal_date', 'is', null)
+    .lt('renewal_date', todayISO);
+
+  let renewed = 0;
+  for (const c of dueClients || []) {
+    const cycleDays = DURATION_DAYS[c.duration];
+    if (!cycleDays) continue; // "Personalizada" no se auto-renueva, la gestionas tú a mano
+    let newStart = c.renewal_date;
+    let newRenewal = addDaysISO(newStart, cycleDays);
+    // por si han pasado varios ciclos sin que nadie lo mirara, salta hasta ponerse al día
+    while (newRenewal < todayISO) {
+      newStart = newRenewal;
+      newRenewal = addDaysISO(newStart, cycleDays);
+    }
+    await supabase.from('active_clients').update({ start_date: newStart, renewal_date: newRenewal }).eq('id', c.id);
+    renewed++;
+  }
 
   // --- Generar hoy las tareas de las rutinas activas (si no existen ya) ---
   const { data: templates } = await supabase.from('task_templates').select('*').eq('active', true);
@@ -232,5 +264,5 @@ export async function GET(request) {
     }
   }
 
-  return NextResponse.json({ sent, removedStale, generated, monthSnapshot: monthKey });
+  return NextResponse.json({ sent, removedStale, generated, renewed, monthSnapshot: monthKey });
 }

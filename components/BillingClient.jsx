@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Lock, TrendingUp, TrendingDown, Users, Tag, Calendar as CalendarIcon } from 'lucide-react';
+import { Lock, TrendingUp, TrendingDown, Users, Tag, Calendar as CalendarIcon, DollarSign, Wallet, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
-import { Card } from '@/components/ui';
+import { Card, StatCard } from '@/components/ui';
 import { eur, todayISO } from '@/lib/config';
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -32,6 +32,7 @@ export default function BillingClient() {
   const [billing, setBilling] = useState({}); // active_client_id -> row
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showHistory, setShowHistory] = useState(false);
 
   const load = async () => {
     const [clientsRes, billingRes, historyRes] = await Promise.all([
@@ -117,57 +118,69 @@ export default function BillingClient() {
       {!loading && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card>
-              <div className="text-muted text-[11px] uppercase tracking-wide">Facturación mensual real</div>
-              <div className="text-ink text-xl font-extrabold font-display">{eur(mrr)}</div>
-            </Card>
-            <Card>
-              <div className="text-muted text-[11px] uppercase tracking-wide">Ticket medio real</div>
-              <div className="text-ink text-xl font-extrabold font-display">{eur(avgTicket)}</div>
-            </Card>
-            <Card>
-              <div className="text-muted text-[11px] uppercase tracking-wide">Proyección anual</div>
-              <div className="text-ink text-xl font-extrabold font-display">{eur(annualProjection)}</div>
-            </Card>
-            <Card>
-              <div className="text-muted text-[11px] uppercase tracking-wide">Clientes activos</div>
-              <div className="text-ink text-xl font-extrabold font-display">{activeClients.length}</div>
-              {priced.length < activeClients.length && (
-                <div className="text-muted text-[10px] mt-0.5">{activeClients.length - priced.length} sin precio puesto</div>
-              )}
-            </Card>
+            <StatCard icon={DollarSign} label="Facturación mensual real" value={eur(mrr)} color="#4ADE80" />
+            <StatCard icon={Wallet} label="Ticket medio real" value={eur(avgTicket)} color="#5ECCFA" />
+            <StatCard icon={TrendingUp} label="Proyección anual" value={eur(annualProjection)} color="#A78BFA" />
+            <StatCard
+              icon={Users}
+              label="Clientes activos"
+              value={activeClients.length}
+              color="#FBBF24"
+            />
           </div>
+          {priced.length < activeClients.length && (
+            <div className="text-muted text-[11px] -mt-2">{activeClients.length - priced.length} cliente(s) activo(s) sin precio puesto todavía.</div>
+          )}
 
           {history.length > 0 && (
-            <Card>
-              <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3">Historial de facturación real — mes a mes</div>
-              <div className="w-full h-[200px] mb-3">
-                <ResponsiveContainer>
-                  <LineChart data={chartData}>
-                    <CartesianGrid stroke="#212729" vertical={false} />
-                    <XAxis dataKey="label" stroke="#7C878B" fontSize={9} tickLine={false} axisLine={{ stroke: '#212729' }} />
-                    <YAxis stroke="#7C878B" fontSize={10} tickLine={false} axisLine={{ stroke: '#212729' }} width={40} />
-                    <Tooltip contentStyle={{ background: '#151A1D', border: '1px solid #212729', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#F2F6F7' }} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Line type="monotone" dataKey="Facturación real" stroke="#4ADE80" strokeWidth={2} dot={{ r: 3, fill: '#4ADE80' }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="space-y-1.5">
-                {historySorted.slice(0, 6).map((h) => (
-                  <div key={h.month} className="flex items-center justify-between rounded-lg p-2 bg-surfaceAlt border border-border" style={{ borderColor: h.month === currentMonth ? '#5ECCFA' : undefined }}>
-                    <div className="flex items-center gap-1.5">
-                      <CalendarIcon size={12} className={h.month === currentMonth ? 'text-cyan' : 'text-muted'} />
-                      <span className="text-ink text-sm capitalize">{monthLabelFull(h.month)}</span>
-                      {h.month === currentMonth && <span className="text-cyan text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-cyan/15">En curso</span>}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-ink text-sm font-semibold">{eur(h.mrr)}</div>
-                      <div className="text-muted text-[10px]">{h.active_clients_count} clientes · ticket {eur(h.avg_ticket)}</div>
-                    </div>
+            <Card className="!p-0">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className="w-full flex items-center justify-between px-4 py-3 text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg p-2 shrink-0" style={{ background: '#5ECCFA1A' }}>
+                    <BarChart3 size={16} color="#5ECCFA" />
                   </div>
-                ))}
-              </div>
+                  <div>
+                    <div className="text-ink text-sm font-semibold">Historial mensual y anual</div>
+                    <div className="text-muted text-[10.5px]">Evolución de tu facturación real, mes a mes</div>
+                  </div>
+                </div>
+                {showHistory ? <ChevronUp size={16} className="text-muted shrink-0" /> : <ChevronDown size={16} className="text-muted shrink-0" />}
+              </button>
+
+              {showHistory && (
+                <div className="px-4 pb-4 border-t border-border pt-3">
+                  <div className="w-full h-[200px] mb-3">
+                    <ResponsiveContainer>
+                      <LineChart data={chartData}>
+                        <CartesianGrid stroke="#212729" vertical={false} />
+                        <XAxis dataKey="label" stroke="#7C878B" fontSize={9} tickLine={false} axisLine={{ stroke: '#212729' }} />
+                        <YAxis stroke="#7C878B" fontSize={10} tickLine={false} axisLine={{ stroke: '#212729' }} width={40} />
+                        <Tooltip contentStyle={{ background: '#151A1D', border: '1px solid #212729', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#F2F6F7' }} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Line type="monotone" dataKey="Facturación real" stroke="#4ADE80" strokeWidth={2} dot={{ r: 3, fill: '#4ADE80' }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-1.5">
+                    {historySorted.slice(0, 6).map((h) => (
+                      <div key={h.month} className="flex items-center justify-between rounded-lg p-2 bg-surfaceAlt border border-border" style={{ borderColor: h.month === currentMonth ? '#5ECCFA' : undefined }}>
+                        <div className="flex items-center gap-1.5">
+                          <CalendarIcon size={12} className={h.month === currentMonth ? 'text-cyan' : 'text-muted'} />
+                          <span className="text-ink text-sm capitalize">{monthLabelFull(h.month)}</span>
+                          {h.month === currentMonth && <span className="text-cyan text-[9px] font-bold uppercase px-1 py-0.5 rounded bg-cyan/15">En curso</span>}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-ink text-sm font-semibold">{eur(h.mrr)}</div>
+                          <div className="text-muted text-[10px]">{h.active_clients_count} clientes · ticket {eur(h.avg_ticket)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Card>
           )}
 

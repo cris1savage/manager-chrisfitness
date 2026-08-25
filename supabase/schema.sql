@@ -798,15 +798,12 @@ exception
   when duplicate_object then null;
 end $$;
 
--- Clientes activos pasa a ser SOLO tuyo también (nombres, precios, todo) —
--- reemplaza la política compartida que tenía por una igual de restrictiva
--- que la de Facturación. Ana deja de ver esta tabla por completo, incluidos
--- los totales que salían en su Dashboard (contador de clientes activos y
--- renovaciones próximas) — así lo confirmaste.
+-- Clientes activos vuelve a ser compartida con Ana — el precio nunca vivió
+-- aquí (siempre estuvo aparte, en client_billing, que sigue solo para ti
+-- más abajo), así que devolver esta tabla no filtra ningún dato de dinero.
+drop policy if exists "active_clients_owner_only" on public.active_clients;
 drop policy if exists "active_clients_full_access_authenticated" on public.active_clients;
-create policy "active_clients_owner_only" on public.active_clients for all to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true));
+create policy "active_clients_full_access_authenticated" on public.active_clients for all to authenticated using (true) with check (true);
 
 -- Historial de facturación real, mes a mes — igual que el Historial normal,
 -- pero solo con lo que de verdad facturaste (usando el precio prorrateado
