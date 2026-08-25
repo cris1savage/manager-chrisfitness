@@ -5,6 +5,35 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Facturación privada (solo tú)
+
+- **Nueva página `/facturacion`** — facturación mensual real, ticket medio
+  real, proyección anual, quién paga qué (con tu propia etiqueta libre,
+  ej. "Precio antiguo"), y altas/bajas de los últimos meses. Editas el
+  precio y la etiqueta de cada cliente activo directamente ahí.
+- **Protegida de verdad, en tres capas — no solo escondida en el menú**:
+  1. La tabla donde vive el precio (`client_billing`) tiene una regla en la
+     base de datos que dice "solo visible si la cuenta está marcada como
+     propietaria" — es la barrera real, la que importa de verdad.
+  2. La propia página comprueba en el servidor que eres el propietario
+     antes de mostrar nada, y si no lo eres, te redirige.
+  3. El enlace en el menú ni siquiera aparece si no eres el propietario.
+- **⚠️ Paso obligatorio, solo tú lo puedes hacer**: en Supabase → SQL
+  Editor, ejecuta esto UNA VEZ, cambiando el email por el que usas para
+  entrar al panel:
+  ```sql
+  update public.profiles set is_owner = true
+  where id = (select id from auth.users where email = 'tu-email@ejemplo.com');
+  ```
+  Sin este paso, la página de Facturación no se le mostrará a nadie —
+  ni siquiera a ti — porque por defecto nadie es propietario.
+- Nota honesta: esta página muestra la **facturación recurrente real**
+  (lo que cada cliente paga cada mes, dato que antes no existía en
+  ningún sitio). Es distinta del "Ingresos" que ya veías en Dashboard e
+  Historial, que se calcula a partir del valor puntual que anotas cuando
+  alguien pasa a Cliente en Contactos — ese sigue siendo compartido con
+  Ana, y no lo he tocado.
+
 ## Lead score visible en la propia lista
 
 - **Badge de puntuación junto al nombre**: en cuanto has analizado a

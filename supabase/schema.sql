@@ -737,6 +737,44 @@ alter table public.contacts add column if not exists ai_last_analysis_at timesta
 alter table public.contacts add column if not exists ai_last_conversation text;
 
 -- ---------------------------------------------------------------------------
+-- FACTURACIÓN (solo el propietario la ve — protección real en la base de
+-- datos, no solo escondida en la pantalla)
+-- ---------------------------------------------------------------------------
+
+-- Marca tu propia cuenta como propietaria. Sustituye el email por el tuyo
+-- y ejecuta esta línea UNA VEZ (ver README, sección "Facturación privada"):
+-- update public.profiles set is_owner = true where id = (select id from auth.users where email = 'tu-email@ejemplo.com');
+alter table public.profiles add column if not exists is_owner boolean not null default false;
+
+-- Fecha en que cambió el estado (Activo/Pausado/Finalizado) — no es dato
+-- económico, se queda en la tabla compartida de Clientes activos para que
+-- Ana también la vea; solo el precio y la etiqueta van aparte.
+alter table public.active_clients add column if not exists status_changed_at timestamptz;
+
+-- Precio real y etiqueta (ej. "Precio antiguo") de cada cliente activo.
+-- Tabla separada a propósito: nunca visible para nadie que no sea el
+-- propietario, aunque tenga acceso al resto del panel.
+create table if not exists public.client_billing (
+  id uuid primary key default gen_random_uuid(),
+  active_client_id uuid references public.active_clients(id) on delete cascade unique,
+  monthly_price numeric,
+  price_tag text,
+  updated_at timestamptz not null default now()
+);
+alter table public.client_billing enable row level security;
+drop policy if exists "client_billing_owner_only" on public.client_billing;
+create policy "client_billing_owner_only" on public.client_billing for all to authenticated
+  using (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true))
+  with check (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true));
+
+do $$
+begin
+  alter publication supabase_realtime add table public.client_billing;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto

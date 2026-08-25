@@ -140,6 +140,7 @@ export default function ClientsClient() {
   const update = async (id, key, value) => {
     setClients((c) => c.map((row) => (row.id === id ? { ...row, [key]: value } : row)));
     const patch = { [key]: value };
+    if (key === 'status') patch.status_changed_at = new Date().toISOString();
     if (key === 'duration' || key === 'start_date') {
       const row = clients.find((c) => c.id === id);
       const nextDuration = key === 'duration' ? value : row.duration;
