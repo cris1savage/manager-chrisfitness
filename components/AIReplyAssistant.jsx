@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, Copy, Check, Loader2, Flame, AlertTriangle, Target, Save, Brain } from 'lucide-react';
+import { Sparkles, Copy, Check, Loader2, Flame, AlertTriangle, Target, Save, Brain, ChevronDown, ChevronUp, Image as ImageIcon, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 function scoreColor(score) {
@@ -24,8 +24,20 @@ function priorAnalysisText(contact) {
   return parts.join(' · ');
 }
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AIReplyAssistant({ contact }) {
-  const [message, setMessage] = useState(contact.ai_last_conversation || '');
+  const [savedConversation, setSavedConversation] = useState(contact.ai_last_conversation || '');
+  const [newText, setNewText] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const [image, setImage] = useState(null); // { dataUrl, base64, mediaType }
   const [loading, setLoading] = useState(false);
   const [coaching, setCoaching] = useState(false);
   const [analysis, setAnalysis] = useState(null);
@@ -35,9 +47,23 @@ export default function AIReplyAssistant({ contact }) {
   const [saved, setSaved] = useState(false);
 
   const priorText = priorAnalysisText(contact);
+  const hasInput = newText.trim() || image;
+
+  const combinedText = () => {
+    if (savedConversation && newText.trim()) return `${savedConversation}\n\n--- Mensajes nuevos ---\n\n${newText.trim()}`;
+    return newText.trim() || savedConversation;
+  };
+
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const base64 = await fileToBase64(file);
+    setImage({ dataUrl: URL.createObjectURL(file), base64, mediaType: file.type });
+    e.target.value = '';
+  };
 
   const callAI = async (mode) => {
-    if (!message.trim()) return;
+    if (!hasInput) return;
     if (mode === 'coach') setCoaching(true);
     else setLoading(true);
     setError('');
@@ -53,7 +79,9 @@ export default function AIReplyAssistant({ contact }) {
           source: contact.source,
           notes: contact.notes,
           priorAnalysis: priorText,
-          conversationText: message,
+          conversationText: combinedText(),
+          imageBase64: image?.base64,
+          imageMediaType: image?.mediaType,
           mode,
         }),
       });
@@ -82,6 +110,7 @@ export default function AIReplyAssistant({ contact }) {
 
   const saveToLead = async () => {
     if (!analysis) return;
+    const merged = combinedText();
     const supabase = createClient();
     await supabase
       .from('contacts')
@@ -96,9 +125,12 @@ export default function AIReplyAssistant({ contact }) {
         ai_next_step: analysis.next_step || null,
         ai_probability: analysis.probability || null,
         ai_last_analysis_at: new Date().toISOString(),
-        ai_last_conversation: message,
+        ai_last_conversation: merged,
       })
       .eq('id', contact.id);
+    setSavedConversation(merged);
+    setNewText('');
+    setImage(null);
     setSaved(true);
   };
 
@@ -120,32 +152,67 @@ export default function AIReplyAssistant({ contact }) {
         </div>
       )}
 
-      {contact.ai_last_conversation && (
-        <div className="text-muted text-[10px]">Conversación guardada de esta ficha — la puedes editar o pegar la versión actualizada.</div>
+      {savedConversation && (
+        <div className="rounded-lg border border-border overflow-hidden">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 text-[10.5px] text-muted bg-surface"
+          >
+            <span>Conversación guardada de esta ficha</span>
+            {showHistory ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+          </button>
+          {showHistory && (
+            <textarea
+              value={savedConversation}
+              onChange={(e) => setSavedConversation(e.target.value)}
+              rows={5}
+              className="bg-surface text-ink text-[11px] w-full outline-none px-2.5 py-2 resize-y border-t border-border"
+            />
+          )}
+        </div>
       )}
+
+      <div className="text-muted text-[10px]">
+        {savedConversation ? 'Pega solo los mensajes nuevos desde la última vez — no hace falta repetir toda la conversación.' : 'Pega la conversación de Instagram, o adjunta una captura.'}
+      </div>
       <textarea
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Pega aquí la conversación de Instagram (los últimos mensajes)..."
+        value={newText}
+        onChange={(e) => setNewText(e.target.value)}
+        placeholder={savedConversation ? 'Mensajes nuevos desde la última vez...' : 'Pega aquí la conversación de Instagram...'}
         rows={4}
         className="bg-surface border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y"
       />
+
+      {image && (
+        <div className="relative w-fit">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image.dataUrl} alt="Captura adjunta" className="h-20 rounded-lg border border-border" />
+          <button onClick={() => setImage(null)} className="absolute -top-1.5 -right-1.5 bg-surface border border-border rounded-full p-0.5 text-red">
+            <X size={11} />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => callAI('analyze')}
-          disabled={loading || coaching || !message.trim()}
+          disabled={loading || coaching || !hasInput}
           className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-cyan text-[#00161C] flex items-center gap-1.5 disabled:opacity-50"
         >
           {loading ? <><Loader2 size={13} className="animate-spin" /> Analizando...</> : 'Analizar conversación'}
         </button>
         <button
           onClick={() => callAI('coach')}
-          disabled={loading || coaching || !message.trim()}
+          disabled={loading || coaching || !hasInput}
           className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
           style={{ background: 'transparent', color: '#A78BFA', border: '1px solid #A78BFA55' }}
         >
           {coaching ? <><Loader2 size={13} className="animate-spin" /> Pensando...</> : <><Brain size={13} /> ¿Qué harías tú?</>}
         </button>
+        <label className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 text-muted border border-border cursor-pointer">
+          <ImageIcon size={13} /> Adjuntar captura
+          <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+        </label>
       </div>
       {error && <div className="text-red text-xs">{error}</div>}
 

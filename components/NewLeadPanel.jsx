@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, Copy, Check, Loader2, Flame, AlertTriangle, Target, UserPlus, X } from 'lucide-react';
+import { Sparkles, Copy, Check, Loader2, Flame, AlertTriangle, Target, UserPlus, X, Image as ImageIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 const SOURCES = ['Instagram', 'Anuncio', 'Referido', 'TusMacros', 'Otro'];
@@ -13,18 +13,36 @@ function scoreColor(score) {
   return '#7C878B';
 }
 
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function NewLeadPanel({ onClose, onCreated }) {
   const [name, setName] = useState('');
   const [source, setSource] = useState('Instagram');
   const [message, setMessage] = useState('');
+  const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState('');
   const [copiedIdx, setCopiedIdx] = useState(null);
   const [creating, setCreating] = useState(false);
 
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const base64 = await fileToBase64(file);
+    setImage({ dataUrl: URL.createObjectURL(file), base64, mediaType: file.type });
+    e.target.value = '';
+  };
+
   const analyze = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() && !image) return;
     setLoading(true);
     setError('');
     setAnalysis(null);
@@ -39,6 +57,8 @@ export default function NewLeadPanel({ onClose, onCreated }) {
           notes: '',
           priorAnalysis: '',
           conversationText: message,
+          imageBase64: image?.base64,
+          imageMediaType: image?.mediaType,
           mode: 'analyze',
         }),
       });
@@ -125,13 +145,30 @@ export default function NewLeadPanel({ onClose, onCreated }) {
         rows={4}
         className="bg-surface border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y"
       />
-      <button
-        onClick={analyze}
-        disabled={loading || !message.trim()}
-        className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-cyan text-[#00161C] flex items-center gap-1.5 disabled:opacity-50"
-      >
-        {loading ? <><Loader2 size={13} className="animate-spin" /> Analizando...</> : 'Analizar conversación'}
-      </button>
+
+      {image && (
+        <div className="relative w-fit">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image.dataUrl} alt="Captura adjunta" className="h-20 rounded-lg border border-border" />
+          <button onClick={() => setImage(null)} className="absolute -top-1.5 -right-1.5 bg-surface border border-border rounded-full p-0.5 text-red">
+            <X size={11} />
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={analyze}
+          disabled={loading || (!message.trim() && !image)}
+          className="rounded-lg px-3 py-1.5 text-xs font-semibold bg-cyan text-[#00161C] flex items-center gap-1.5 disabled:opacity-50"
+        >
+          {loading ? <><Loader2 size={13} className="animate-spin" /> Analizando...</> : 'Analizar conversación'}
+        </button>
+        <label className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 text-muted border border-border cursor-pointer">
+          <ImageIcon size={13} /> Adjuntar captura
+          <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+        </label>
+      </div>
       {error && <div className="text-red text-xs">{error}</div>}
 
       {analysis && (

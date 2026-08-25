@@ -5,6 +5,18 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## AI Closer: seguir sin repetir todo, y capturas de pantalla
+
+- **Ya no hace falta repegar toda la conversación**: si un lead ya tiene
+  conversación guardada, aparece plegada arriba ("Conversación guardada de
+  esta ficha") y el cuadro de abajo es solo para los mensajes nuevos desde
+  la última vez. Al analizar, la IA ve todo el contexto igual que antes;
+  al guardar, se une todo junto para la próxima vez.
+- **Adjuntar captura de pantalla**: en vez de escribir o copiar/pegar,
+  puedes subir directamente una foto de la conversación de Instagram — la
+  IA la lee igual. Funciona tanto en el AI Closer de cada ficha como en
+  "Lead nuevo con IA".
+
 ## Tres arreglos de esta vez
 
 - **Panel centrado en pantallas anchas**: en monitores grandes, el

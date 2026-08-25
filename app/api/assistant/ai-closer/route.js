@@ -89,10 +89,10 @@ export async function POST(request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { contactName, stage, source, notes, priorAnalysis, conversationText, mode } = body;
+  const { contactName, stage, source, notes, priorAnalysis, conversationText, imageBase64, imageMediaType, mode } = body;
 
-  if (!conversationText || !conversationText.trim()) {
-    return NextResponse.json({ error: 'Falta la conversación a analizar.' }, { status: 400 });
+  if ((!conversationText || !conversationText.trim()) && !imageBase64) {
+    return NextResponse.json({ error: 'Falta la conversación a analizar (texto o captura).' }, { status: 400 });
   }
 
   const contextBlock = `Contacto: ${contactName || 'sin nombre'}
@@ -101,12 +101,17 @@ Origen: ${source || 'desconocido'}
 ${notes ? `Notas guardadas: ${notes}` : ''}
 ${priorAnalysis ? `Análisis anterior guardado en la ficha:\n${priorAnalysis}` : ''}
 
-Conversación (últimos mensajes, tal como los pegó Chris):
-"""
-${conversationText.trim()}
-"""`;
+${imageBase64 ? 'Se adjunta una captura de pantalla de la conversación de Instagram. Léela tal cual aparece en la imagen.' : ''}
+${conversationText && conversationText.trim() ? `Conversación (últimos mensajes, tal como los pegó Chris):\n"""\n${conversationText.trim()}\n"""` : ''}`;
 
   const systemPrompt = mode === 'coach' ? buildCoachPrompt() : buildAnalyzePrompt();
+
+  const userContent = imageBase64
+    ? [
+        { type: 'image', source: { type: 'base64', media_type: imageMediaType || 'image/jpeg', data: imageBase64 } },
+        { type: 'text', text: contextBlock },
+      ]
+    : contextBlock;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -120,7 +125,7 @@ ${conversationText.trim()}
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
         max_tokens: 4096,
         system: systemPrompt,
-        messages: [{ role: 'user', content: contextBlock }],
+        messages: [{ role: 'user', content: userContent }],
       }),
     });
 
