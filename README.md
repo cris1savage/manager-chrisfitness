@@ -5,6 +5,21 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Cálculo de renovación por meses de calendario reales (no días fijos)
+
+- **Bug de raíz corregido**: usaba días fijos (30/90/180/365) como
+  aproximación de "1/3/6/12 meses", y eso se iba desviando del día real
+  con el tiempo — un cliente que paga el 20/1 con "3 meses" podía acabar
+  renovando el 18/4 o el 22/4 en vez del 20/4 exacto. Ahora se calcula con
+  meses de calendario de verdad: el mismo día, cada vez, para siempre
+  (con el ajuste correcto para meses cortos, ej. 31 de enero + 1 mes → 28
+  o 29 de febrero). Corregido en el formulario, en la edición manual, en
+  el aviso diario y en el cálculo de facturación.
+- **Quitado el cartel de "Renovaciones próximas"** en Clientes activos —
+  ya no hace falta, las renovaciones son automáticas de verdad. Se queda
+  solo el borde de color en cada tarjeta (rojo si vencida, ámbar si está
+  cerca) como aviso discreto, sin el cartel grande ni el botón manual.
+
 ## Facturación reorganizada en pestañas — cálculo real, no repartido
 
 - **Tres pestañas, como en Contactos** — Clientes / Mensual / Anual, en

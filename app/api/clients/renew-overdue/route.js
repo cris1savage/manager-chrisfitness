@@ -9,12 +9,17 @@ import { createClient as createServiceClient } from '@supabase/supabase-js';
 // que el registro del cobro real (que sí es solo tuyo) quede anotado igual
 // lo pulse quien lo pulse, sin toparse con el bloqueo de Facturación.
 
-const DURATION_DAYS = { Mensual: 30, '3 meses': 90, '6 meses': 180, Anual: 365 };
+const DURATION_MONTHS = { Mensual: 1, '3 meses': 3, '6 meses': 6, Anual: 12 };
 
-function addDaysISO(dateISO, days) {
+function addMonthsISO(dateISO, months) {
   const d = new Date(`${dateISO}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+  const targetMonthIndex = d.getUTCMonth() + months;
+  const result = new Date(Date.UTC(d.getUTCFullYear(), targetMonthIndex, d.getUTCDate()));
+  const expectedMonth = ((targetMonthIndex % 12) + 12) % 12;
+  if (result.getUTCMonth() !== expectedMonth) {
+    result.setUTCDate(0);
+  }
+  return result.toISOString().slice(0, 10);
 }
 
 export async function POST() {
@@ -42,14 +47,14 @@ export async function POST() {
 
   let renewed = 0;
   for (const c of dueClients || []) {
-    const cycleDays = DURATION_DAYS[c.duration];
-    if (!cycleDays) continue; // "Personalizada" se gestiona a mano
+    const cycleMonths = DURATION_MONTHS[c.duration];
+    if (!cycleMonths) continue; // "Personalizada" se gestiona a mano
     let newStart = c.renewal_date;
-    let newRenewal = addDaysISO(newStart, cycleDays);
+    let newRenewal = addMonthsISO(newStart, cycleMonths);
     const cycleDates = [newStart];
     while (newRenewal < todayISO) {
       newStart = newRenewal;
-      newRenewal = addDaysISO(newStart, cycleDays);
+      newRenewal = addMonthsISO(newStart, cycleMonths);
       cycleDates.push(newStart);
     }
     await supabase.from('active_clients').update({ renewal_date: newRenewal }).eq('id', c.id);

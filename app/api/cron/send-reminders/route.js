@@ -31,11 +31,18 @@ export async function GET(request) {
   // --- Auto-renovar clientes activos cuya renovación ya pasó ---
   // Sigue renovando sola, ciclo tras ciclo, hasta que TÚ pauses o finalices
   // a ese cliente a mano — así nunca se queda "vencida" pillada para siempre.
-  const DURATION_DAYS = { 'Mensual': 30, '3 meses': 90, '6 meses': 180, 'Anual': 365 };
-  const addDaysISO = (dateISO, days) => {
+  // Usa meses de calendario de verdad (no una aproximación en días): si
+  // paga el 20/1 con "3 meses", renueva el 20/4 siempre, el mismo día.
+  const DURATION_MONTHS = { 'Mensual': 1, '3 meses': 3, '6 meses': 6, 'Anual': 12 };
+  const addMonthsISO = (dateISO, months) => {
     const d = new Date(`${dateISO}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + days);
-    return d.toISOString().slice(0, 10);
+    const targetMonthIndex = d.getUTCMonth() + months;
+    const result = new Date(Date.UTC(d.getUTCFullYear(), targetMonthIndex, d.getUTCDate()));
+    const expectedMonth = ((targetMonthIndex % 12) + 12) % 12;
+    if (result.getUTCMonth() !== expectedMonth) {
+      result.setUTCDate(0); // se desbordó — vuelve al último día real del mes correcto
+    }
+    return result.toISOString().slice(0, 10);
   };
   const { data: dueClients } = await supabase
     .from('active_clients')
@@ -46,15 +53,15 @@ export async function GET(request) {
 
   let renewed = 0;
   for (const c of dueClients || []) {
-    const cycleDays = DURATION_DAYS[c.duration];
-    if (!cycleDays) continue; // "Personalizada" no se auto-renueva, la gestionas tú a mano
+    const cycleMonths = DURATION_MONTHS[c.duration];
+    if (!cycleMonths) continue; // "Personalizada" no se auto-renueva, la gestionas tú a mano
     let newStart = c.renewal_date;
-    let newRenewal = addDaysISO(newStart, cycleDays);
+    let newRenewal = addMonthsISO(newStart, cycleMonths);
     const cycleDates = [newStart]; // cada fecha en la que "le tocó pagar" durante el salto
     // por si han pasado varios ciclos sin que nadie lo mirara, salta hasta ponerse al día
     while (newRenewal < todayISO) {
       newStart = newRenewal;
-      newRenewal = addDaysISO(newStart, cycleDays);
+      newRenewal = addMonthsISO(newStart, cycleMonths);
       cycleDates.push(newStart);
     }
     await supabase.from('active_clients').update({ renewal_date: newRenewal }).eq('id', c.id);
@@ -155,7 +162,6 @@ export async function GET(request) {
   // --- Facturación real (solo para ti): factura de cada cliente prorrateada
   // según su duración (mensual/3 meses/6 meses/anual) para dar un MRR real,
   // no inflado ni con huecos en los meses que no tocan pago. ---
-  const DURATION_MONTHS = { 'Mensual': 1, '3 meses': 3, '6 meses': 6, 'Anual': 12 };
   const [billingRows] = await Promise.all([supabase.from('client_billing').select('active_client_id, price_amount')]);
   const priceByClient = {};
   (billingRows.data || []).forEach((b) => { priceByClient[b.active_client_id] = b.price_amount; });

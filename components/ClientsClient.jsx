@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, AlertTriangle, Target, Pencil, Check, Search } from 'lucide-react';
+import { Plus, Trash2, Target, Pencil, Check, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge, Ring } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
-import { todayISO, addDaysISO, DURATIONS } from '@/lib/config';
+import { todayISO, addDaysISO, addMonthsISO, DURATIONS } from '@/lib/config';
 
 function ActiveClientsGoal({ activeCount }) {
   const supabase = useMemo(() => createClient(), []);
@@ -102,25 +102,12 @@ export default function ClientsClient() {
   const profiles = useProfiles();
   const [clients, setClients] = useState([]);
   const [search, setSearch] = useState('');
-  const emptyForm = { name: '', program: '', start_date: todayISO(), duration: 'Mensual', renewal_date: addDaysISO(todayISO(), 30), status: 'Activo' };
+  const emptyForm = { name: '', program: '', start_date: todayISO(), duration: 'Mensual', renewal_date: addMonthsISO(todayISO(), 1), status: 'Activo' };
   const [form, setForm] = useState(emptyForm);
-  const [renewing, setRenewing] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from('active_clients').select('*').order('renewal_date', { ascending: true });
     setClients(data || []);
-  };
-
-  const renewOverdueNow = async () => {
-    setRenewing(true);
-    try {
-      const res = await fetch('/api/clients/renew-overdue', { method: 'POST' });
-      await res.json();
-      await load();
-    } catch {
-      // si falla, se intentará de nuevo mañana con el aviso diario
-    }
-    setRenewing(false);
   };
 
   useEffect(() => {
@@ -134,12 +121,12 @@ export default function ClientsClient() {
   }, []);
 
   const setFormDuration = (duration) => {
-    const days = DURATIONS[duration];
-    setForm((f) => ({ ...f, duration, renewal_date: days ? addDaysISO(f.start_date, days) : f.renewal_date }));
+    const months = DURATIONS[duration];
+    setForm((f) => ({ ...f, duration, renewal_date: months ? addMonthsISO(f.start_date, months) : f.renewal_date }));
   };
   const setFormStartDate = (start_date) => {
-    const days = DURATIONS[form.duration];
-    setForm((f) => ({ ...f, start_date, renewal_date: days ? addDaysISO(start_date, days) : f.renewal_date }));
+    const months = DURATIONS[form.duration];
+    setForm((f) => ({ ...f, start_date, renewal_date: months ? addMonthsISO(start_date, months) : f.renewal_date }));
   };
 
   const add = async () => {
@@ -158,8 +145,8 @@ export default function ClientsClient() {
       const row = clients.find((c) => c.id === id);
       const nextDuration = key === 'duration' ? value : row.duration;
       const nextStart = key === 'start_date' ? value : row.start_date;
-      const days = DURATIONS[nextDuration];
-      if (days) patch.renewal_date = addDaysISO(nextStart, days);
+      const months = DURATIONS[nextDuration];
+      if (months) patch.renewal_date = addMonthsISO(nextStart, months);
     }
     setClients((c) => c.map((row) => (row.id === id ? { ...row, ...patch } : row)));
     await supabase.from('active_clients').update(patch).eq('id', id);
@@ -172,7 +159,6 @@ export default function ClientsClient() {
 
   const soon = todayISO();
   const in7 = addDaysISO(soon, 7);
-  const renewalsSoon = clients.filter((c) => c.status === 'Activo' && c.renewal_date && c.renewal_date <= in7);
   const visibleClients = search.trim()
     ? clients.filter((c) => (c.name || '').toLowerCase().includes(search.trim().toLowerCase()) || (c.program || '').toLowerCase().includes(search.trim().toLowerCase()))
     : clients;
@@ -181,44 +167,10 @@ export default function ClientsClient() {
     <div className="space-y-4">
       <div>
         <h2 className="font-display text-ink text-[22px] tracking-wide">CLIENTES ACTIVOS</h2>
-        <div className="text-muted text-xs">Elige la duración y la renovación se calcula sola. Se renueva sola cada ciclo hasta que la pauses o finalices a mano — nunca se queda "vencida" para siempre. Ámbar = ≤7 días, rojo = vencida.</div>
+        <div className="text-muted text-xs">Elige la duración y la renovación se calcula sola, mismo día cada ciclo. Se renueva sola hasta que la pauses o finalices a mano.</div>
       </div>
 
       <ActiveClientsGoal activeCount={clients.filter((c) => c.status === 'Activo').length} />
-
-      {renewalsSoon.length > 0 && (
-        <Card style={{ border: '1px solid #FBBF24', boxShadow: '0 0 24px -8px #FBBF2455' }}>
-          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={16} color="#FBBF24" />
-              <span className="text-amber font-extrabold text-xs tracking-widest">RENOVACIONES PRÓXIMAS</span>
-            </div>
-            {renewalsSoon.some((c) => c.renewal_date < soon) && (
-              <button
-                onClick={renewOverdueNow}
-                disabled={renewing}
-                className="rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-                style={{ background: '#4ADE8022', color: '#4ADE80', border: '1px solid #4ADE8055' }}
-              >
-                {renewing ? 'Renovando…' : 'Renovar vencidas ahora'}
-              </button>
-            )}
-          </div>
-          <div className="space-y-1">
-            {renewalsSoon.map((c) => {
-              const overdue = c.renewal_date < soon;
-              return (
-                <div key={c.id} className="text-sm flex items-center justify-between">
-                  <span className="text-ink font-medium">{c.name}</span>
-                  <span className={overdue ? 'text-red' : 'text-amber'}>
-                    {overdue ? 'Vencida' : 'Renueva'} el {new Date(c.renewal_date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
 
       <Card className="space-y-2">
         <div className="flex flex-col sm:flex-row gap-2">
