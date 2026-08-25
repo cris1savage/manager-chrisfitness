@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, Copy, Check, Loader2, Flame, AlertTriangle, Target, UserPlus, X, Image as ImageIcon } from 'lucide-react';
+import { Copy, Check, Loader2, Flame, AlertTriangle, Target, UserPlus, X, Image as ImageIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 const SOURCES = ['Instagram', 'Anuncio', 'Referido', 'TusMacros', 'Otro'];
@@ -22,7 +22,7 @@ function fileToBase64(file) {
   });
 }
 
-export default function NewLeadPanel({ onClose, onCreated }) {
+export default function NewLeadPanel({ onCreated }) {
   const [name, setName] = useState('');
   const [source, setSource] = useState('Instagram');
   const [message, setMessage] = useState('');
@@ -104,21 +104,15 @@ export default function NewLeadPanel({ onClose, onCreated }) {
       ai_next_step: analysis?.next_step || null,
       ai_probability: analysis?.probability || null,
       ai_last_analysis_at: analysis ? new Date().toISOString() : null,
-      ai_last_conversation: message || null,
+      ai_last_conversation: (analysis?.transcribed_new_messages || message || '').trim() || null,
     });
     setCreating(false);
     onCreated();
   };
 
   return (
-    <div className="rounded-lg p-3 bg-surfaceAlt border border-cyan space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-cyan text-xs font-semibold">
-          <Sparkles size={14} /> Lead nuevo con IA
-        </div>
-        <button onClick={onClose} className="text-muted"><X size={16} /></button>
-      </div>
-      <div className="text-muted text-[10.5px] -mt-1">
+    <div className="space-y-2">
+      <div className="text-muted text-[11px]">
         Pega la conversación, analízala, y crea la ficha ya con el análisis dentro — sin tener que darlo de alta a mano antes.
       </div>
 

@@ -32,6 +32,8 @@ Lead score (0-100): basado en señales reales — objetivo claro, problema recon
 
 Da también 3 sugerencias de respuesta MUY distintas en tono/enfoque entre sí, cada una corta (2-4 frases), con una explicación breve de por qué esa respuesta (qué está pensando el lead, qué NO hacer todavía).
 
+IMPORTANTE — transcripción: además del análisis, transcribe a texto plano los mensajes que se te han dado en ESTE turno (vinieran escritos o en una captura de pantalla), tal como aparecen, conservando quién dice qué y las horas si se ven. Esto es necesario para poder guardar el historial de la conversación aunque venga de una imagen — sin esto, lo que hay en la captura se perdería.
+
 Responde ÚNICAMENTE en JSON válido, sin texto antes ni después ni backticks, con este formato exacto:
 {
   "lead_state": "uno de la lista",
@@ -46,7 +48,8 @@ Responde ÚNICAMENTE en JSON válido, sin texto antes ni después ni backticks, 
   "next_step": "próximo paso concreto recomendado",
   "probability": "Baja, Media o Alta",
   "suggested_stage": "una etapa de la lista o null",
-  "suggestions": [{"label": "enfoque en 2-3 palabras", "text": "...", "why": "por qué esta respuesta, en una frase corta"}, {"label": "...", "text": "...", "why": "..."}, {"label": "...", "text": "...", "why": "..."}]
+  "suggestions": [{"label": "enfoque en 2-3 palabras", "text": "...", "why": "por qué esta respuesta, en una frase corta"}, {"label": "...", "text": "...", "why": "..."}, {"label": "...", "text": "...", "why": "..."}],
+  "transcribed_new_messages": "transcripción en texto plano de los mensajes de este turno (de la imagen y/o el texto dado)"
 }`;
 }
 

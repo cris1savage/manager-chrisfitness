@@ -5,6 +5,26 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Bug real arreglado: las capturas no quedaban guardadas
+
+- **Confirmado**: cada análisis del AI Closer va atado al contacto exacto,
+  nunca se mezclan entre fichas — añadida una pequeña red de seguridad
+  extra en el código, de todas formas.
+- **Bug encontrado y arreglado**: cuando subías una captura en vez de
+  escribir, la IA la analizaba bien, pero al "Guardar en la ficha" solo
+  quedaba lo que habías escrito a mano — lo de la imagen se perdía para la
+  próxima vez. Ahora la propia IA transcribe lo que lee en la captura, y
+  eso es lo que se guarda en el historial — funciona igual venga de texto
+  o de una foto.
+
+## AI Closer ahora en ventana flotante
+
+- **El AI Closer ya no empuja la tarjeta del contacto hacia abajo** — se
+  abre en una ventana flotante aparte, con espacio de sobra, sin que la
+  lista de Contactos se vea agobiada con todo mezclado. "Lead nuevo con
+  IA" también se abre igual, para que sea consistente. Nada de
+  funcionalidad cambió, solo dónde vive visualmente.
+
 ## AI Closer: seguir sin repetir todo, y capturas de pantalla
 
 - **Ya no hace falta repegar toda la conversación**: si un lead ya tiene

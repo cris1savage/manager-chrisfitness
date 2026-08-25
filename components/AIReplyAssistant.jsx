@@ -110,7 +110,11 @@ export default function AIReplyAssistant({ contact }) {
 
   const saveToLead = async () => {
     if (!analysis) return;
-    const merged = combinedText();
+    // Usa la transcripción que hace la propia IA de lo nuevo (funciona
+    // igual si vino de texto o de una captura) — así lo de la imagen
+    // también queda anotado, no solo lo que escribiste a mano.
+    const newPart = (analysis.transcribed_new_messages || newText).trim();
+    const merged = savedConversation && newPart ? `${savedConversation}\n\n--- Mensajes nuevos ---\n\n${newPart}` : newPart || savedConversation;
     const supabase = createClient();
     await supabase
       .from('contacts')

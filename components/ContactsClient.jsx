@@ -9,6 +9,7 @@ import { STAGES, STAGE_COLORS, eur } from '@/lib/config';
 import CommentThread from '@/components/CommentThread';
 import AIReplyAssistant from '@/components/AIReplyAssistant';
 import NewLeadPanel from '@/components/NewLeadPanel';
+import Modal from '@/components/Modal';
 
 const SOURCES = ['Instagram', 'Anuncio', 'Referido', 'TusMacros', 'Otro'];
 
@@ -21,7 +22,7 @@ export default function ContactsClient() {
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
   const [openThread, setOpenThread] = useState(null);
-  const [openAI, setOpenAI] = useState(null);
+  const [openAI, setOpenAI] = useState(null); // contacto seleccionado, o null
   const [showNewLeadAI, setShowNewLeadAI] = useState(false);
 
   const emptyForm = { name: '', source: 'Instagram', source_ad_id: '', stage: 'Frío', notes: '' };
@@ -94,22 +95,21 @@ export default function ContactsClient() {
           <h2 className="font-display text-ink text-[22px] tracking-wide">CONTACTOS</h2>
           <div className="text-muted text-xs">Una ficha por persona. Muévela de etapa con el desplegable cuando avance.</div>
         </div>
-        {!showNewLeadAI && (
-          <button
-            onClick={() => setShowNewLeadAI(true)}
-            className="rounded-lg px-3 py-2 flex items-center gap-1.5 font-semibold text-sm shrink-0"
-            style={{ background: 'transparent', color: '#5ECCFA', border: '1px solid #5ECCFA55' }}
-          >
-            <Sparkles size={15} /> Lead nuevo con IA
-          </button>
-        )}
+        <button
+          onClick={() => setShowNewLeadAI(true)}
+          className="rounded-lg px-3 py-2 flex items-center gap-1.5 font-semibold text-sm shrink-0"
+          style={{ background: 'transparent', color: '#5ECCFA', border: '1px solid #5ECCFA55' }}
+        >
+          <Sparkles size={15} /> Lead nuevo con IA
+        </button>
       </div>
 
       {showNewLeadAI && (
-        <NewLeadPanel
-          onClose={() => setShowNewLeadAI(false)}
-          onCreated={() => { setShowNewLeadAI(false); load(); }}
-        />
+        <Modal title="Lead nuevo con IA" onClose={() => setShowNewLeadAI(false)}>
+          <NewLeadPanel
+            onCreated={() => { setShowNewLeadAI(false); load(); }}
+          />
+        </Modal>
       )}
 
       {/* Filtro por etapa */}
@@ -233,8 +233,8 @@ export default function ContactsClient() {
                   <div className="flex items-center gap-2 shrink-0">
                     <AuthorBadge profile={profiles?.[c.created_by]} />
                     <button
-                      onClick={() => { setOpenAI(openAI === c.id ? null : c.id); setOpenThread(null); }}
-                      className={`p-1.5 rounded-lg ${openAI === c.id ? 'text-cyan' : 'text-muted'}`}
+                      onClick={() => setOpenAI(c)}
+                      className="p-1.5 rounded-lg text-muted"
                       title="AI Closer"
                     >
                       <Sparkles size={16} />
@@ -312,11 +312,6 @@ export default function ContactsClient() {
                   className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-xs w-full outline-none focus:border-cyan"
                 />
               </div>
-              {openAI === c.id && (
-                <div className="px-4 pb-4">
-                  <AIReplyAssistant contact={c} />
-                </div>
-              )}
               {openThread === c.id && (
                 <div className="px-4 pb-4">
                   <CommentThread table="contacts" entityId={c.id} />
@@ -326,6 +321,12 @@ export default function ContactsClient() {
           );
         })}
       </div>
+
+      {openAI && (
+        <Modal title={`AI Closer — ${openAI.name}`} onClose={() => setOpenAI(null)}>
+          <AIReplyAssistant key={openAI.id} contact={openAI} />
+        </Modal>
+      )}
     </div>
   );
 }
