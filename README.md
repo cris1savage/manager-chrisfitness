@@ -5,6 +5,20 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Facturación: limpieza total de los duplicados (esta vez de verdad)
+
+- La barrera anterior solo bloqueaba coincidencias EXACTAS de fecha, pero
+  el lío real generó fechas distintas muy próximas entre sí (un cliente
+  mensual con dos cobros a solo días de diferencia) — por eso seguías
+  viendo dobles.
+- Esta vez: se borra el registro de cobros entero y se pone un único punto
+  de partida limpio, hoy, para cada cliente activo que ya tiene precio
+  puesto. A partir de ahí se acumula bien, sin arrastrar el lío de antes.
+- **Protegido para que esto pase una sola vez** — aunque vuelvas a pegar
+  este `schema.sql` en el futuro por otra cosa, no te vuelve a borrar nada.
+- Después de pegarlo, entra a Facturación → Mensual y Anual: verás menos
+  historial que antes (arranca limpio desde hoy), pero sin dobles.
+
 ## AI Closer: historial real por lead + preparación de llamada
 
 - **Tres pestañas dentro del AI Closer de cada lead**: Analizar / Historial

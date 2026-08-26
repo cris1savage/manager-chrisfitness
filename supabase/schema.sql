@@ -854,21 +854,34 @@ exception
   when duplicate_object then null;
 end $$;
 
--- Limpieza ÚNICA de los duplicados que se generaron al pasar del cálculo
--- viejo (días fijos) al nuevo (meses de calendario) — cada pasada del aviso
--- diario con código distinto creó su propio registro para el mismo ciclo.
--- Se queda solo el más antiguo de cada grupo idéntico (mismo cliente,
--- misma fecha, mismo importe).
-delete from public.billing_events a using public.billing_events b
-where a.id > b.id
-  and a.active_client_id = b.active_client_id
-  and a.event_date = b.event_date
-  and a.amount = b.amount;
-
 -- Barrera permanente: un cliente no puede tener dos cobros anotados el
 -- mismo día, pase lo que pase (aunque el aviso corra dos veces, aunque se
--- mezclen versiones de código). A partir de ahora es imposible duplicar.
+-- mezclen versiones de código). A partir de ahora es imposible duplicar
+-- exactamente la misma fecha.
 create unique index if not exists billing_events_client_date_uidx on public.billing_events (active_client_id, event_date);
+
+-- Limpieza TOTAL, de una sola vez: lo de arriba solo bloqueaba fechas
+-- IDÉNTICAS, pero el lío real generó fechas distintas muy próximas entre sí
+-- (ej. dos cobros de un cliente mensual con solo 6 días de diferencia) al
+-- mezclarse el cálculo viejo con el nuevo. Eso no se puede separar de forma
+-- fiable a estas alturas, así que se borra todo y se pone un único punto de
+-- partida limpio, hoy, para cada cliente activo que ya tiene precio puesto
+-- — a partir de ahí se va acumulando bien, sin arrastrar el lío. Protegido
+-- para que esto pase UNA sola vez, nunca vuelve a borrar nada aunque
+-- vuelvas a pegar este archivo en el futuro.
+do $$
+begin
+  if not exists (select 1 from pg_tables where schemaname = 'public' and tablename = '_billing_events_reset_done') then
+    truncate public.billing_events;
+    insert into public.billing_events (active_client_id, amount, event_date)
+    select cb.active_client_id, cb.price_amount, current_date
+    from public.client_billing cb
+    join public.active_clients ac on ac.id = cb.active_client_id and ac.status = 'Activo'
+    where cb.price_amount is not null
+    on conflict (active_client_id, event_date) do nothing;
+    create table public._billing_events_reset_done (done boolean default true);
+  end if;
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- LÍNEA DE TIEMPO DEL LEAD (AI Closer)
