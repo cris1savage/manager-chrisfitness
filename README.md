@@ -5,6 +5,20 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Corrección al arranque limpio: cada uno en su mes real, no todos en agosto
+
+- El arranque limpio de ayer tenía un fallo: le puso la fecha de **hoy** a
+  todo el mundo, sin mirar cuándo le toca renovar de verdad a cada uno —
+  por eso Alberto (renueva 21/09) o Urko (renueva 30/09) aparecían como
+  "cobrados" en agosto, sin tocarles todavía.
+- Corregido: ahora cada cliente arranca con su fecha de renovación real
+  menos un ciclo (su duración) — que es cuándo pagó la última vez de
+  verdad. Alberto debería aparecer en junio, no en agosto; Urko en marzo,
+  no en agosto.
+- Otra vez protegido para que pase una sola vez — pega el `schema.sql`
+  y revisa Facturación → Mensual y Anual, cada uno debería salir en su mes
+  correcto ahora.
+
 ## Facturación: limpieza total de los duplicados (esta vez de verdad)
 
 - La barrera anterior solo bloqueaba coincidencias EXACTAS de fecha, pero

@@ -865,10 +865,9 @@ create unique index if not exists billing_events_client_date_uidx on public.bill
 -- (ej. dos cobros de un cliente mensual con solo 6 días de diferencia) al
 -- mezclarse el cálculo viejo con el nuevo. Eso no se puede separar de forma
 -- fiable a estas alturas, así que se borra todo y se pone un único punto de
--- partida limpio, hoy, para cada cliente activo que ya tiene precio puesto
--- — a partir de ahí se va acumulando bien, sin arrastrar el lío. Protegido
--- para que esto pase UNA sola vez, nunca vuelve a borrar nada aunque
--- vuelvas a pegar este archivo en el futuro.
+-- partida limpio para cada cliente activo que ya tiene precio puesto — a
+-- partir de ahí se va acumulando bien, sin arrastrar el lío. Protegido para
+-- que esto pase UNA sola vez.
 do $$
 begin
   if not exists (select 1 from pg_tables where schemaname = 'public' and tablename = '_billing_events_reset_done') then
@@ -880,6 +879,37 @@ begin
     where cb.price_amount is not null
     on conflict (active_client_id, event_date) do nothing;
     create table public._billing_events_reset_done (done boolean default true);
+  end if;
+end $$;
+
+-- Corrección del arranque limpio de arriba: aquel puso la fecha de HOY a
+-- todo el mundo, sin mirar cuándo le toca renovar de verdad a cada uno —
+-- por eso aparecían clientes "cobrados" en meses donde todavía no les
+-- tocaba pagar. Esta segunda pasada sustituye ese punto de partida por uno
+-- real: la fecha de renovación de cada cliente MENOS un ciclo (su duración),
+-- que es cuándo pagó la última vez de verdad. Protegido igual, una sola vez.
+do $$
+begin
+  if not exists (select 1 from pg_tables where schemaname = 'public' and tablename = '_billing_events_reset_v2_done') then
+    truncate public.billing_events;
+    insert into public.billing_events (active_client_id, amount, event_date)
+    select
+      cb.active_client_id,
+      cb.price_amount,
+      (ac.renewal_date - ((
+        case ac.duration
+          when 'Mensual' then 1
+          when '3 meses' then 3
+          when '6 meses' then 6
+          when 'Anual' then 12
+          else 1
+        end)::text || ' months')::interval
+      )::date
+    from public.client_billing cb
+    join public.active_clients ac on ac.id = cb.active_client_id and ac.status = 'Activo'
+    where cb.price_amount is not null and ac.renewal_date is not null
+    on conflict (active_client_id, event_date) do nothing;
+    create table public._billing_events_reset_v2_done (done boolean default true);
   end if;
 end $$;
 
