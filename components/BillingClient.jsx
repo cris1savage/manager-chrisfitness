@@ -68,7 +68,10 @@ export default function BillingClient() {
     // Primera vez que se pone precio a este cliente: deja un primer punto en
     // el historial real, para no esperar al próximo ciclo de renovación.
     if (key === 'price_amount' && wasUnset && value != null) {
-      await supabase.from('billing_events').insert({ active_client_id: clientId, amount: value, event_date: todayISO() });
+      await supabase.from('billing_events').upsert(
+        { active_client_id: clientId, amount: value, event_date: todayISO() },
+        { onConflict: 'active_client_id,event_date', ignoreDuplicates: true }
+      );
     }
   };
 

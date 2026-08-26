@@ -87,25 +87,49 @@ export default function NewLeadPanel({ onCreated }) {
     setCreating(true);
     const supabase = createClient();
     const { data: userData } = await supabase.auth.getUser();
-    await supabase.from('contacts').insert({
-      name: name.trim(),
-      source,
-      stage: analysis?.suggested_stage || 'Frío',
-      notes: '',
-      created_by: userData.user.id,
-      stage_updated_at: new Date().toISOString(),
-      ai_lead_state: analysis?.lead_state || null,
-      ai_lead_score: analysis?.lead_score ?? null,
-      ai_score_reason: analysis?.score_reason || null,
-      ai_objective: analysis?.objective || null,
-      ai_problem: analysis?.problem || null,
-      ai_situation: analysis?.situation || null,
-      ai_objections: analysis?.objections || null,
-      ai_next_step: analysis?.next_step || null,
-      ai_probability: analysis?.probability || null,
-      ai_last_analysis_at: analysis ? new Date().toISOString() : null,
-      ai_last_conversation: (analysis?.transcribed_new_messages || message || '').trim() || null,
-    });
+    const { data: inserted } = await supabase
+      .from('contacts')
+      .insert({
+        name: name.trim(),
+        source,
+        stage: analysis?.suggested_stage || 'Frío',
+        notes: '',
+        created_by: userData.user.id,
+        stage_updated_at: new Date().toISOString(),
+        ai_lead_state: analysis?.lead_state || null,
+        ai_lead_score: analysis?.lead_score ?? null,
+        ai_score_reason: analysis?.score_reason || null,
+        ai_objective: analysis?.objective || null,
+        ai_problem: analysis?.problem || null,
+        ai_situation: analysis?.situation || null,
+        ai_objections: analysis?.objections || null,
+        ai_next_step: analysis?.next_step || null,
+        ai_probability: analysis?.probability || null,
+        ai_last_analysis_at: analysis ? new Date().toISOString() : null,
+      })
+      .select()
+      .single();
+
+    // Primera entrada del historial de este lead, si ya se analizó algo.
+    if (inserted && analysis) {
+      const transcribed = (analysis.transcribed_new_messages || message || '').trim();
+      const summaryParts = [
+        analysis.lead_state ? `Estado: ${analysis.lead_state}` : null,
+        analysis.lead_score != null ? `Score: ${analysis.lead_score}/100` : null,
+        analysis.objective ? `Objetivo: ${analysis.objective}` : null,
+        analysis.problem ? `Problema: ${analysis.problem}` : null,
+        analysis.next_step ? `Próximo paso: ${analysis.next_step}` : null,
+      ].filter(Boolean);
+      if (transcribed) {
+        await supabase.from('lead_timeline').insert({
+          contact_id: inserted.id,
+          entry_type: 'conversation',
+          content: transcribed,
+          ai_summary: summaryParts.join(' · '),
+        });
+      }
+    }
+
     setCreating(false);
     onCreated();
   };

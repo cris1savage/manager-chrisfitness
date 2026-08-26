@@ -62,8 +62,9 @@ export async function POST() {
 
     const { data: billingRow } = await supabase.from('client_billing').select('price_amount').eq('active_client_id', c.id).maybeSingle();
     if (billingRow?.price_amount != null) {
-      await supabase.from('billing_events').insert(
-        cycleDates.map((eventDate) => ({ active_client_id: c.id, amount: billingRow.price_amount, event_date: eventDate }))
+      await supabase.from('billing_events').upsert(
+        cycleDates.map((eventDate) => ({ active_client_id: c.id, amount: billingRow.price_amount, event_date: eventDate })),
+        { onConflict: 'active_client_id,event_date', ignoreDuplicates: true }
       );
     }
   }

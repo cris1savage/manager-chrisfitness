@@ -854,6 +854,50 @@ exception
   when duplicate_object then null;
 end $$;
 
+-- Limpieza ÚNICA de los duplicados que se generaron al pasar del cálculo
+-- viejo (días fijos) al nuevo (meses de calendario) — cada pasada del aviso
+-- diario con código distinto creó su propio registro para el mismo ciclo.
+-- Se queda solo el más antiguo de cada grupo idéntico (mismo cliente,
+-- misma fecha, mismo importe).
+delete from public.billing_events a using public.billing_events b
+where a.id > b.id
+  and a.active_client_id = b.active_client_id
+  and a.event_date = b.event_date
+  and a.amount = b.amount;
+
+-- Barrera permanente: un cliente no puede tener dos cobros anotados el
+-- mismo día, pase lo que pase (aunque el aviso corra dos veces, aunque se
+-- mezclen versiones de código). A partir de ahora es imposible duplicar.
+create unique index if not exists billing_events_client_date_uidx on public.billing_events (active_client_id, event_date);
+
+-- ---------------------------------------------------------------------------
+-- LÍNEA DE TIEMPO DEL LEAD (AI Closer)
+-- Reemplaza el "ai_last_conversation" de una sola pieza por un historial de
+-- verdad: cada conversación que analizas queda como su propia entrada (con
+-- el resumen de la IA de ese momento), y puedes añadir tus propias notas
+-- ("qué hice, qué decidí") como entradas aparte. Compartida (como el resto
+-- de Contactos), no es dato de dinero.
+-- ---------------------------------------------------------------------------
+create table if not exists public.lead_timeline (
+  id uuid primary key default gen_random_uuid(),
+  contact_id uuid references public.contacts(id) on delete cascade,
+  entry_type text not null default 'conversation', -- 'conversation' | 'note'
+  content text not null,
+  ai_summary text,
+  created_by uuid references auth.users(id) default auth.uid(),
+  created_at timestamptz not null default now()
+);
+alter table public.lead_timeline enable row level security;
+drop policy if exists "lead_timeline_full_access_authenticated" on public.lead_timeline;
+create policy "lead_timeline_full_access_authenticated" on public.lead_timeline for all to authenticated using (true) with check (true);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.lead_timeline;
+exception
+  when duplicate_object then null;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las

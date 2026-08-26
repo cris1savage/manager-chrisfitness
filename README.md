@@ -5,6 +5,47 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## AI Closer: historial real por lead + preparación de llamada
+
+- **Tres pestañas dentro del AI Closer de cada lead**: Analizar / Historial
+  / Preparar llamada — ya no está todo amontonado en una sola pantalla.
+- **Historial real, no un solo bloque de texto**: cada vez que analizas
+  una conversación, queda como su propia entrada con fecha y quién la
+  guardó — nunca se pisa lo anterior. Puedes ver toda la evolución del
+  lead de un vistazo.
+- **Tus propias notas, ahora con sitio propio**: en la pestaña Historial
+  hay un cuadro para apuntar "qué hiciste, qué decidiste" (ej. "le
+  llamé, quedamos en que lo piensa hasta el viernes") — queda guardado
+  igual que las conversaciones, mezclado en el orden real en que pasó.
+- **Análisis menos genérico**: cada vez que analizas o le preguntas "¿Qué
+  harías tú?", la IA ve TODO el historial de ese lead (conversaciones +
+  tus notas), no solo el fragmento de hoy — así puede señalar patrones
+  reales (una objeción que repite, algo que ya le prometiste) en vez de
+  darte un consejo que valdría para cualquiera.
+- **Preparar llamada**: pestaña nueva — un botón que te da un resumen del
+  lead, ángulos a tratar, puntos a mencionar, objeciones esperables, qué
+  evitar, y hasta una frase para arrancar la llamada — todo basado en el
+  historial real, se destaca especialmente cuando el lead está en
+  "Llamada agendada".
+
+## Cobros duplicados: limpiados y bloqueados para siempre
+
+- **Qué pasó**: al pasar del cálculo viejo (días fijos) al nuevo (meses de
+  calendario), el aviso corrió con las dos versiones de código en
+  distintos momentos, y cada pasada anotó su propio cobro para el mismo
+  ciclo — de ahí los importes duplicados que viste en Mensual y Anual.
+- **Arreglado en dos partes**:
+  1. Al pegar el `schema.sql`, se limpian automáticamente (una sola vez)
+     los duplicados que ya existen — se queda solo uno de cada grupo
+     idéntico (mismo cliente, misma fecha, mismo importe).
+  2. Se añade una barrera permanente en la base de datos: un cliente no
+     puede tener dos cobros anotados el mismo día, nunca más, pase lo que
+     pase (aunque el aviso corra dos veces por error). El código también
+     se cambió para "anotar o ignorar si ya existe" en vez de anotar
+     siempre a ciegas.
+- Después de pegar el `schema.sql`, entra a Facturación → Mensual y Anual
+  y confirma que los números ya cuadran.
+
 ## Cálculo de renovación por meses de calendario reales (no días fijos)
 
 - **Bug de raíz corregido**: usaba días fijos (30/90/180/365) como

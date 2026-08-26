@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-// MVP del AI Closer: analiza una conversación que TÚ pegas (copiada de
-// Instagram) — no hay conexión directa con Instagram todavía. Nunca envía
-// nada por su cuenta; solo propone. Guardar en la ficha del contacto es una
-// acción explícita del usuario, nunca automática.
+// AI Closer: analiza conversaciones que TÚ pegas (copiadas de Instagram) —
+// no hay conexión directa con Instagram todavía. Nunca envía nada por su
+// cuenta; solo propone. Ahora recibe el HISTORIAL COMPLETO del lead (todas
+// las conversaciones anteriores + tus propias notas), no solo lo de hoy —
+// así el análisis se basa en el patrón real de esa persona, no en un
+// fragmento suelto.
 
 const LEAD_STATES = [
   'Nuevo', 'Curioso', 'Interesado', 'Problema identificado', 'Necesidad clara',
@@ -19,16 +21,17 @@ Principios que debes respetar SIEMPRE, sin excepción:
 - Nunca inventes precios, resultados, testimonios, disponibilidad, ni prometas resultados garantizados. Si no tienes esa información, dilo o déjalo en blanco.
 - Nunca sugieras manipulación, presión artificial, falsas urgencias, ni testimonios inventados. El objetivo es ayudar a la persona a decidir, no forzarla.
 - Las respuestas sugeridas nunca deben sonar a interrogatorio (varias preguntas seguidas tipo formulario). Deben sonar como un mensaje real de una persona, natural, en español de España, tuteando.
-- No intentes cerrar la venta antes de tiempo. Solo recomienda avanzar hacia llamada o cierre cuando el lead ya ha mostrado objetivo claro y ha reconocido su problema.`;
+- No intentes cerrar la venta antes de tiempo. Solo recomienda avanzar hacia llamada o cierre cuando el lead ya ha mostrado objetivo claro y ha reconocido su problema.
+- IMPORTANTE: tienes el HISTORIAL COMPLETO de este lead más abajo (conversaciones anteriores y notas que Chris ha ido apuntando). Úsalo de verdad — no des un análisis genérico que valdría para cualquier lead. Menciona patrones concretos (algo que ya dijo antes, una objeción que repite, un compromiso que hizo y no cumplió, algo que Chris ya le prometió) siempre que el historial lo permita. Si el historial está vacío, dilo, no lo rellenes inventando.`;
 
 function buildAnalyzePrompt() {
   return `${SHARED_CONTEXT}
 
-Vas a analizar una conversación de Instagram y devolver un análisis completo. Estados de lead posibles (usa EXACTAMENTE uno de estos, el que mejor encaje): ${LEAD_STATES.join(', ')}.
+Vas a analizar la conversación MÁS RECIENTE (lo nuevo que te da Chris), apoyándote en todo el historial anterior que te doy, y devolver un análisis completo. Estados de lead posibles (usa EXACTAMENTE uno de estos, el que mejor encaje): ${LEAD_STATES.join(', ')}.
 
 Etapas del embudo de Chris (para sugerir si conviene mover al contacto, usa EXACTAMENTE una de estas o null si no cambia): ${STAGES.join(', ')}.
 
-Lead score (0-100): basado en señales reales — objetivo claro, problema reconocido, urgencia, nivel de interacción, preguntas sobre el servicio o precio, disponibilidad expresada, compromiso mostrado, objeciones (bajan el score), historial de intentos previos. Explica brevemente por qué ese número, citando señales concretas de la conversación, no una cifra sin justificar.
+Lead score (0-100): basado en señales reales — objetivo claro, problema reconocido, urgencia, nivel de interacción, preguntas sobre el servicio o precio, disponibilidad expresada, compromiso mostrado, objeciones (bajan el score), historial de intentos previos. Explica brevemente por qué ese número, citando señales concretas (de hoy y del historial), no una cifra sin justificar.
 
 Da también 3 sugerencias de respuesta MUY distintas en tono/enfoque entre sí, cada una corta (2-4 frases), con una explicación breve de por qué esa respuesta (qué está pensando el lead, qué NO hacer todavía).
 
@@ -38,14 +41,14 @@ Responde ÚNICAMENTE en JSON válido, sin texto antes ni después ni backticks, 
 {
   "lead_state": "uno de la lista",
   "lead_score": 0,
-  "score_reason": "explicación breve y concreta",
+  "score_reason": "explicación breve y concreta, citando señales de hoy y/o del historial",
   "closing_ready": true o false,
   "closing_reason": "por qué está o no está listo para avanzar hacia llamada/cierre",
   "objective": "qué quiere conseguir, o vacío si no está claro todavía",
   "problem": "qué se lo impide, o vacío si no está claro",
   "situation": "situación actual relevante (experiencia, tiempo, etc.), o vacío",
   "objections": "objeciones detectadas y de qué tipo, o vacío si no hay",
-  "next_step": "próximo paso concreto recomendado",
+  "next_step": "próximo paso concreto y específico a ESTE lead (no genérico)",
   "probability": "Baja, Media o Alta",
   "suggested_stage": "una etapa de la lista o null",
   "suggestions": [{"label": "enfoque en 2-3 palabras", "text": "...", "why": "por qué esta respuesta, en una frase corta"}, {"label": "...", "text": "...", "why": "..."}, {"label": "...", "text": "...", "why": "..."}],
@@ -56,8 +59,8 @@ Responde ÚNICAMENTE en JSON válido, sin texto antes ni después ni backticks, 
 function buildCoachPrompt() {
   return `${SHARED_CONTEXT}
 
-Ahora actúa como un coach de ventas experimentado enseñándole a Chris a leer esta conversación, no solo dándole una respuesta para copiar. Cubre estos 6 puntos, en prosa clara y directa, en español de España:
-1. Qué está pensando probablemente el lead en este momento.
+Ahora actúa como un coach de ventas experimentado enseñándole a Chris a leer esta conversación, no solo dándole una respuesta para copiar. Apóyate en el historial completo del lead, no solo en el fragmento de hoy. Cubre estos 6 puntos, en prosa clara y directa, en español de España:
+1. Qué está pensando probablemente el lead en este momento (ten en cuenta cómo ha evolucionado desde el principio, no solo el último mensaje).
 2. Qué nivel de intención de compra tiene.
 3. Qué error NO debería cometer Chris ahora mismo.
 4. Qué respondería (una propuesta concreta de mensaje).
@@ -66,6 +69,22 @@ Ahora actúa como un coach de ventas experimentado enseñándole a Chris a leer 
 
 Responde ÚNICAMENTE en JSON válido, sin texto antes ni después ni backticks, con este formato exacto:
 {"type": "coach", "analysis": "texto con los 6 puntos, con saltos de línea entre ellos, sin markdown ni asteriscos"}`;
+}
+
+function buildCallPrepPrompt() {
+  return `${SHARED_CONTEXT}
+
+Chris tiene o va a tener una llamada con este lead. Prepárale una chuleta corta y accionable para esa llamada, basada en TODO el historial que te doy (conversaciones y notas). Nada de relleno genérico — si el historial es escaso, dilo claramente en vez de inventar.
+
+Responde ÚNICAMENTE en JSON válido, sin texto antes ni después ni backticks, con este formato exacto:
+{
+  "summary": "resumen de quién es este lead y cómo ha llegado hasta aquí, en 3-4 frases",
+  "angles": ["ángulo concreto a tratar en la llamada, basado en algo real de su historial", "otro ángulo", "..."],
+  "objections_to_expect": "qué objeciones es probable que ponga, basado en lo que ya ha dicho o insinuado, o vacío si no hay pistas",
+  "talking_points": ["punto concreto a mencionar", "otro punto", "..."],
+  "avoid": "qué NO decir o NO hacer con este lead en concreto, o vacío si no aplica",
+  "opening_line": "una frase natural para arrancar la llamada, conectando con algo real de la conversación"
+}`;
 }
 
 function extractJSON(rawText) {
@@ -92,22 +111,27 @@ export async function POST(request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { contactName, stage, source, notes, priorAnalysis, conversationText, imageBase64, imageMediaType, mode } = body;
+  const { contactName, stage, source, notes, timelineText, conversationText, imageBase64, imageMediaType, mode } = body;
 
-  if ((!conversationText || !conversationText.trim()) && !imageBase64) {
+  const isCallPrep = mode === 'call_prep';
+  if (!isCallPrep && (!conversationText || !conversationText.trim()) && !imageBase64) {
     return NextResponse.json({ error: 'Falta la conversación a analizar (texto o captura).' }, { status: 400 });
   }
 
   const contextBlock = `Contacto: ${contactName || 'sin nombre'}
 Etapa actual en el CRM: ${stage || 'desconocida'}
 Origen: ${source || 'desconocido'}
-${notes ? `Notas guardadas: ${notes}` : ''}
-${priorAnalysis ? `Análisis anterior guardado en la ficha:\n${priorAnalysis}` : ''}
+${notes ? `Notas rápidas guardadas en la ficha: ${notes}` : ''}
 
-${imageBase64 ? 'Se adjunta una captura de pantalla de la conversación de Instagram. Léela tal cual aparece en la imagen.' : ''}
-${conversationText && conversationText.trim() ? `Conversación (últimos mensajes, tal como los pegó Chris):\n"""\n${conversationText.trim()}\n"""` : ''}`;
+Historial completo de este lead (conversaciones anteriores y notas de Chris, de más antigua a más reciente):
+"""
+${timelineText && timelineText.trim() ? timelineText.trim() : '(sin historial todavía — es la primera vez que se analiza este lead)'}
+"""
+${isCallPrep ? '' : `
+${imageBase64 ? 'Se adjunta una captura de pantalla de la conversación de Instagram MÁS RECIENTE. Léela tal cual aparece en la imagen.' : ''}
+${conversationText && conversationText.trim() ? `Conversación MÁS RECIENTE (lo nuevo de hoy, tal como lo pegó Chris):\n"""\n${conversationText.trim()}\n"""` : ''}`}`;
 
-  const systemPrompt = mode === 'coach' ? buildCoachPrompt() : buildAnalyzePrompt();
+  const systemPrompt = isCallPrep ? buildCallPrepPrompt() : mode === 'coach' ? buildCoachPrompt() : buildAnalyzePrompt();
 
   const userContent = imageBase64
     ? [

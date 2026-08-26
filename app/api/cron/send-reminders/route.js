@@ -68,11 +68,14 @@ export async function GET(request) {
     renewed++;
 
     // Anota el cobro real (una fila por cada ciclo que se cumplió), con el
-    // precio real de ese cliente si ya lo has puesto en Facturación.
+    // precio real de ese cliente si ya lo has puesto en Facturación. Usa
+    // upsert con "ignora si ya existe" — así, aunque esto corra dos veces
+    // para el mismo cliente y la misma fecha, nunca se duplica.
     const { data: billingRow } = await supabase.from('client_billing').select('price_amount').eq('active_client_id', c.id).maybeSingle();
     if (billingRow?.price_amount != null) {
-      await supabase.from('billing_events').insert(
-        cycleDates.map((eventDate) => ({ active_client_id: c.id, amount: billingRow.price_amount, event_date: eventDate }))
+      await supabase.from('billing_events').upsert(
+        cycleDates.map((eventDate) => ({ active_client_id: c.id, amount: billingRow.price_amount, event_date: eventDate })),
+        { onConflict: 'active_client_id,event_date', ignoreDuplicates: true }
       );
     }
   }
