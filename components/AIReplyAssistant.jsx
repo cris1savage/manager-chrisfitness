@@ -36,16 +36,22 @@ function fmtDate(iso) {
 
 // Construye el texto que se manda a la IA con TODO el historial, para que
 // el análisis se base en el patrón real del lead, no en un fragmento suelto.
+// Con meses de uso esto podría crecer sin límite, así que se queda con las
+// entradas más recientes si hay demasiadas — evita que un lead muy antiguo
+// vuelva a dar el mismo problema de respuestas cortadas.
+const MAX_TIMELINE_ENTRIES = 30;
 function buildTimelineText(timeline, profiles) {
-  return timeline
-    .map((e) => {
-      const author = profiles?.[e.created_by]?.display_name || 'Chris';
-      const label = e.entry_type === 'note' ? 'Nota de Chris' : 'Conversación';
-      const parts = [`[${fmtDate(e.created_at)} · ${author}] ${label}:\n${e.content}`];
-      if (e.ai_summary) parts.push(`Resumen IA de ese momento: ${e.ai_summary}`);
-      return parts.join('\n');
-    })
-    .join('\n\n---\n\n');
+  const trimmed = timeline.length > MAX_TIMELINE_ENTRIES ? timeline.slice(-MAX_TIMELINE_ENTRIES) : timeline;
+  const omitted = timeline.length - trimmed.length;
+  const parts = trimmed.map((e) => {
+    const author = profiles?.[e.created_by]?.display_name || 'Chris';
+    const label = e.entry_type === 'note' ? 'Nota de Chris' : 'Conversación';
+    const p = [`[${fmtDate(e.created_at)} · ${author}] ${label}:\n${e.content}`];
+    if (e.ai_summary) p.push(`Resumen IA de ese momento: ${e.ai_summary}`);
+    return p.join('\n');
+  });
+  const text = parts.join('\n\n---\n\n');
+  return omitted > 0 ? `(+ ${omitted} entradas más antiguas, no incluidas aquí por espacio)\n\n${text}` : text;
 }
 
 export default function AIReplyAssistant({ contact }) {

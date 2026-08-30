@@ -1,17 +1,20 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { eur, monthKey, todayISO } from '@/lib/config';
+
+const MONTH_NAMES_FULL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
 export default function VentasClient() {
   const supabase = useMemo(() => createClient(), []);
   const profiles = useProfiles();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [monthAnchor, setMonthAnchor] = useState(new Date());
 
   const load = async () => {
     const { data } = await supabase.from('contacts').select('*').eq('stage', 'Cliente').order('stage_updated_at', { ascending: false });
@@ -29,12 +32,12 @@ export default function VentasClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const selectedKey = `${monthAnchor.getFullYear()}-${String(monthAnchor.getMonth() + 1).padStart(2, '0')}`;
   const thisMonth = monthKey(todayISO());
   const totalAll = clients.reduce((s, c) => s + (Number(c.amount) || 0), 0);
-  const totalMonth = clients
-    .filter((c) => monthKey(c.stage_updated_at) === thisMonth)
-    .reduce((s, c) => s + (Number(c.amount) || 0), 0);
-  const countMonth = clients.filter((c) => monthKey(c.stage_updated_at) === thisMonth).length;
+
+  const monthClients = clients.filter((c) => monthKey(c.stage_updated_at) === selectedKey);
+  const totalMonth = monthClients.reduce((s, c) => s + (Number(c.amount) || 0), 0);
 
   return (
     <div className="space-y-4">
@@ -45,38 +48,45 @@ export default function VentasClient() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <Card className="flex items-center gap-3 col-span-2 md:col-span-1 w-fit">
+        <div className="rounded-lg p-2.5 bg-amber/15"><TrendingUp size={20} color="#FBBF24" /></div>
+        <div>
+          <div className="text-muted text-[11.5px] uppercase tracking-wide">Facturado histórico</div>
+          <div className="text-ink text-xl font-extrabold font-display">{eur(totalAll)}</div>
+        </div>
+      </Card>
+
+      <div className="flex items-center justify-between">
+        <button onClick={() => setMonthAnchor(new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() - 1, 1))} className="p-2 rounded-lg border border-border text-ink shrink-0"><ChevronLeft size={16} /></button>
+        <div className="text-ink font-bold capitalize">{MONTH_NAMES_FULL[monthAnchor.getMonth()]} {monthAnchor.getFullYear()}</div>
+        <button onClick={() => setMonthAnchor(new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 1))} className="p-2 rounded-lg border border-border text-ink shrink-0"><ChevronRight size={16} /></button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
         <Card className="flex items-center gap-3">
           <div className="rounded-lg p-2.5 bg-cyan/15"><TrendingUp size={20} color="#5ECCFA" /></div>
           <div>
-            <div className="text-muted text-[11.5px] uppercase tracking-wide">Ventas este mes</div>
-            <div className="text-ink text-xl font-extrabold font-display">{countMonth}</div>
+            <div className="text-muted text-[11.5px] uppercase tracking-wide">Ventas {selectedKey === thisMonth ? 'este mes' : 'ese mes'}</div>
+            <div className="text-ink text-xl font-extrabold font-display">{monthClients.length}</div>
           </div>
         </Card>
         <Card className="flex items-center gap-3">
           <div className="rounded-lg p-2.5 bg-green/15"><TrendingUp size={20} color="#4ADE80" /></div>
           <div>
-            <div className="text-muted text-[11.5px] uppercase tracking-wide">Facturado este mes</div>
+            <div className="text-muted text-[11.5px] uppercase tracking-wide">Facturado {selectedKey === thisMonth ? 'este mes' : 'ese mes'}</div>
             <div className="text-ink text-xl font-extrabold font-display">{eur(totalMonth)}</div>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-3 col-span-2 md:col-span-1">
-          <div className="rounded-lg p-2.5 bg-amber/15"><TrendingUp size={20} color="#FBBF24" /></div>
-          <div>
-            <div className="text-muted text-[11.5px] uppercase tracking-wide">Facturado histórico</div>
-            <div className="text-ink text-xl font-extrabold font-display">{eur(totalAll)}</div>
           </div>
         </Card>
       </div>
 
       <div className="space-y-2">
         {loading && <Card className="text-center py-8 text-muted">Cargando…</Card>}
-        {!loading && clients.length === 0 && (
+        {!loading && monthClients.length === 0 && (
           <Card className="text-center py-8 text-muted">
-            Todavía no hay ventas. Mueve un contacto a la etapa "Cliente" desde el apartado Contactos.
+            Sin ventas en este mes.
           </Card>
         )}
-        {clients.map((c) => (
+        {monthClients.map((c) => (
           <Card key={c.id} className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <div className="text-ink font-semibold text-sm">{c.name}</div>

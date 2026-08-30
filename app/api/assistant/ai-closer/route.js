@@ -150,7 +150,7 @@ ${conversationText && conversationText.trim() ? `Conversación MÁS RECIENTE (lo
       },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }],
       }),

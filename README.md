@@ -5,6 +5,62 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Cinco mejoras: confirmaciones, nuevo cliente, Ventas por mes, y bajas
+
+- **Confirmación antes de borrar** en Clientes activos y Contactos —
+  ahora avisa de que también se pierde el historial de precios/Facturación
+  o del AI Closer, según el caso, antes de borrar de verdad.
+- **"NUEVO CLIENTE"**: cuando alguien pasa a ser cliente, su tarjeta en
+  Clientes activos sale destacada (borde verde con brillo) durante los
+  primeros 7 días.
+- **Ventas, ahora por mes**: navegador de mes igual que en otras partes
+  del panel, para ver las ventas y lo facturado mes a mes, no todo junto.
+- **Bajas, por fin visibles**: tenías razón, no existía nada para verlas.
+  Ahora Historial cuenta cuántos clientes se dieron de baja cada mes
+  (usando la fecha real de cuándo cambiaron a "Finalizado").
+- **Historial**: comparación destacada "este mes vs. el anterior"
+  (facturación, clientes nuevos, bajas) arriba del todo, y aparte, una
+  **proyección plegable** de cuánto podrías facturar según tu inversión en
+  ads y tu ratio histórico — claramente marcada como estimación, no
+  garantía.
+
+## Cortes de respuesta arreglados en todas las IA, no solo en el AI Closer
+
+- **AI Closer**: se volvió a cortar (esta vez porque el historial completo
+  hace que la respuesta sea más larga) — subido el límite bastante más.
+- **Revisadas las otras dos rutas de IA por el mismo motivo**, antes de
+  que te dieran el mismo problema: "Analizar anuncios" tenía el límite más
+  bajo de las tres, y "Organizar semana" también se subió con margen extra.
+- **Límite al historial que ve la IA**: con meses de uso, el historial de
+  un lead podría crecer sin parar y volver a causar cortes — ahora se
+  queda con las 30 entradas más recientes como máximo, avisando cuántas
+  se quedaron fuera si las hay.
+
+## Repaso completo del panel de seguridad de Supabase
+
+- **Rendimiento de políticas** (`Auth RLS Initialization Plan`): en varias
+  tablas (perfiles, notificaciones push, Google Calendar, y las tres de
+  Facturación) el chequeo de usuario se recalculaba por cada fila en vez
+  de una vez por consulta. Corregido en todas.
+- **Funciones sin restricción de llamada directa**: a las tres funciones
+  internas (`handle_new_user`, `log_activity`, `contact_became_client`)
+  les quité el permiso de invocarse a mano — solo se disparan como
+  disparadores automáticos, que es para lo que existen.
+- **Lo que NO hace falta tocar**: los avisos de "RLS Policy Always True"
+  en Contactos, Guiones, Tareas, etc. son intencionales — es la parte
+  compartida de la app entre las dos cuentas, a propósito.
+- **Lo único pendiente de ti**: activar "Leaked Password Protection" en
+  Supabase → Authentication → Policies — es un interruptor, no código.
+
+## Aviso de seguridad de Supabase, tapado
+
+- Supabase te avisó (bien) de que las dos tablas-marcador que usé para la
+  limpieza de Facturación (`_billing_events_reset_done` y su v2) no tenían
+  activada la protección por filas — riesgo real prácticamente nulo (no
+  guardan ningún dato, solo un "ya se hizo: sí/no"), pero se corrige igual.
+  Pega el `schema.sql` una vez más y el aviso debería desaparecer del
+  panel de seguridad de Supabase.
+
 ## Corrección al arranque limpio: cada uno en su mes real, no todos en agosto
 
 - El arranque limpio de ayer tenía un fallo: le puso la fecha de **hoy** a

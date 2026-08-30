@@ -105,7 +105,7 @@ ${messages[0].content.trim()}
       },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
-        max_tokens: 3000,
+        max_tokens: 4096,
         system: SYSTEM_PROMPT,
         messages: apiMessages,
       }),

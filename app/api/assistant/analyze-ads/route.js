@@ -51,7 +51,7 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
-        max_tokens: 700,
+        max_tokens: 2000,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: `Campañas activas:\n${summary}` }],
       }),

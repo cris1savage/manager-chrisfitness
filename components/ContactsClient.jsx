@@ -79,7 +79,9 @@ export default function ContactsClient() {
     await supabase.from('contacts').update(patch).eq('id', id);
   };
 
-  const remove = async (id) => {
+  const remove = async (id, name) => {
+    const ok = window.confirm(`¿Seguro que quieres borrar a "${name}"? También se perderá todo su historial del AI Closer (conversaciones, notas, preparaciones de llamada) — no se puede deshacer.`);
+    if (!ok) return;
     setContacts((c) => c.filter((row) => row.id !== id));
     await supabase.from('contacts').delete().eq('id', id);
   };
@@ -266,7 +268,7 @@ export default function ContactsClient() {
                     >
                       <MessageSquare size={16} />
                     </button>
-                    <button onClick={() => remove(c.id)} className="p-1.5 rounded-lg text-red">
+                    <button onClick={() => remove(c.id, c.name)} className="p-1.5 rounded-lg text-red">
                       <Trash2 size={16} />
                     </button>
                   </div>

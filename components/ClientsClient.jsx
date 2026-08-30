@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Target, Pencil, Check, Search } from 'lucide-react';
+import { Plus, Trash2, Target, Pencil, Check, Search, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge, Ring } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
@@ -152,7 +152,9 @@ export default function ClientsClient() {
     await supabase.from('active_clients').update(patch).eq('id', id);
   };
 
-  const remove = async (id) => {
+  const remove = async (id, name) => {
+    const ok = window.confirm(`¿Seguro que quieres borrar a "${name}"? También se perderá su historial de precios y cobros en Facturación — no se puede deshacer.`);
+    if (!ok) return;
     setClients((c) => c.filter((row) => row.id !== id));
     await supabase.from('active_clients').delete().eq('id', id);
   };
@@ -248,8 +250,20 @@ export default function ClientsClient() {
         {visibleClients.map((c) => {
           const overdue = c.renewal_date && c.renewal_date < soon && c.status === 'Activo';
           const dueSoon = c.renewal_date && c.renewal_date >= soon && c.renewal_date <= in7 && c.status === 'Activo';
+          const isNew = c.created_at && (Date.now() - new Date(c.created_at).getTime()) < 7 * 86400000;
           return (
-            <Card key={c.id} style={{ borderColor: overdue ? '#F87171' : dueSoon ? '#FBBF24' : undefined }}>
+            <Card
+              key={c.id}
+              style={{
+                borderColor: isNew ? '#4ADE80' : overdue ? '#F87171' : dueSoon ? '#FBBF24' : undefined,
+                boxShadow: isNew ? '0 0 20px -6px #4ADE8088' : undefined,
+              }}
+            >
+              {isNew && (
+                <div className="flex items-center gap-1 mb-2 w-fit px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide" style={{ background: '#4ADE8022', color: '#4ADE80' }}>
+                  <Sparkles size={10} /> NUEVO CLIENTE
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   value={c.name}
@@ -295,7 +309,7 @@ export default function ClientsClient() {
                 </select>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
                   <AuthorBadge profile={profiles?.[c.created_by]} />
-                  <button onClick={() => remove(c.id)} className="p-1.5 rounded-lg text-red"><Trash2 size={16} /></button>
+                  <button onClick={() => remove(c.id, c.name)} className="p-1.5 rounded-lg text-red"><Trash2 size={16} /></button>
                 </div>
               </div>
             </Card>

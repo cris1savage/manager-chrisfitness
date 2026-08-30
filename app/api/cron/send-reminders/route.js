@@ -123,13 +123,14 @@ export async function GET(request) {
   const monthStart = `${monthKey}-01`;
   const nextMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1)).toISOString();
 
-  const [adSpendRows, contactsRows, calendarRows, videosRows, tasksCompletedRows, activeClientsRows] = await Promise.all([
+  const [adSpendRows, contactsRows, calendarRows, videosRows, tasksCompletedRows, activeClientsRows, churnedRows] = await Promise.all([
     supabase.from('ad_spend').select('start_date, daily_amount, paused_at'),
     supabase.from('contacts').select('created_at, stage, stage_updated_at, amount'),
     supabase.from('calendar_entries').select('status, date, script_id'),
     supabase.from('videos').select('uploaded, uploaded_at'),
     supabase.from('tasks').select('completed_at').gte('completed_at', `${monthStart}T00:00:00Z`).lt('completed_at', nextMonthStart),
     supabase.from('active_clients').select('id, status, duration').eq('status', 'Activo'),
+    supabase.from('active_clients').select('id, status_changed_at').eq('status', 'Finalizado').gte('status_changed_at', `${monthStart}T00:00:00Z`).lt('status_changed_at', nextMonthStart),
   ]);
 
   const daysBetween = (a, b) => Math.max(0, Math.floor((new Date(b) - new Date(a)) / 86400000));
@@ -153,6 +154,7 @@ export async function GET(request) {
       ad_spend: Math.round(adSpendThisMonth * 100) / 100,
       new_contacts: contactsThisMonth.length,
       new_clients: clientsThisMonth.length,
+      churned_clients: (churnedRows.data || []).length,
       revenue: revenueThisMonth,
       active_clients_count: (activeClientsRows.data || []).length,
       content_uploaded: contentFromCalendar + contentFromVideos,

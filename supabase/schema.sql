@@ -27,7 +27,8 @@ begin
   );
   return new;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -209,7 +210,8 @@ begin
     return NEW;
   end if;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
+revoke execute on function public.log_activity() from public, anon, authenticated;
 
 do $$
 declare
@@ -244,7 +246,7 @@ drop policy if exists "profiles_update_own" on public.profiles;
 drop policy if exists "activity_log_read_authenticated" on public.activity_log;
 
 create policy "profiles_read_all_authenticated" on public.profiles for select to authenticated using (true);
-create policy "profiles_update_own" on public.profiles for update to authenticated using (auth.uid() = id);
+create policy "profiles_update_own" on public.profiles for update to authenticated using ((select auth.uid()) = id);
 create policy "activity_log_read_authenticated" on public.activity_log for select to authenticated using (true);
 
 do $$
@@ -294,7 +296,8 @@ begin
   end if;
   return NEW;
 end;
-$$ language plpgsql security definer;
+$$ language plpgsql security definer set search_path = public;
+revoke execute on function public.contact_became_client() from public, anon, authenticated;
 
 drop trigger if exists contact_became_client_trigger on public.contacts;
 create trigger contact_became_client_trigger
@@ -360,7 +363,7 @@ create table if not exists public.push_subscriptions (
 );
 alter table public.push_subscriptions enable row level security;
 drop policy if exists "push_subscriptions_own_access" on public.push_subscriptions;
-create policy "push_subscriptions_own_access" on public.push_subscriptions for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "push_subscriptions_own_access" on public.push_subscriptions for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 -- ---------------------------------------------------------------------------
 -- ESTADO DE PRODUCCIÓN DE VÍDEOS (dentro de Guiones)
@@ -570,12 +573,14 @@ create table if not exists public.monthly_history (
   ad_spend numeric not null default 0,
   new_contacts int not null default 0,
   new_clients int not null default 0,
+  churned_clients int not null default 0,
   revenue numeric not null default 0,
   active_clients_count int,
   content_uploaded int not null default 0,
   tasks_completed int not null default 0,
   updated_at timestamptz not null default now()
 );
+alter table public.monthly_history add column if not exists churned_clients int not null default 0;
 alter table public.monthly_history enable row level security;
 drop policy if exists "monthly_history_full_access_authenticated" on public.monthly_history;
 create policy "monthly_history_full_access_authenticated" on public.monthly_history for all to authenticated using (true) with check (true);
@@ -690,7 +695,7 @@ create table if not exists public.google_calendar_connections (
 );
 alter table public.google_calendar_connections enable row level security;
 drop policy if exists "google_calendar_connections_own" on public.google_calendar_connections;
-create policy "google_calendar_connections_own" on public.google_calendar_connections for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "google_calendar_connections_own" on public.google_calendar_connections for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 -- Qué evento de Google corresponde a cada entrada del Calendario, por cuenta
 -- (cada persona conectada tiene su propio evento, en su propio calendario).
@@ -753,10 +758,10 @@ alter table public.profiles add column if not exists is_owner boolean not null d
 -- Facturación y Clientes activos.
 drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles for update to authenticated
-  using (auth.uid() = id)
+  using ((select auth.uid()) = id)
   with check (
-    auth.uid() = id
-    and is_owner = (select p.is_owner from public.profiles p where p.id = auth.uid())
+    (select auth.uid()) = id
+    and is_owner = (select p.is_owner from public.profiles p where p.id = (select auth.uid()))
   );
 
 -- Fecha en que cambió el estado (Activo/Pausado/Finalizado) — no es dato
@@ -788,8 +793,8 @@ end $$;
 alter table public.client_billing enable row level security;
 drop policy if exists "client_billing_owner_only" on public.client_billing;
 create policy "client_billing_owner_only" on public.client_billing for all to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true));
+  using (exists (select 1 from public.profiles where id = (select auth.uid()) and is_owner = true))
+  with check (exists (select 1 from public.profiles where id = (select auth.uid()) and is_owner = true));
 
 do $$
 begin
@@ -819,8 +824,8 @@ create table if not exists public.billing_history (
 alter table public.billing_history enable row level security;
 drop policy if exists "billing_history_owner_only" on public.billing_history;
 create policy "billing_history_owner_only" on public.billing_history for all to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true));
+  using (exists (select 1 from public.profiles where id = (select auth.uid()) and is_owner = true))
+  with check (exists (select 1 from public.profiles where id = (select auth.uid()) and is_owner = true));
 
 do $$
 begin
@@ -844,8 +849,8 @@ create table if not exists public.billing_events (
 alter table public.billing_events enable row level security;
 drop policy if exists "billing_events_owner_only" on public.billing_events;
 create policy "billing_events_owner_only" on public.billing_events for all to authenticated
-  using (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true))
-  with check (exists (select 1 from public.profiles where id = auth.uid() and is_owner = true));
+  using (exists (select 1 from public.profiles where id = (select auth.uid()) and is_owner = true))
+  with check (exists (select 1 from public.profiles where id = (select auth.uid()) and is_owner = true));
 
 do $$
 begin
@@ -879,6 +884,7 @@ begin
     where cb.price_amount is not null
     on conflict (active_client_id, event_date) do nothing;
     create table public._billing_events_reset_done (done boolean default true);
+    alter table public._billing_events_reset_done enable row level security;
   end if;
 end $$;
 
@@ -910,8 +916,15 @@ begin
     where cb.price_amount is not null and ac.renewal_date is not null
     on conflict (active_client_id, event_date) do nothing;
     create table public._billing_events_reset_v2_done (done boolean default true);
+    alter table public._billing_events_reset_v2_done enable row level security;
   end if;
 end $$;
+
+-- Por si ya habías pegado este archivo antes de este arreglo: activa RLS en
+-- estas dos tablas-marcador aunque ya existieran de antes (Supabase las
+-- señala como aviso de seguridad si se quedan sin activar).
+alter table if exists public._billing_events_reset_done enable row level security;
+alter table if exists public._billing_events_reset_v2_done enable row level security;
 
 -- ---------------------------------------------------------------------------
 -- LÍNEA DE TIEMPO DEL LEAD (AI Closer)
