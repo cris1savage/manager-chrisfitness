@@ -296,7 +296,7 @@ function RichEditor({ draft, setDraft }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-2 sticky top-0 z-10 bg-bg py-2 -mx-1 px-1">
         <FormatToolbar onAction={applyFormat} />
         <span className="text-muted text-[10.5px]">{wordCount} palabras</span>
       </div>

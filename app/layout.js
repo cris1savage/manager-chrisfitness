@@ -1,5 +1,6 @@
 import './globals.css';
 import RegisterSW from '@/components/RegisterSW';
+import { createClient } from '@/lib/supabase/server';
 
 export const metadata = {
   title: 'Chris Fitness · Panel de Control',
@@ -24,9 +25,23 @@ export const viewport = {
   themeColor: '#050708',
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  let theme = 'dark';
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase.from('profiles').select('theme').eq('id', user.id).single();
+      if (profile?.theme === 'light') theme = 'light';
+    }
+  } catch {
+    // sin sesión (ej. /login) o fallo puntual — se queda en oscuro por defecto
+  }
+
   return (
-    <html lang="es">
+    <html lang="es" className={theme === 'light' ? 'light' : ''}>
       <body className="bg-bg text-ink">
         <RegisterSW />
         {children}

@@ -5,6 +5,20 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Tema claro/oscuro (por cuenta) + barra de formato siempre a mano
+
+- **Tema claro/oscuro** en Cuenta y Seguridad — cada cuenta elige el suyo,
+  independiente de la otra (tú en oscuro, Ana en claro, sin pisarse). Se
+  guarda y se aplica solo, sin parpadeos raros al entrar.
+  - Nota honesta sobre el alcance: cambié fondo, tarjetas, bordes y texto
+    (el 90% del efecto visual). Algunos acentos pequeños (etiquetas de
+    colores, líneas de gráficos) se quedan con el mismo tono en los dos
+    modos — no debería notarse raro, pero si ves algo que no cuadre bien
+    en modo claro, dímelo y lo afino puntualmente.
+- **Barra de formato de Guiones, ahora fija arriba** mientras escribes —
+  ya no hace falta subir hasta arriba del todo para poner un título o
+  negrita en medio de un guion largo.
+
 ## Cinco mejoras: confirmaciones, nuevo cliente, Ventas por mes, y bajas
 
 - **Confirmación antes de borrar** en Clientes activos y Contactos —

@@ -955,6 +955,13 @@ exception
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- TEMA (oscuro/claro) — preferencia personal de cada cuenta, no compartida.
+-- La política de "editar mi propio perfil" ya permite tocar esto (solo
+-- bloquea la columna is_owner).
+-- ---------------------------------------------------------------------------
+alter table public.profiles add column if not exists theme text not null default 'dark';
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui';
 import PushNotifications from '@/components/PushNotifications';
 import GoogleCalendarConnect from '@/components/GoogleCalendarConnect';
+import ThemeToggle from '@/components/ThemeToggle';
 
 function ProfileCard({ profile, onSaved }) {
   const supabase = useMemo(() => createClient(), []);
@@ -131,6 +132,11 @@ export default function SecurityClient({ profile }) {
       </div>
 
       <ProfileCard profile={profile} />
+
+      <div className="border-t border-border pt-4">
+        <div className="text-ink font-semibold text-sm mb-3">Apariencia</div>
+      </div>
+      <ThemeToggle profile={profile} />
 
       <div className="border-t border-border pt-4">
         <div className="text-ink font-semibold text-sm mb-3">Notificaciones</div>
