@@ -107,7 +107,7 @@ export default function PushNotifications() {
   return (
     <Card className="space-y-3">
       <div className="flex items-center gap-2">
-        {status === 'on' ? <Bell size={18} color="#4ADE80" /> : <BellOff size={18} className="text-muted" />}
+        {status === 'on' ? <Bell size={18} color="var(--color-green)" /> : <BellOff size={18} className="text-muted" />}
         <span className="text-ink text-sm font-semibold">
           {status === 'on' ? 'Notificaciones activadas' : status === 'denied' ? 'Notificaciones bloqueadas' : 'Notificaciones desactivadas'}
         </span>
@@ -128,8 +128,8 @@ export default function PushNotifications() {
           className="rounded-lg px-4 py-2 font-semibold text-sm w-fit disabled:opacity-60"
           style={
             status === 'on'
-              ? { background: 'transparent', color: '#F87171', border: '1px solid #F87171' }
-              : { background: '#5ECCFA', color: '#00161C' }
+              ? { background: 'transparent', color: 'var(--color-red)', border: '1px solid var(--color-red)' }
+              : { background: 'var(--color-cyan)', color: '#00161C' }
           }
         >
           {busy ? 'Un momento…' : status === 'on' ? 'Desactivar' : 'Activar notificaciones'}

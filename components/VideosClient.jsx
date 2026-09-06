@@ -192,8 +192,8 @@ export default function VideosClient() {
             className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0"
             style={{
               background: !showUploaded ? '#5ECCFA22' : 'transparent',
-              border: `1px solid ${!showUploaded ? '#5ECCFA' : '#212729'}`,
-              color: !showUploaded ? '#5ECCFA' : '#7C878B',
+              border: `1px solid ${!showUploaded ? 'var(--color-cyan)' : 'var(--color-border)'}`,
+              color: !showUploaded ? 'var(--color-cyan)' : 'var(--color-muted)',
             }}
           >
             En curso <span className="opacity-70">{notUploaded.length}</span>
@@ -203,8 +203,8 @@ export default function VideosClient() {
             className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0"
             style={{
               background: showUploaded ? '#4ADE8022' : 'transparent',
-              border: `1px solid ${showUploaded ? '#4ADE80' : '#212729'}`,
-              color: showUploaded ? '#4ADE80' : '#7C878B',
+              border: `1px solid ${showUploaded ? 'var(--color-green)' : 'var(--color-border)'}`,
+              color: showUploaded ? 'var(--color-green)' : 'var(--color-muted)',
             }}
           >
             Subidos <span className="opacity-70">{uploaded.length}</span>
@@ -216,7 +216,7 @@ export default function VideosClient() {
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <div className="flex gap-1.5" style={{ minWidth: 'max-content' }}>
             {['Todos', ...STAGES].map((s) => {
-              const color = PRODUCTION_STATUSES[s]?.color || '#5ECCFA';
+              const color = PRODUCTION_STATUSES[s]?.color || 'var(--color-cyan)';
               return (
                 <button
                   key={s}
@@ -224,8 +224,8 @@ export default function VideosClient() {
                   className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0"
                   style={{
                     background: filter === s ? `${color}22` : 'transparent',
-                    border: `1px solid ${filter === s ? color : '#212729'}`,
-                    color: filter === s ? color : '#7C878B',
+                    border: `1px solid ${filter === s ? color : 'var(--color-border)'}`,
+                    color: filter === s ? color : 'var(--color-muted)',
                   }}
                 >
                   {s} <span className="opacity-70">{counts[s] || 0}</span>
@@ -244,8 +244,8 @@ export default function VideosClient() {
           </Card>
         )}
         {visible.map((v) => {
-          const meta = categoriesMap[v.type] || { label: 'Sin categoría', color: '#7C878B' };
-          const stageColor = PRODUCTION_STATUSES[v.production_status]?.color || '#7C878B';
+          const meta = categoriesMap[v.type] || { label: 'Sin categoría', color: 'var(--color-muted)' };
+          const stageColor = PRODUCTION_STATUSES[v.production_status]?.color || 'var(--color-muted)';
           return (
             <Card key={v.id} className="!p-0" style={{ borderColor: showUploaded ? '#4ADE8055' : `${stageColor}55` }}>
               <div className="p-4 space-y-2">
@@ -259,7 +259,7 @@ export default function VideosClient() {
                     <div className="text-muted text-[11px]">
                       {meta.label}
                       {scriptTitle(v.script_id) && <> · guion: {scriptTitle(v.script_id)}</>}
-                      {v.calendar_entry_id && <span style={{ color: '#5ECCFA' }}> · en el Calendario</span>}
+                      {v.calendar_entry_id && <span style={{ color: 'var(--color-cyan)' }}> · en el Calendario</span>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -290,7 +290,7 @@ export default function VideosClient() {
                       <button
                         onClick={() => markUploaded(v.id)}
                         className="rounded-lg px-2.5 py-1 text-xs font-semibold flex items-center gap-1"
-                        style={{ background: '#4ADE8022', color: '#4ADE80', border: '1px solid #4ADE8055' }}
+                        style={{ background: '#4ADE8022', color: 'var(--color-green)', border: '1px solid #4ADE8055' }}
                       >
                         <Check size={13} /> Marcar subido
                       </button>
@@ -298,7 +298,7 @@ export default function VideosClient() {
                         <button
                           onClick={() => { setSchedulingId(schedulingId === v.id ? null : v.id); setScheduleDate(todayISO()); }}
                           className="rounded-lg px-2.5 py-1 text-xs font-semibold flex items-center gap-1"
-                          style={{ background: '#5ECCFA22', color: '#5ECCFA', border: '1px solid #5ECCFA55' }}
+                          style={{ background: '#5ECCFA22', color: 'var(--color-cyan)', border: '1px solid #5ECCFA55' }}
                         >
                           <CalendarPlus size={13} /> Programar en Calendario
                         </button>

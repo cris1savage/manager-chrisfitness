@@ -127,8 +127,8 @@ export default function TemplatesClient() {
               className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0"
               style={{
                 background: category === c ? '#5ECCFA22' : 'transparent',
-                border: `1px solid ${category === c ? '#5ECCFA' : '#212729'}`,
-                color: category === c ? '#5ECCFA' : '#7C878B',
+                border: `1px solid ${category === c ? 'var(--color-cyan)' : 'var(--color-border)'}`,
+                color: category === c ? 'var(--color-cyan)' : 'var(--color-muted)',
               }}
             >
               {c}
@@ -189,7 +189,7 @@ export default function TemplatesClient() {
                   <button
                     onClick={() => copy(t)}
                     className="rounded-lg px-2.5 py-1 text-xs font-semibold flex items-center gap-1"
-                    style={{ background: copiedId === t.id ? '#4ADE8022' : '#5ECCFA22', color: copiedId === t.id ? '#4ADE80' : '#5ECCFA' }}
+                    style={{ background: copiedId === t.id ? '#4ADE8022' : '#5ECCFA22', color: copiedId === t.id ? 'var(--color-green)' : 'var(--color-cyan)' }}
                   >
                     {copiedId === t.id ? <><Check size={13} /> Copiado</> : <><Copy size={13} /> Copiar</>}
                   </button>

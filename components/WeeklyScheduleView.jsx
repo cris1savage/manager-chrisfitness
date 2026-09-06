@@ -176,7 +176,7 @@ export default function WeeklyScheduleView() {
               if (m.role === 'user') {
                 return (
                   <div key={i} className="flex justify-end">
-                    <div className="rounded-lg rounded-tr-sm px-2.5 py-1.5 text-xs max-w-[85%]" style={{ background: '#5ECCFA1A', color: '#F2F6F7' }}>
+                    <div className="rounded-lg rounded-tr-sm px-2.5 py-1.5 text-xs max-w-[85%]" style={{ background: '#5ECCFA1A', color: 'var(--color-ink)' }}>
                       {m.displayText}
                     </div>
                   </div>
@@ -185,7 +185,7 @@ export default function WeeklyScheduleView() {
               if (m.displayText) {
                 return (
                   <div key={i} className="flex justify-start">
-                    <div className="rounded-lg rounded-tl-sm px-2.5 py-1.5 text-xs max-w-[85%] flex items-start gap-1.5" style={{ background: '#151A1D', color: '#F2F6F7' }}>
+                    <div className="rounded-lg rounded-tl-sm px-2.5 py-1.5 text-xs max-w-[85%] flex items-start gap-1.5" style={{ background: 'var(--color-surfaceAlt)', color: 'var(--color-ink)' }}>
                       <Sparkles size={12} className="text-cyan shrink-0 mt-0.5" />
                       <span>{m.displayText}</span>
                     </div>
@@ -256,7 +256,7 @@ export default function WeeklyScheduleView() {
                   onClick={confirmProposal}
                   disabled={confirming}
                   className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
-                  style={{ background: '#4ADE8022', color: '#4ADE80', border: '1px solid #4ADE8055' }}
+                  style={{ background: '#4ADE8022', color: 'var(--color-green)', border: '1px solid #4ADE8055' }}
                 >
                   <Check size={13} /> {confirming ? 'Añadiendo...' : `Confirmar y añadir (${proposal.length})`}
                 </button>
@@ -285,7 +285,7 @@ export default function WeeklyScheduleView() {
               return (
                 <div key={i} className="text-center">
                   <div className="text-muted text-[10px] uppercase">{DAY_NAMES[i]}</div>
-                  <div className="text-sm font-bold" style={{ color: isToday ? '#5ECCFA' : '#F2F6F7' }}>{d.getDate()}</div>
+                  <div className="text-sm font-bold" style={{ color: isToday ? 'var(--color-cyan)' : 'var(--color-ink)' }}>{d.getDate()}</div>
                 </div>
               );
             })}
@@ -300,7 +300,7 @@ export default function WeeklyScheduleView() {
               return (
                 <div key={i} className="space-y-0.5 min-h-[24px]">
                   {noTime.map((t) => (
-                    <div key={t.id} className="rounded px-1.5 py-0.5 text-[10px] flex items-center gap-1" style={{ background: t.done ? '#4ADE8022' : '#5ECCFA22', color: t.done ? '#4ADE80' : '#5ECCFA' }}>
+                    <div key={t.id} className="rounded px-1.5 py-0.5 text-[10px] flex items-center gap-1" style={{ background: t.done ? '#4ADE8022' : '#5ECCFA22', color: t.done ? 'var(--color-green)' : 'var(--color-cyan)' }}>
                       <button onClick={() => toggleDone(t)} className="shrink-0">{t.done ? <Check size={9} /> : <div className="w-2 h-2 rounded-full border border-current" />}</button>
                       <span className="truncate" style={{ textDecoration: t.done ? 'line-through' : 'none' }}>{t.title}</span>
                     </div>
@@ -332,13 +332,13 @@ export default function WeeklyScheduleView() {
                       <div
                         key={t.id}
                         className="absolute left-0.5 right-0.5 rounded px-1 py-0.5 text-[9.5px] overflow-hidden group"
-                        style={{ top, height, background: t.done ? '#4ADE8033' : '#5ECCFA33', border: `1px solid ${t.done ? '#4ADE80' : '#5ECCFA'}` }}
+                        style={{ top, height, background: t.done ? '#4ADE8033' : '#5ECCFA33', border: `1px solid ${t.done ? 'var(--color-green)' : 'var(--color-cyan)'}` }}
                       >
                         <div className="flex items-center gap-1">
                           <button onClick={() => toggleDone(t)} className="shrink-0">
-                            {t.done ? <Check size={9} color="#4ADE80" /> : <div className="w-2 h-2 rounded-full border border-cyan shrink-0" />}
+                            {t.done ? <Check size={9} color="var(--color-green)" /> : <div className="w-2 h-2 rounded-full border border-cyan shrink-0" />}
                           </button>
-                          <span className="truncate font-medium" style={{ color: '#F2F6F7', textDecoration: t.done ? 'line-through' : 'none' }}>{t.title}</span>
+                          <span className="truncate font-medium" style={{ color: 'var(--color-ink)', textDecoration: t.done ? 'line-through' : 'none' }}>{t.title}</span>
                           <button onClick={() => deleteTask(t.id)} className="ml-auto shrink-0 opacity-0 group-hover:opacity-100"><Trash2 size={9} className="text-red" /></button>
                         </div>
                       </div>

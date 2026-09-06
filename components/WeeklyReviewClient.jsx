@@ -100,7 +100,7 @@ export default function WeeklyReviewClient() {
             key={k}
             onClick={() => setTab(k)}
             className="px-3 py-1.5 text-xs font-semibold uppercase flex items-center gap-1.5"
-            style={{ background: tab === k ? '#5ECCFA' : 'transparent', color: tab === k ? '#00161C' : '#7C878B' }}
+            style={{ background: tab === k ? 'var(--color-cyan)' : 'transparent', color: tab === k ? '#00161C' : 'var(--color-muted)' }}
           >
             <Icon size={13} /> {l}
           </button>
@@ -112,7 +112,7 @@ export default function WeeklyReviewClient() {
       {!loading && tab === 'tareas' && (
         <>
           <Card className="flex items-center justify-around flex-wrap gap-4">
-            <Ring pct={taskPct} label="Cumplimiento" value={`${completedTasks.length}/${weekTasks.length || 0}`} color={taskPct >= 0.7 ? '#4ADE80' : taskPct >= 0.4 ? '#FBBF24' : '#F87171'} size={110} />
+            <Ring pct={taskPct} label="Cumplimiento" value={`${completedTasks.length}/${weekTasks.length || 0}`} color={taskPct >= 0.7 ? 'var(--color-green)' : taskPct >= 0.4 ? 'var(--color-amber)' : 'var(--color-red)'} size={110} />
             <div className="flex gap-6">
               <div className="text-center">
                 <div className="text-green text-2xl font-display font-extrabold">{completedTasks.length}</div>
@@ -130,7 +130,7 @@ export default function WeeklyReviewClient() {
             {completedTasks.length === 0 && <Card className="text-center py-4 text-muted text-sm">Ninguna todavía esta semana.</Card>}
             {completedTasks.map((t) => (
               <Card key={t.id} className="flex items-center gap-3">
-                <Check size={16} color="#4ADE80" className="shrink-0" />
+                <Check size={16} color="var(--color-green)" className="shrink-0" />
                 <div className="text-ink text-sm flex-1 truncate">{t.title}</div>
                 <AuthorBadge profile={profiles?.[t.assigned_to]} />
               </Card>
@@ -142,7 +142,7 @@ export default function WeeklyReviewClient() {
             {notCompletedTasks.length === 0 && <Card className="text-center py-4 text-muted text-sm">Ninguna pendiente esta semana. 🎉</Card>}
             {notCompletedTasks.map((t) => (
               <Card key={t.id} className="flex items-center gap-3">
-                <X size={16} color="#F87171" className="shrink-0" />
+                <X size={16} color="var(--color-red)" className="shrink-0" />
                 <div className="text-ink text-sm flex-1 truncate">{t.title}</div>
                 <AuthorBadge profile={profiles?.[t.assigned_to]} />
               </Card>
@@ -154,7 +154,7 @@ export default function WeeklyReviewClient() {
       {!loading && tab === 'contenido' && (
         <>
           <Card className="flex items-center justify-around flex-wrap gap-4">
-            <Ring pct={contentPct} label="Subido" value={`${uploadedEntries.length}/${weekEntries.length || 0}`} color={contentPct >= 0.7 ? '#4ADE80' : contentPct >= 0.4 ? '#FBBF24' : '#F87171'} size={110} />
+            <Ring pct={contentPct} label="Subido" value={`${uploadedEntries.length}/${weekEntries.length || 0}`} color={contentPct >= 0.7 ? 'var(--color-green)' : contentPct >= 0.4 ? 'var(--color-amber)' : 'var(--color-red)'} size={110} />
             <div className="flex gap-6">
               <div className="text-center">
                 <div className="text-green text-2xl font-display font-extrabold">{uploadedEntries.length}</div>
@@ -171,10 +171,10 @@ export default function WeeklyReviewClient() {
             <div className="text-green text-[11px] uppercase tracking-wide font-semibold flex items-center gap-1.5"><Check size={13} /> Subido esta semana</div>
             {uploadedEntries.length === 0 && <Card className="text-center py-4 text-muted text-sm">Nada subido todavía esta semana.</Card>}
             {uploadedEntries.map((e) => {
-              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: '#7C878B' };
+              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: 'var(--color-muted)' };
               return (
                 <Card key={e.id} className="flex items-center gap-3 cursor-pointer" onClick={() => toggleEntry(e)}>
-                  <Check size={16} color="#4ADE80" className="shrink-0" />
+                  <Check size={16} color="var(--color-green)" className="shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="text-[10px] uppercase tracking-wide" style={{ color: meta.color }}>{meta.label} · {new Date(e.date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</div>
                     <div className="text-ink text-sm truncate">{e.title}</div>
@@ -188,10 +188,10 @@ export default function WeeklyReviewClient() {
             <div className="text-red text-[11px] uppercase tracking-wide font-semibold flex items-center gap-1.5"><X size={13} /> Pendiente de subir</div>
             {pendingEntries.length === 0 && <Card className="text-center py-4 text-muted text-sm">Todo subido esta semana. 🎉</Card>}
             {pendingEntries.map((e) => {
-              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: '#7C878B' };
+              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: 'var(--color-muted)' };
               return (
                 <Card key={e.id} className="flex items-center gap-3 cursor-pointer" onClick={() => toggleEntry(e)}>
-                  <X size={16} color="#F87171" className="shrink-0" />
+                  <X size={16} color="var(--color-red)" className="shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="text-[10px] uppercase tracking-wide" style={{ color: meta.color }}>{meta.label} · {new Date(e.date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</div>
                     <div className="text-ink text-sm truncate">{e.title}</div>

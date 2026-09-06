@@ -16,7 +16,7 @@ function startOfWeek(d) {
   return x;
 }
 const toISO = (d) => dateToISO(d);
-const FALLBACK_META = { label: 'Sin categoría', color: '#7C878B' };
+const FALLBACK_META = { label: 'Sin categoría', color: 'var(--color-muted)' };
 
 function EntryEditor({ initial, categories, onSave, onCancel }) {
   const firstKey = categories[0]?.id || '';
@@ -66,13 +66,13 @@ function DayCell({ dateISO, entries, categoriesMap, categoriesList, onAdd, onUpd
     <div
       className="rounded-lg p-2 flex flex-col gap-1 border"
       style={{
-        background: isToday ? '#5ECCFA0D' : '#0E1214',
-        borderColor: isToday ? '#5ECCFA' : '#212729',
+        background: isToday ? '#5ECCFA0D' : 'var(--color-surface)',
+        borderColor: isToday ? 'var(--color-cyan)' : 'var(--color-border)',
         minHeight: compact ? 90 : 120,
       }}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold" style={{ color: isToday ? '#5ECCFA' : '#7C878B' }}>
+        <span className="text-xs font-bold" style={{ color: isToday ? 'var(--color-cyan)' : 'var(--color-muted)' }}>
           {new Date(dateISO + 'T00:00:00').getDate()}
         </span>
         <button onClick={() => { setAdding(!adding); setEditingId(null); }} className="text-muted">
@@ -99,7 +99,7 @@ function DayCell({ dateISO, entries, categoriesMap, categoriesList, onAdd, onUpd
               <button onClick={() => onToggle(e)} className="shrink-0">
                 {done ? <Check size={11} color={meta.color} /> : <div className="w-2 h-2 rounded-full" style={{ background: meta.color }} />}
               </button>
-              <span className="text-[10.5px] truncate flex-1" style={{ color: '#F2F6F7', textDecoration: done ? 'line-through' : 'none' }} title={e.notes || ''}>
+              <span className="text-[10.5px] truncate flex-1" style={{ color: 'var(--color-ink)', textDecoration: done ? 'line-through' : 'none' }} title={e.notes || ''}>
                 {e.title}
               </span>
               <button onClick={() => { setEditingId(e.id); setAdding(false); }} className="text-muted shrink-0"><Pencil size={9} /></button>
@@ -130,8 +130,8 @@ function DayView({ dateISO, entries, categoriesMap, categoriesList, onAdd, onUpd
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl p-3" style={{ background: isToday ? '#5ECCFA0D' : '#0E1214', border: `1px solid ${isToday ? '#5ECCFA' : '#212729'}` }}>
-        <div className="capitalize font-bold" style={{ color: isToday ? '#5ECCFA' : '#F2F6F7' }}>
+      <div className="rounded-xl p-3" style={{ background: isToday ? '#5ECCFA0D' : 'var(--color-surface)', border: `1px solid ${isToday ? 'var(--color-cyan)' : 'var(--color-border)'}` }}>
+        <div className="capitalize font-bold" style={{ color: isToday ? 'var(--color-cyan)' : 'var(--color-ink)' }}>
           {label} {isToday && <span className="text-xs font-normal">· hoy</span>}
         </div>
       </div>
@@ -281,7 +281,7 @@ export default function CalendarClient() {
               key={m}
               onClick={() => setMode(m)}
               className="px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-semibold uppercase"
-              style={{ background: mode === m ? '#5ECCFA' : 'transparent', color: mode === m ? '#00161C' : '#7C878B' }}
+              style={{ background: mode === m ? 'var(--color-cyan)' : 'transparent', color: mode === m ? '#00161C' : 'var(--color-muted)' }}
             >
               {m === 'dia' ? 'Día' : m}
             </button>

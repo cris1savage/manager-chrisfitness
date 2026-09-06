@@ -439,7 +439,7 @@ function ScriptVideos({ scriptId }) {
       <div className="space-y-1.5">
         {videos.length === 0 && <div className="text-muted text-xs text-center py-3">Todavía no hay vídeos para este guion. Añade uno arriba.</div>}
         {videos.map((v) => {
-          const meta = categoriesMap[v.type] || { label: 'Sin categoría', color: '#7C878B' };
+          const meta = categoriesMap[v.type] || { label: 'Sin categoría', color: 'var(--color-muted)' };
           const prodColor = (PRODUCTION_STATUSES[v.production_status] || PRODUCTION_STATUSES['Guion']).color;
           const done = v.uploaded;
           const editing = editingId === v.id;
@@ -518,7 +518,7 @@ function ScriptVideos({ scriptId }) {
                 <div className="text-[10.5px] pl-6 mt-0.5" style={{ color: meta.color }}>
                   {meta.label}
                   {v.date && <> · {new Date(v.date + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}</>}
-                  {v.calendar_entry_id && <span style={{ color: '#5ECCFA' }}> · en el Calendario</span>}
+                  {v.calendar_entry_id && <span style={{ color: 'var(--color-cyan)' }}> · en el Calendario</span>}
                 </div>
               )}
             </div>
@@ -709,8 +709,8 @@ export default function ScriptsClient() {
               className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0"
               style={{
                 background: category === c ? '#5ECCFA22' : 'transparent',
-                border: `1px solid ${category === c ? '#5ECCFA' : '#212729'}`,
-                color: category === c ? '#5ECCFA' : '#7C878B',
+                border: `1px solid ${category === c ? 'var(--color-cyan)' : 'var(--color-border)'}`,
+                color: category === c ? 'var(--color-cyan)' : 'var(--color-muted)',
               }}
             >
               {c}
@@ -727,9 +727,9 @@ export default function ScriptsClient() {
               onClick={() => setStatusFilter(s)}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0"
               style={{
-                background: statusFilter === s ? `${SCRIPT_STATUS_COLORS[s] || '#5ECCFA'}22` : 'transparent',
-                border: `1px solid ${statusFilter === s ? (SCRIPT_STATUS_COLORS[s] || '#5ECCFA') : '#212729'}`,
-                color: statusFilter === s ? (SCRIPT_STATUS_COLORS[s] || '#5ECCFA') : '#7C878B',
+                background: statusFilter === s ? `${SCRIPT_STATUS_COLORS[s] || 'var(--color-cyan)'}22` : 'transparent',
+                border: `1px solid ${statusFilter === s ? (SCRIPT_STATUS_COLORS[s] || 'var(--color-cyan)') : 'var(--color-border)'}`,
+                color: statusFilter === s ? (SCRIPT_STATUS_COLORS[s] || 'var(--color-cyan)') : 'var(--color-muted)',
               }}
             >
               {s}

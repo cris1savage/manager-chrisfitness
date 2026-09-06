@@ -5,6 +5,21 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Modo claro: barrido completo, no solo un par de sitios
+
+- Tenías razón — Canal y Calendario se veían rotos en modo claro (texto
+  negro sobre fondo negro, celdas que no cambiaban de color). El motivo:
+  en 22 componentes había colores puestos "a fuego" en vez de usar la
+  variable que cambia con el tema — se me escapó al construir el
+  interruptor la vez pasada.
+- Revisé **los 22, uno por uno**, y sustituí 260 usos de esos colores
+  fijos por la variable correcta — ahora si cambias de tema, todo el
+  panel se adapta de verdad, no solo lo más visible. Los acentos con
+  transparencia (etiquetas, insignias de colores) se dejaron tal cual a
+  propósito — esos ya se veían bien en los dos modos.
+- Probado con compilación de producción real de las 33 páginas antes de
+  dártelo, precisamente porque la vez pasada me quedé corto.
+
 ## Tema claro/oscuro (por cuenta) + barra de formato siempre a mano
 
 - **Tema claro/oscuro** en Cuenta y Seguridad — cada cuenta elige el suyo,

@@ -12,7 +12,7 @@ export function Card({ children, className = '', style = {}, ...rest }) {
   );
 }
 
-export function StatCard({ icon: Icon, label, value, color = '#5ECCFA' }) {
+export function StatCard({ icon: Icon, label, value, color = 'var(--color-cyan)' }) {
   return (
     <Card className="flex items-center gap-3">
       <div className="rounded-lg p-2.5 shrink-0" style={{ background: `${color}1A` }}>
@@ -52,14 +52,14 @@ export function Field({ f, value, onChange }) {
   );
 }
 
-export function Ring({ pct, size = 84, stroke = 8, color = '#5ECCFA', label, value }) {
+export function Ring({ pct, size = 84, stroke = 8, color = 'var(--color-cyan)', label, value }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(1, pct || 0));
   return (
     <div className="flex flex-col items-center gap-2">
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="#212729" strokeWidth={stroke} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--color-border)" strokeWidth={stroke} fill="none" />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -75,7 +75,7 @@ export function Ring({ pct, size = 84, stroke = 8, color = '#5ECCFA', label, val
         <text
           x={size / 2}
           y={size / 2}
-          fill="#F2F6F7"
+          fill="var(--color-ink)"
           fontSize={16}
           fontWeight={700}
           textAnchor="middle"

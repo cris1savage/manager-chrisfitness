@@ -92,7 +92,7 @@ export default function HistoryClient() {
               key={k}
               onClick={() => setMode(k)}
               className="px-3 py-1.5 text-xs font-semibold"
-              style={{ background: mode === k ? '#5ECCFA' : 'transparent', color: mode === k ? '#00161C' : '#7C878B' }}
+              style={{ background: mode === k ? 'var(--color-cyan)' : 'transparent', color: mode === k ? '#00161C' : 'var(--color-muted)' }}
             >
               {l}
             </button>
@@ -112,13 +112,13 @@ export default function HistoryClient() {
             <div className="w-full h-[220px]">
               <ResponsiveContainer>
                 <LineChart data={chartData}>
-                  <CartesianGrid stroke="#212729" vertical={false} />
-                  <XAxis dataKey="label" stroke="#7C878B" fontSize={isMonthly ? 10 : 9} tickLine={false} axisLine={{ stroke: '#212729' }} />
-                  <YAxis stroke="#7C878B" fontSize={10} tickLine={false} axisLine={{ stroke: '#212729' }} width={40} />
-                  <Tooltip contentStyle={{ background: '#151A1D', border: '1px solid #212729', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#F2F6F7' }} />
+                  <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                  <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={isMonthly ? 10 : 9} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} />
+                  <YAxis stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} width={40} />
+                  <Tooltip contentStyle={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--color-ink)' }} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line type="monotone" dataKey="Facturación" stroke="#4ADE80" strokeWidth={2} dot={{ r: 3, fill: '#4ADE80' }} />
-                  <Line type="monotone" dataKey="Inversión ads" stroke="#5ECCFA" strokeWidth={2} dot={{ r: 3, fill: '#5ECCFA' }} />
+                  <Line type="monotone" dataKey="Facturación" stroke="var(--color-green)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-green)' }} />
+                  <Line type="monotone" dataKey="Inversión ads" stroke="var(--color-cyan)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-cyan)' }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -148,7 +148,7 @@ export default function HistoryClient() {
                     const d = diff(m.field);
                     const good = m.invert ? (d !== null && d < 0) : (d !== null && d > 0);
                     const bad = m.invert ? (d !== null && d > 0) : (d !== null && d < 0);
-                    const color = d === null ? '#7C878B' : good ? '#4ADE80' : bad ? '#F87171' : '#7C878B';
+                    const color = d === null ? 'var(--color-muted)' : good ? 'var(--color-green)' : bad ? 'var(--color-red)' : 'var(--color-muted)';
                     return (
                       <div key={m.field} className="rounded-lg p-2.5 bg-surfaceAlt border border-border">
                         <div className="text-muted text-[10px] uppercase tracking-wide">{m.label}</div>
@@ -209,10 +209,10 @@ export default function HistoryClient() {
               const profit = isMonthly ? (Number(r.revenue) || 0) - (Number(r.ad_spend) || 0) : null;
               const revenueDiff = prev && Number(prev.revenue) > 0 ? ((Number(r.revenue) - Number(prev.revenue)) / Number(prev.revenue)) * 100 : null;
               const DiffIcon = revenueDiff === null ? Minus : revenueDiff > 0 ? TrendingUp : revenueDiff < 0 ? TrendingDown : Minus;
-              const diffColor = revenueDiff === null || revenueDiff === 0 ? '#7C878B' : revenueDiff > 0 ? '#4ADE80' : '#F87171';
+              const diffColor = revenueDiff === null || revenueDiff === 0 ? 'var(--color-muted)' : revenueDiff > 0 ? 'var(--color-green)' : 'var(--color-red)';
 
               return (
-                <Card key={r[keyField]} style={{ border: isCurrent ? '1px solid #5ECCFA' : undefined }}>
+                <Card key={r[keyField]} style={{ border: isCurrent ? '1px solid var(--color-cyan)' : undefined }}>
                   <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
                     <div className="flex items-center gap-2">
                       <CalendarIcon size={15} className={isCurrent ? 'text-cyan' : 'text-muted'} />
@@ -237,7 +237,7 @@ export default function HistoryClient() {
                     {isMonthly ? (
                       <div className="rounded-lg p-2.5 bg-surfaceAlt border border-border">
                         <div className="text-muted text-[10px] uppercase tracking-wide">Beneficio</div>
-                        <div className="font-display text-base" style={{ color: profit >= 0 ? '#4ADE80' : '#F87171' }}>{eur(profit)}</div>
+                        <div className="font-display text-base" style={{ color: profit >= 0 ? 'var(--color-green)' : 'var(--color-red)' }}>{eur(profit)}</div>
                       </div>
                     ) : (
                       <div className="rounded-lg p-2.5 bg-surfaceAlt border border-border">
@@ -257,7 +257,7 @@ export default function HistoryClient() {
                         </div>
                         <div className="rounded-lg p-2.5 bg-surfaceAlt border border-border">
                           <div className="text-muted text-[10px] uppercase tracking-wide">Bajas</div>
-                          <div className="font-display text-base" style={{ color: r.churned_clients > 0 ? '#F87171' : '#F2F6F7' }}>{r.churned_clients ?? 0}</div>
+                          <div className="font-display text-base" style={{ color: r.churned_clients > 0 ? 'var(--color-red)' : 'var(--color-ink)' }}>{r.churned_clients ?? 0}</div>
                         </div>
                         <div className="rounded-lg p-2.5 bg-surfaceAlt border border-border">
                           <div className="text-muted text-[10px] uppercase tracking-wide">Clientes activos</div>

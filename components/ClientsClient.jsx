@@ -76,7 +76,7 @@ function ActiveClientsGoal({ activeCount }) {
 
   return (
     <Card className="flex items-center justify-center gap-4 flex-wrap">
-      <Ring pct={pct} label="Clientes activos" value={`${activeCount}/${goal.target}`} color={completed ? '#4ADE80' : '#5ECCFA'} size={100} />
+      <Ring pct={pct} label="Clientes activos" value={`${activeCount}/${goal.target}`} color={completed ? 'var(--color-green)' : 'var(--color-cyan)'} size={100} />
       {completed && <span className="text-green text-xs font-bold">Objetivo cumplido 🎉</span>}
       {editing ? (
         <div className="flex items-center gap-2">
@@ -255,12 +255,12 @@ export default function ClientsClient() {
             <Card
               key={c.id}
               style={{
-                borderColor: isNew ? '#4ADE80' : overdue ? '#F87171' : dueSoon ? '#FBBF24' : undefined,
+                borderColor: isNew ? 'var(--color-green)' : overdue ? 'var(--color-red)' : dueSoon ? 'var(--color-amber)' : undefined,
                 boxShadow: isNew ? '0 0 20px -6px #4ADE8088' : undefined,
               }}
             >
               {isNew && (
-                <div className="flex items-center gap-1 mb-2 w-fit px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide" style={{ background: '#4ADE8022', color: '#4ADE80' }}>
+                <div className="flex items-center gap-1 mb-2 w-fit px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wide" style={{ background: '#4ADE8022', color: 'var(--color-green)' }}>
                   <Sparkles size={10} /> NUEVO CLIENTE
                 </div>
               )}

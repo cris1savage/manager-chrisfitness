@@ -134,7 +134,7 @@ function RecurringTasks() {
         {templates.map((t) => (
           <Card key={t.id} className="flex items-center gap-3" style={{ opacity: t.active ? 1 : 0.5 }}>
             <button onClick={() => toggleActive(t)} className="shrink-0" title={t.active ? 'Pausar rutina' : 'Reactivar rutina'}>
-              <Power size={16} color={t.active ? '#4ADE80' : '#7C878B'} />
+              <Power size={16} color={t.active ? 'var(--color-green)' : 'var(--color-muted)'} />
             </button>
             <div className="min-w-0 flex-1">
               <div className="text-ink text-sm font-medium truncate">{t.title}</div>
@@ -237,7 +237,7 @@ export default function TasksClient() {
                 key={k}
                 onClick={() => setLayout(k)}
                 className="px-3 py-1.5 text-xs font-semibold"
-                style={{ background: layout === k ? '#4ADE80' : 'transparent', color: layout === k ? '#00220C' : '#7C878B' }}
+                style={{ background: layout === k ? 'var(--color-green)' : 'transparent', color: layout === k ? '#00220C' : 'var(--color-muted)' }}
               >
                 {l}
               </button>
@@ -250,7 +250,7 @@ export default function TasksClient() {
                   key={k}
                   onClick={() => setView(k)}
                   className="px-3 py-1.5 text-xs font-semibold"
-                  style={{ background: view === k ? '#5ECCFA' : 'transparent', color: view === k ? '#00161C' : '#7C878B' }}
+                  style={{ background: view === k ? 'var(--color-cyan)' : 'transparent', color: view === k ? '#00161C' : 'var(--color-muted)' }}
                 >
                   {l}
                 </button>
@@ -355,7 +355,7 @@ export default function TasksClient() {
           {done.map((t) => (
             <Card key={t.id} className="flex items-center gap-3">
               <button onClick={() => toggle(t)} className="shrink-0" title="Marcar como pendiente">
-                <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: '#4ADE80' }}>
+                <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: 'var(--color-green)' }}>
                   <Check size={15} color="#00220C" strokeWidth={3} />
                 </div>
               </button>

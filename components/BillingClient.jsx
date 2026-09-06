@@ -107,7 +107,7 @@ export default function BillingClient() {
           <h2 className="font-display text-ink text-[22px] tracking-wide">FACTURACIÓN</h2>
           <div className="text-muted text-xs">Ticket real, quién paga qué, mensual y anual.</div>
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={{ background: '#FBBF2422', color: '#FBBF24', border: '1px solid #FBBF2455' }}>
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={{ background: '#FBBF2422', color: 'var(--color-amber)', border: '1px solid #FBBF2455' }}>
           <Lock size={12} /> Solo tú ves esta página
         </div>
       </div>
@@ -121,8 +121,8 @@ export default function BillingClient() {
               className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0"
               style={{
                 background: tab === t.key ? '#5ECCFA22' : 'transparent',
-                border: `1px solid ${tab === t.key ? '#5ECCFA' : '#212729'}`,
-                color: tab === t.key ? '#5ECCFA' : '#7C878B',
+                border: `1px solid ${tab === t.key ? 'var(--color-cyan)' : 'var(--color-border)'}`,
+                color: tab === t.key ? 'var(--color-cyan)' : 'var(--color-muted)',
               }}
             >
               {t.label}
@@ -185,8 +185,8 @@ export default function BillingClient() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <StatCard icon={DollarSign} label="Facturado este mes" value={eur(monthTotal)} color="#4ADE80" />
-            <StatCard icon={Users} label="Cobros este mes" value={monthEvents.length} color="#5ECCFA" />
+            <StatCard icon={DollarSign} label="Facturado este mes" value={eur(monthTotal)} color="var(--color-green)" />
+            <StatCard icon={Users} label="Cobros este mes" value={monthEvents.length} color="var(--color-cyan)" />
           </div>
 
           {Object.keys(monthByDuration).length === 0 && (
@@ -221,9 +221,9 @@ export default function BillingClient() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard icon={Wallet} label={`Total ${yearAnchor}`} value={eur(yearTotal)} color="#4ADE80" />
-            <StatCard icon={TrendingUp} label="Mejor mes" value={maxMonth ? `${MONTH_NAMES[maxMonth.i]} · ${eur(maxMonth.total)}` : '—'} color="#5ECCFA" />
-            <StatCard icon={TrendingUp} label="Mes más flojo" value={minMonth ? `${MONTH_NAMES[minMonth.i]} · ${eur(minMonth.total)}` : '—'} color="#F87171" />
+            <StatCard icon={Wallet} label={`Total ${yearAnchor}`} value={eur(yearTotal)} color="var(--color-green)" />
+            <StatCard icon={TrendingUp} label="Mejor mes" value={maxMonth ? `${MONTH_NAMES[maxMonth.i]} · ${eur(maxMonth.total)}` : '—'} color="var(--color-cyan)" />
+            <StatCard icon={TrendingUp} label="Mes más flojo" value={minMonth ? `${MONTH_NAMES[minMonth.i]} · ${eur(minMonth.total)}` : '—'} color="var(--color-red)" />
           </div>
 
           <Card>
@@ -231,11 +231,11 @@ export default function BillingClient() {
             <div className="w-full h-[220px]">
               <ResponsiveContainer>
                 <LineChart data={chartData}>
-                  <CartesianGrid stroke="#212729" vertical={false} />
-                  <XAxis dataKey="label" stroke="#7C878B" fontSize={10} tickLine={false} axisLine={{ stroke: '#212729' }} />
-                  <YAxis stroke="#7C878B" fontSize={10} tickLine={false} axisLine={{ stroke: '#212729' }} width={44} />
-                  <Tooltip contentStyle={{ background: '#151A1D', border: '1px solid #212729', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#F2F6F7' }} />
-                  <Line type="monotone" dataKey="Facturación" stroke="#4ADE80" strokeWidth={2} dot={{ r: 3, fill: '#4ADE80' }} />
+                  <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                  <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} />
+                  <YAxis stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} width={44} />
+                  <Tooltip contentStyle={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--color-ink)' }} />
+                  <Line type="monotone" dataKey="Facturación" stroke="var(--color-green)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-green)' }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -249,7 +249,7 @@ export default function BillingClient() {
                   <span className="text-ink">{MONTH_NAMES_FULL[m.i]}</span>
                   <span
                     className="font-semibold"
-                    style={{ color: maxMonth?.i === m.i && m.total > 0 ? '#4ADE80' : minMonth?.i === m.i && m.total > 0 ? '#F87171' : '#F2F6F7' }}
+                    style={{ color: maxMonth?.i === m.i && m.total > 0 ? 'var(--color-green)' : minMonth?.i === m.i && m.total > 0 ? 'var(--color-red)' : 'var(--color-ink)' }}
                   >
                     {eur(m.total)}
                   </span>

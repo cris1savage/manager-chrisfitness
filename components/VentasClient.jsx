@@ -49,7 +49,7 @@ export default function VentasClient() {
       </div>
 
       <Card className="flex items-center gap-3 col-span-2 md:col-span-1 w-fit">
-        <div className="rounded-lg p-2.5 bg-amber/15"><TrendingUp size={20} color="#FBBF24" /></div>
+        <div className="rounded-lg p-2.5 bg-amber/15"><TrendingUp size={20} color="var(--color-amber)" /></div>
         <div>
           <div className="text-muted text-[11.5px] uppercase tracking-wide">Facturado histórico</div>
           <div className="text-ink text-xl font-extrabold font-display">{eur(totalAll)}</div>
@@ -64,14 +64,14 @@ export default function VentasClient() {
 
       <div className="grid grid-cols-2 gap-3">
         <Card className="flex items-center gap-3">
-          <div className="rounded-lg p-2.5 bg-cyan/15"><TrendingUp size={20} color="#5ECCFA" /></div>
+          <div className="rounded-lg p-2.5 bg-cyan/15"><TrendingUp size={20} color="var(--color-cyan)" /></div>
           <div>
             <div className="text-muted text-[11.5px] uppercase tracking-wide">Ventas {selectedKey === thisMonth ? 'este mes' : 'ese mes'}</div>
             <div className="text-ink text-xl font-extrabold font-display">{monthClients.length}</div>
           </div>
         </Card>
         <Card className="flex items-center gap-3">
-          <div className="rounded-lg p-2.5 bg-green/15"><TrendingUp size={20} color="#4ADE80" /></div>
+          <div className="rounded-lg p-2.5 bg-green/15"><TrendingUp size={20} color="var(--color-green)" /></div>
           <div>
             <div className="text-muted text-[11.5px] uppercase tracking-wide">Facturado {selectedKey === thisMonth ? 'este mes' : 'ese mes'}</div>
             <div className="text-ink text-xl font-extrabold font-display">{eur(totalMonth)}</div>

@@ -6,16 +6,16 @@ import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui';
 import { useCategories } from '@/components/CategoriesProvider';
 
-const SWATCHES = ['#5ECCFA', '#4ADE80', '#FBBF24', '#F87171', '#A78BFA', '#F472B6', '#38BDF8', '#FB923C'];
+const SWATCHES = ['var(--color-cyan)', 'var(--color-green)', 'var(--color-amber)', 'var(--color-red)', '#A78BFA', '#F472B6', '#38BDF8', '#FB923C'];
 
 export default function CategoriesManager({ onClose }) {
   const supabase = useMemo(() => createClient(), []);
   const { list } = useCategories();
   const [newLabel, setNewLabel] = useState('');
-  const [newColor, setNewColor] = useState('#5ECCFA');
+  const [newColor, setNewColor] = useState('var(--color-cyan)');
   const [editingId, setEditingId] = useState(null);
   const [editLabel, setEditLabel] = useState('');
-  const [editColor, setEditColor] = useState('#5ECCFA');
+  const [editColor, setEditColor] = useState('var(--color-cyan)');
 
   const add = async () => {
     if (!newLabel.trim()) return;
@@ -24,7 +24,7 @@ export default function CategoriesManager({ onClose }) {
       id, label: newLabel.trim(), color: newColor, sort_order: list.length + 1,
     });
     setNewLabel('');
-    setNewColor('#5ECCFA');
+    setNewColor('var(--color-cyan)');
   };
 
   const startEdit = (c) => {

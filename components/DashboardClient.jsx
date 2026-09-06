@@ -130,7 +130,7 @@ export default function DashboardClient({ profile }) {
   const funnel = STAGES.filter((s) => s !== 'Perdido').map((s, i) => ({
     label: s,
     value: stageCountsMonth[s] || 0,
-    color: ['#5ECCFA', '#7FD9F7', '#FBBF24', '#4ADE80', '#4ADE80'][i] || '#5ECCFA',
+    color: ['var(--color-cyan)', '#7FD9F7', 'var(--color-amber)', 'var(--color-green)', 'var(--color-green)'][i] || 'var(--color-cyan)',
   }));
   const maxFunnel = Math.max(1, ...funnel.map((f) => f.value));
 
@@ -166,7 +166,7 @@ export default function DashboardClient({ profile }) {
     }
   }
   const totalCompletedEver = data.calendarEntries.filter((e) => e.status === 'hecho' && !e.script_id).length + (data.videos || []).filter((v) => v.uploaded).length;
-  const streakColor = streak >= 7 ? '#4ADE80' : streak >= 3 ? '#FBBF24' : '#5ECCFA';
+  const streakColor = streak >= 7 ? 'var(--color-green)' : streak >= 3 ? 'var(--color-amber)' : 'var(--color-cyan)';
 
   const in7 = dateToISO(new Date(Date.now() + 7 * 86400000));
   const renewalsSoon = (data.activeClients || []).filter((c) => c.status === 'Activo' && c.renewal_date && c.renewal_date <= in7);
@@ -220,9 +220,9 @@ export default function DashboardClient({ profile }) {
       </div>
 
       {/* Widget del día */}
-      <Card style={{ border: '1px solid #5ECCFA', boxShadow: '0 0 24px -8px #5ECCFA55' }}>
+      <Card style={{ border: '1px solid var(--color-cyan)', boxShadow: '0 0 24px -8px #5ECCFA55' }}>
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-2 h-2 rounded-full bg-cyan" style={{ boxShadow: '0 0 8px 2px #5ECCFA' }} />
+          <div className="w-2 h-2 rounded-full bg-cyan" style={{ boxShadow: '0 0 8px 2px var(--color-cyan)' }} />
           <span className="text-cyan font-extrabold text-xs tracking-widest">HOY TIENES QUE SUBIR</span>
         </div>
         {todayEntries.length === 0 ? (
@@ -230,15 +230,15 @@ export default function DashboardClient({ profile }) {
         ) : (
           <div className="flex flex-col gap-2">
             {todayEntries.map((e) => {
-              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: '#7C878B' };
+              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: 'var(--color-muted)' };
               const done = e.status === 'hecho';
               return (
                 <div key={e.id} className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full shrink-0" style={{ background: meta.color }} />
-                  <button onClick={() => toggleEntry(e)} className={`text-sm font-semibold text-left ${done ? 'line-through opacity-50' : ''}`} style={{ color: '#F2F6F7' }}>
+                  <button onClick={() => toggleEntry(e)} className={`text-sm font-semibold text-left ${done ? 'line-through opacity-50' : ''}`} style={{ color: 'var(--color-ink)' }}>
                     {meta.label}: {e.title}
                   </button>
-                  {done && <Check size={13} color="#4ADE80" />}
+                  {done && <Check size={13} color="var(--color-green)" />}
                 </div>
               );
             })}
@@ -296,29 +296,29 @@ export default function DashboardClient({ profile }) {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon={Megaphone} label="Inversión anuncios (mes)" value={eur(spendThisMonth)} color="#5ECCFA" />
+        <StatCard icon={Megaphone} label="Inversión anuncios (mes)" value={eur(spendThisMonth)} color="var(--color-cyan)" />
         <StatCard icon={Users} label="Contactos nuevos (mes)" value={leadsM} color="#7FD9F7" />
-        <StatCard icon={Video} label="Llamadas realizadas (mes)" value={callsM} color="#FBBF24" />
-        <StatCard icon={DollarSign} label="Ingresos (mes)" value={eur(revenueM)} color="#4ADE80" />
+        <StatCard icon={Video} label="Llamadas realizadas (mes)" value={callsM} color="var(--color-amber)" />
+        <StatCard icon={DollarSign} label="Ingresos (mes)" value={eur(revenueM)} color="var(--color-green)" />
       </div>
 
       {(renewalsSoon.length > 0 || pendingTasks.length > 0) && (
         <div className="grid grid-cols-2 gap-3">
-          <StatCard icon={UserCheck} label="Renovaciones ≤ 7 días" value={renewalsSoon.length} color={renewalsSoon.length ? '#F87171' : '#7C878B'} />
-          <StatCard icon={CheckSquare} label="Tus tareas pendientes" value={pendingTasks.length} color="#FBBF24" />
+          <StatCard icon={UserCheck} label="Renovaciones ≤ 7 días" value={renewalsSoon.length} color={renewalsSoon.length ? 'var(--color-red)' : 'var(--color-muted)'} />
+          <StatCard icon={CheckSquare} label="Tus tareas pendientes" value={pendingTasks.length} color="var(--color-amber)" />
         </div>
       )}
 
       <Card>
         <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3 flex items-center gap-1.5"><Percent size={13} /> Rentabilidad · este mes</div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <StatCard icon={DollarSign} label="Coste por lead" value={costPerLead !== null ? eur(costPerLead) : '—'} color="#5ECCFA" />
-          <StatCard icon={DollarSign} label="Coste por venta" value={costPerSale !== null ? eur(costPerSale) : '—'} color="#FBBF24" />
+          <StatCard icon={DollarSign} label="Coste por lead" value={costPerLead !== null ? eur(costPerLead) : '—'} color="var(--color-cyan)" />
+          <StatCard icon={DollarSign} label="Coste por venta" value={costPerSale !== null ? eur(costPerSale) : '—'} color="var(--color-amber)" />
           <StatCard
             icon={roiPct !== null && roiPct >= 0 ? TrendingUp : TrendingDown}
             label="ROI de anuncios"
             value={roiPct !== null ? `${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(0)}%` : '—'}
-            color={roiPct === null ? '#7C878B' : roiPct >= 0 ? '#4ADE80' : '#F87171'}
+            color={roiPct === null ? 'var(--color-muted)' : roiPct >= 0 ? 'var(--color-green)' : 'var(--color-red)'}
           />
         </div>
         {roiPct === null && <div className="text-muted text-[11px] mt-2">Aparece en cuanto registres inversión en anuncios este mes.</div>}
@@ -336,7 +336,7 @@ export default function DashboardClient({ profile }) {
 
       <div className="grid md:grid-cols-3 gap-3">
         <Card className="flex justify-around items-center flex-wrap gap-4 md:col-span-1">
-          <Ring pct={taskCompletionPct} label="Tus tareas cumplidas" value={`${Math.round(taskCompletionPct * 100)}%`} color={taskCompletionPct >= 0.7 ? '#4ADE80' : taskCompletionPct >= 0.4 ? '#FBBF24' : '#F87171'} />
+          <Ring pct={taskCompletionPct} label="Tus tareas cumplidas" value={`${Math.round(taskCompletionPct * 100)}%`} color={taskCompletionPct >= 0.7 ? 'var(--color-green)' : taskCompletionPct >= 0.4 ? 'var(--color-amber)' : 'var(--color-red)'} />
         </Card>
         <Card className="md:col-span-2">
           <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3">Embudo · este mes</div>
@@ -359,12 +359,12 @@ export default function DashboardClient({ profile }) {
         <div className="w-full h-[180px]">
           <ResponsiveContainer>
             <BarChart data={last14}>
-              <CartesianGrid stroke="#212729" vertical={false} />
-              <XAxis dataKey="label" stroke="#7C878B" fontSize={10} tickLine={false} axisLine={{ stroke: '#212729' }} />
-              <YAxis stroke="#7C878B" fontSize={10} allowDecimals={false} tickLine={false} axisLine={{ stroke: '#212729' }} width={24} />
-              <Tooltip contentStyle={{ background: '#151A1D', border: '1px solid #212729', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#F2F6F7' }} />
-              <Bar dataKey="leads" fill="#5ECCFA" radius={[3, 3, 0, 0]} name="Contactos" />
-              <Bar dataKey="ventas" fill="#4ADE80" radius={[3, 3, 0, 0]} name="Ventas" />
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
+              <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} />
+              <YAxis stroke="var(--color-muted)" fontSize={10} allowDecimals={false} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} width={24} />
+              <Tooltip contentStyle={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--color-ink)' }} />
+              <Bar dataKey="leads" fill="var(--color-cyan)" radius={[3, 3, 0, 0]} name="Contactos" />
+              <Bar dataKey="ventas" fill="var(--color-green)" radius={[3, 3, 0, 0]} name="Ventas" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -472,7 +472,7 @@ export default function DashboardClient({ profile }) {
 
             return (
               <div key={g.id} className="flex flex-col items-center gap-1.5">
-                <Ring pct={pct} label={g.title} value={`${isMoney ? eur(current) : current}/${isMoney ? eur(target) : target}`} color={completedGoal ? '#4ADE80' : '#5ECCFA'} />
+                <Ring pct={pct} label={g.title} value={`${isMoney ? eur(current) : current}/${isMoney ? eur(target) : target}`} color={completedGoal ? 'var(--color-green)' : 'var(--color-cyan)'} />
                 {completedGoal && <span className="text-green text-[10px] font-bold uppercase">Completado 🎉</span>}
                 {g.metric === 'manual' && (
                   <input

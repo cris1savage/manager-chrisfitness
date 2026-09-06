@@ -12,10 +12,10 @@ import NewLeadPanel from '@/components/NewLeadPanel';
 import Modal from '@/components/Modal';
 
 function scoreColor(score) {
-  if (score >= 76) return '#F87171';
-  if (score >= 51) return '#FBBF24';
-  if (score >= 26) return '#5ECCFA';
-  return '#7C878B';
+  if (score >= 76) return 'var(--color-red)';
+  if (score >= 51) return 'var(--color-amber)';
+  if (score >= 26) return 'var(--color-cyan)';
+  return 'var(--color-muted)';
 }
 
 const SOURCES = ['Instagram', 'Anuncio', 'Referido', 'TusMacros', 'Otro'];
@@ -107,7 +107,7 @@ export default function ContactsClient() {
         <button
           onClick={() => setShowNewLeadAI(true)}
           className="rounded-lg px-3 py-2 flex items-center gap-1.5 font-semibold text-sm shrink-0"
-          style={{ background: 'transparent', color: '#5ECCFA', border: '1px solid #5ECCFA55' }}
+          style={{ background: 'transparent', color: 'var(--color-cyan)', border: '1px solid #5ECCFA55' }}
         >
           <Sparkles size={15} /> Lead nuevo con IA
         </button>
@@ -130,9 +130,9 @@ export default function ContactsClient() {
               onClick={() => setFilter(s)}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1.5"
               style={{
-                background: filter === s ? (STAGE_COLORS[s] || '#5ECCFA') + '22' : 'transparent',
-                border: `1px solid ${filter === s ? (STAGE_COLORS[s] || '#5ECCFA') : '#212729'}`,
-                color: filter === s ? (STAGE_COLORS[s] || '#5ECCFA') : '#7C878B',
+                background: filter === s ? (STAGE_COLORS[s] || 'var(--color-cyan)') + '22' : 'transparent',
+                border: `1px solid ${filter === s ? (STAGE_COLORS[s] || 'var(--color-cyan)') : 'var(--color-border)'}`,
+                color: filter === s ? (STAGE_COLORS[s] || 'var(--color-cyan)') : 'var(--color-muted)',
               }}
             >
               {s} <span className="opacity-70">{counts[s] || 0}</span>
@@ -220,7 +220,7 @@ export default function ContactsClient() {
           </Card>
         )}
         {visible.map((c) => {
-          const color = STAGE_COLORS[c.stage] || '#5ECCFA';
+          const color = STAGE_COLORS[c.stage] || 'var(--color-cyan)';
           const isClient = c.stage === 'Cliente';
           return (
             <Card key={c.id} className="!p-0" style={{ borderColor: `${color}55` }}>

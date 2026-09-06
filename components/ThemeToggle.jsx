@@ -26,7 +26,7 @@ export default function ThemeToggle({ profile }) {
     <Card className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2.5">
         <div className="rounded-lg p-2 shrink-0" style={{ background: theme === 'light' ? '#FBBF2422' : '#5ECCFA22' }}>
-          {theme === 'light' ? <Sun size={18} color="#FBBF24" /> : <Moon size={18} color="#5ECCFA" />}
+          {theme === 'light' ? <Sun size={18} color="var(--color-amber)" /> : <Moon size={18} color="var(--color-cyan)" />}
         </div>
         <div>
           <div className="text-ink text-sm font-semibold">Tema</div>
@@ -37,14 +37,14 @@ export default function ThemeToggle({ profile }) {
         onClick={toggle}
         disabled={saving}
         className="relative w-14 h-8 rounded-full shrink-0 transition-colors disabled:opacity-60"
-        style={{ background: theme === 'light' ? '#FBBF24' : '#212729' }}
+        style={{ background: theme === 'light' ? 'var(--color-amber)' : 'var(--color-border)' }}
         aria-label="Cambiar tema"
       >
         <span
           className="absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-all flex items-center justify-center"
           style={{ left: theme === 'light' ? 'calc(100% - 28px)' : '4px' }}
         >
-          {theme === 'light' ? <Sun size={13} color="#FBBF24" /> : <Moon size={13} color="#050708" />}
+          {theme === 'light' ? <Sun size={13} color="var(--color-amber)" /> : <Moon size={13} color="var(--color-bg)" />}
         </span>
       </button>
     </Card>

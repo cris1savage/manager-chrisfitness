@@ -9,7 +9,7 @@ import { Card } from '@/components/ui';
 export default function GoogleCalendarConnect() {
   const [connected, setConnected] = useState(null);
   const [msg, setMsg] = useState('');
-  const [msgColor, setMsgColor] = useState('#5ECCFA');
+  const [msgColor, setMsgColor] = useState('var(--color-cyan)');
   const [syncing, setSyncing] = useState(false);
   const searchParams = useSearchParams();
 
@@ -27,14 +27,14 @@ export default function GoogleCalendarConnect() {
     const g = searchParams.get('google');
     if (g === 'connected') {
       setMsg('¡Conectado! Lo que programes en el Calendario a partir de ahora se sincroniza solo. Si ya tenías cosas puestas antes de conectar, dale a "Sincronizar todo ahora" para empujarlas también.');
-      setMsgColor('#4ADE80');
+      setMsgColor('var(--color-green)');
       setConnected(true);
     } else if (g === 'error') {
       setMsg('No se pudo conectar. Inténtalo de nuevo.');
-      setMsgColor('#F87171');
+      setMsgColor('var(--color-red)');
     } else if (g === 'config') {
       setMsg('Google Calendar todavía no está configurado en el servidor (ver README).');
-      setMsgColor('#FBBF24');
+      setMsgColor('var(--color-amber)');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -72,17 +72,17 @@ export default function GoogleCalendarConnect() {
       }
       if (ok === total && total > 0) {
         setMsg(`Sincronizados ${ok} de ${total} elementos con Google Calendar.`);
-        setMsgColor('#4ADE80');
+        setMsgColor('var(--color-green)');
       } else if (firstError) {
         setMsg(`Sincronizados ${ok} de ${total}. Google respondió con un error, ejemplo: ${firstError}`);
-        setMsgColor('#F87171');
+        setMsgColor('var(--color-red)');
       } else {
         setMsg(`Sincronizados ${ok} de ${total} elementos con Google Calendar.`);
-        setMsgColor(total > 0 ? '#FBBF24' : '#7C878B');
+        setMsgColor(total > 0 ? 'var(--color-amber)' : 'var(--color-muted)');
       }
     } catch {
       setMsg('No se pudo completar la sincronización. Inténtalo de nuevo.');
-      setMsgColor('#F87171');
+      setMsgColor('var(--color-red)');
     }
     setSyncing(false);
   };
@@ -92,7 +92,7 @@ export default function GoogleCalendarConnect() {
   return (
     <Card className="space-y-3">
       <div className="flex items-center gap-2">
-        {connected ? <CalendarCheck size={18} color="#4ADE80" /> : <CalendarX size={18} className="text-muted" />}
+        {connected ? <CalendarCheck size={18} color="var(--color-green)" /> : <CalendarX size={18} className="text-muted" />}
         <span className="text-ink text-sm font-semibold">{connected ? 'Google Calendar conectado' : 'Google Calendar desconectado'}</span>
       </div>
       <div className="text-muted text-xs">
@@ -107,14 +107,14 @@ export default function GoogleCalendarConnect() {
               onClick={syncAllNow}
               disabled={syncing}
               className="rounded-lg px-4 py-2 font-semibold text-sm flex items-center gap-1.5 disabled:opacity-50"
-              style={{ background: '#5ECCFA', color: '#00161C' }}
+              style={{ background: 'var(--color-cyan)', color: '#00161C' }}
             >
               <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Sincronizando…' : 'Sincronizar todo ahora'}
             </button>
             <button
               onClick={disconnect}
               className="rounded-lg px-4 py-2 font-semibold text-sm w-fit"
-              style={{ background: 'transparent', color: '#F87171', border: '1px solid #F87171' }}
+              style={{ background: 'transparent', color: 'var(--color-red)', border: '1px solid var(--color-red)' }}
             >
               Desconectar
             </button>
@@ -123,7 +123,7 @@ export default function GoogleCalendarConnect() {
           <a
             href="/api/google/connect"
             className="rounded-lg px-4 py-2 font-semibold text-sm w-fit inline-block"
-            style={{ background: '#5ECCFA', color: '#00161C' }}
+            style={{ background: 'var(--color-cyan)', color: '#00161C' }}
           >
             Conectar Google Calendar
           </a>

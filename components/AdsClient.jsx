@@ -261,7 +261,7 @@ export default function AdsClient() {
                     <div className="text-cyan font-display text-lg">{eur(spend)}</div>
                     <span
                       className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded"
-                      style={{ background: active ? '#4ADE8022' : '#7C878B22', color: active ? '#4ADE80' : '#7C878B' }}
+                      style={{ background: active ? '#4ADE8022' : '#7C878B22', color: active ? 'var(--color-green)' : 'var(--color-muted)' }}
                     >
                       {ad.status}
                     </span>
@@ -270,7 +270,7 @@ export default function AdsClient() {
                   <button
                     onClick={() => togglePause(ad)}
                     className="p-2 rounded-lg"
-                    style={{ color: active ? '#FBBF24' : '#4ADE80' }}
+                    style={{ color: active ? 'var(--color-amber)' : 'var(--color-green)' }}
                     title={active ? 'Pausar' : 'Reactivar'}
                   >
                     {active ? <Pause size={16} /> : <Play size={16} />}
@@ -327,7 +327,7 @@ export default function AdsClient() {
                   </div>
                   <div className="text-sm text-ink font-semibold">{eur(attributedRevenue)} facturado</div>
                   {roi !== null && (
-                    <div className="flex items-center gap-1 text-sm font-semibold" style={{ color: roi >= 0 ? '#4ADE80' : '#F87171' }}>
+                    <div className="flex items-center gap-1 text-sm font-semibold" style={{ color: roi >= 0 ? 'var(--color-green)' : 'var(--color-red)' }}>
                       {roi >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
                       ROI {roi >= 0 ? '+' : ''}{roi.toFixed(0)}%
                     </div>

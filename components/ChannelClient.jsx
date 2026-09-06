@@ -10,7 +10,7 @@ function linkify(text) {
   const parts = text.split(/(https?:\/\/[^\s]+)/g);
   return parts.map((part, i) =>
     /^https?:\/\//.test(part) ? (
-      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline break-all" style={{ color: '#5ECCFA' }}>
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline break-all" style={{ color: 'var(--color-cyan)' }}>
         {part}
       </a>
     ) : (
@@ -98,7 +98,7 @@ export default function ChannelClient() {
                 )}
                 <div className={`flex items-start gap-2 py-1 ${mine ? 'flex-row-reverse' : ''}`}>
                   <AuthorBadge profile={profiles?.[m.created_by]} />
-                  <div className={`max-w-[75%] rounded-xl px-3 py-2 ${mine ? 'rounded-tr-sm' : 'rounded-tl-sm'}`} style={{ background: mine ? '#5ECCFA1A' : '#151A1D' }}>
+                  <div className={`max-w-[75%] rounded-xl px-3 py-2 ${mine ? 'rounded-tr-sm' : 'rounded-tl-sm'}`} style={{ background: mine ? '#5ECCFA1A' : 'var(--color-surfaceAlt)' }}>
                     <div className="text-ink text-sm whitespace-pre-wrap break-words">{linkify(m.body)}</div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-muted text-[10px]">

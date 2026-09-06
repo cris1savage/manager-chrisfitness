@@ -15,10 +15,10 @@ const TABS = [
 ];
 
 function scoreColor(score) {
-  if (score >= 76) return '#F87171';
-  if (score >= 51) return '#FBBF24';
-  if (score >= 26) return '#5ECCFA';
-  return '#7C878B';
+  if (score >= 76) return 'var(--color-red)';
+  if (score >= 51) return 'var(--color-amber)';
+  if (score >= 26) return 'var(--color-cyan)';
+  return 'var(--color-muted)';
 }
 
 function fileToBase64(file) {
@@ -248,8 +248,8 @@ export default function AIReplyAssistant({ contact }) {
               className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5"
               style={{
                 background: tab === t.key ? '#5ECCFA22' : 'transparent',
-                border: `1px solid ${tab === t.key ? '#5ECCFA' : '#212729'}`,
-                color: tab === t.key ? '#5ECCFA' : '#7C878B',
+                border: `1px solid ${tab === t.key ? 'var(--color-cyan)' : 'var(--color-border)'}`,
+                color: tab === t.key ? 'var(--color-cyan)' : 'var(--color-muted)',
               }}
             >
               <Icon size={13} /> {t.label}
@@ -323,7 +323,7 @@ export default function AIReplyAssistant({ contact }) {
           {analysis && (
             <div className="space-y-2 pt-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10.5px] font-semibold uppercase px-2 py-1 rounded" style={{ background: '#5ECCFA22', color: '#5ECCFA' }}>
+                <span className="text-[10.5px] font-semibold uppercase px-2 py-1 rounded" style={{ background: '#5ECCFA22', color: 'var(--color-cyan)' }}>
                   {analysis.lead_state}
                 </span>
                 {analysis.lead_score != null && (
@@ -340,7 +340,7 @@ export default function AIReplyAssistant({ contact }) {
                   className="rounded-lg p-2 flex items-start gap-1.5 text-xs"
                   style={{
                     background: analysis.closing_ready ? '#4ADE8022' : '#FBBF2422',
-                    color: analysis.closing_ready ? '#4ADE80' : '#FBBF24',
+                    color: analysis.closing_ready ? 'var(--color-green)' : 'var(--color-amber)',
                     border: `1px solid ${analysis.closing_ready ? '#4ADE8055' : '#FBBF2455'}`,
                   }}
                 >
@@ -395,7 +395,7 @@ export default function AIReplyAssistant({ contact }) {
                       <div className="text-cyan text-[10px] font-semibold uppercase tracking-wide mb-1">{s.label}</div>
                       <div className="text-ink text-xs whitespace-pre-wrap">{s.text}</div>
                       {s.why && <div className="text-muted text-[10.5px] mt-1 italic">{s.why}</div>}
-                      <button onClick={() => copy(s.text, i)} className="mt-1.5 text-[11px] font-semibold flex items-center gap-1" style={{ color: copiedIdx === i ? '#4ADE80' : '#5ECCFA' }}>
+                      <button onClick={() => copy(s.text, i)} className="mt-1.5 text-[11px] font-semibold flex items-center gap-1" style={{ color: copiedIdx === i ? 'var(--color-green)' : 'var(--color-cyan)' }}>
                         {copiedIdx === i ? <><Check size={11} /> Copiado</> : <><Copy size={11} /> Copiar</>}
                       </button>
                     </div>
@@ -407,7 +407,7 @@ export default function AIReplyAssistant({ contact }) {
                 <button
                   onClick={saveToLead}
                   className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5"
-                  style={{ background: saved ? '#4ADE8022' : '#5ECCFA22', color: saved ? '#4ADE80' : '#5ECCFA', border: `1px solid ${saved ? '#4ADE8055' : '#5ECCFA55'}` }}
+                  style={{ background: saved ? '#4ADE8022' : '#5ECCFA22', color: saved ? 'var(--color-green)' : 'var(--color-cyan)', border: `1px solid ${saved ? '#4ADE8055' : '#5ECCFA55'}` }}
                 >
                   {saved ? <><Check size={13} /> Guardado en el historial</> : <><Save size={13} /> Guardar en el historial</>}
                 </button>
@@ -437,7 +437,7 @@ export default function AIReplyAssistant({ contact }) {
               onClick={saveNote}
               disabled={savingNote || !noteText.trim()}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
-              style={{ background: '#4ADE8022', color: '#4ADE80', border: '1px solid #4ADE8055' }}
+              style={{ background: '#4ADE8022', color: 'var(--color-green)', border: '1px solid #4ADE8055' }}
             >
               {savingNote ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Guardar nota
             </button>
@@ -452,7 +452,7 @@ export default function AIReplyAssistant({ contact }) {
               <div className="flex items-center justify-between mb-1">
                 <span
                   className="text-[9.5px] font-semibold uppercase px-1.5 py-0.5 rounded flex items-center gap-1"
-                  style={{ background: e.entry_type === 'note' ? '#A78BFA22' : '#5ECCFA22', color: e.entry_type === 'note' ? '#A78BFA' : '#5ECCFA' }}
+                  style={{ background: e.entry_type === 'note' ? '#A78BFA22' : '#5ECCFA22', color: e.entry_type === 'note' ? '#A78BFA' : 'var(--color-cyan)' }}
                 >
                   {e.entry_type === 'note' ? <StickyNote size={9} /> : <Sparkles size={9} />}
                   {e.entry_type === 'note' ? 'Nota' : 'Conversación'}
@@ -511,13 +511,13 @@ export default function AIReplyAssistant({ contact }) {
                 </div>
               )}
               {callPrep.objections_to_expect && (
-                <div className="rounded-lg p-2.5 flex items-start gap-1.5 text-xs" style={{ background: '#FBBF2422', color: '#FBBF24', border: '1px solid #FBBF2455' }}>
+                <div className="rounded-lg p-2.5 flex items-start gap-1.5 text-xs" style={{ background: '#FBBF2422', color: 'var(--color-amber)', border: '1px solid #FBBF2455' }}>
                   <AlertTriangle size={13} className="shrink-0 mt-0.5" />
                   <div><span className="font-semibold">Objeciones esperables:</span> {callPrep.objections_to_expect}</div>
                 </div>
               )}
               {callPrep.avoid && (
-                <div className="rounded-lg p-2.5 flex items-start gap-1.5 text-xs" style={{ background: '#F8717122', color: '#F87171', border: '1px solid #F8717155' }}>
+                <div className="rounded-lg p-2.5 flex items-start gap-1.5 text-xs" style={{ background: '#F8717122', color: 'var(--color-red)', border: '1px solid #F8717155' }}>
                   <X size={13} className="shrink-0 mt-0.5" />
                   <div><span className="font-semibold">Evita:</span> {callPrep.avoid}</div>
                 </div>
