@@ -5,6 +5,26 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Cerrado del todo: semana a semana en Mes actual, y PDF con círculo + semanas
+
+Comparando con calma lo que habías aprobado en la maqueta contra lo que
+tenías de verdad, encontré la pieza que se quedó a medias:
+
+- **"Semana a semana" en Mes actual**: no se había llegado a meter en el
+  componente real — ahora sí está, con las 4 semanas del mes (rango de
+  días calculado automáticamente), cada una con Fuerte/Normal/Floja y su
+  nota rápida. Se rellenan solas al crear un mes nuevo, listas para
+  editar.
+- **PDF, ahora con el círculo de progreso** (% de semanas fuertes, en
+  verde/ámbar/rojo según el resultado) y la **lista de semanas con su
+  punto de color** — exactamente lo que viste en la maqueta, ya de
+  verdad, no una demo.
+- El Historial también muestra ahora el resumen semanal de cada mes
+  pasado al desplegarlo, para que sea consistente con Mes actual.
+- Revisado y probado con compilación de producción real antes de
+  dártelo — esta vez comparé línea por línea contra lo aprobado, no solo
+  until "compila sin errores".
+
 ## Perfil de cliente: pantalla completa (no una ventanita) + fallo del gráfico corregido
 
 - **La ventana pequeña era el problema real**: el perfil reutilizaba el

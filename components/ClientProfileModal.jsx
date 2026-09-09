@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, Legend } from 'recharts';
 import {
   Plus, Trash2, Video, Check, X, FileDown, Loader2, Flag, Ruler, Footprints,
-  Calendar as CalendarIcon, ChevronDown, ChevronRight, Dumbbell, Apple, TrendingDown, Info,
+  Calendar as CalendarIcon, ChevronDown, ChevronRight, Dumbbell, Apple, TrendingDown, Info, Clock,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card } from '@/components/ui';
@@ -17,6 +17,15 @@ const GOAL_COLORS = { Pendiente: '#7C878B', Cumplido: '#4ADE80', Parcial: '#FBBF
 const PHASE_COLOR_PALETTE = ['#5ECCFA', '#FBBF24', '#4ADE80', '#A78BFA', '#F87171'];
 const MONTH_NAMES_FULL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const MEASUREMENTS = ['Cuello', 'Hombros', 'Pecho', 'Biceps izq', 'Biceps der', 'Antebrazo izq', 'Antebrazo der', 'Cintura', 'Cadera', 'Muslo izq', 'Muslo der', 'Gemelo izq', 'Gemelo der'];
+const WEEK_STRENGTHS = ['Fuerte', 'Normal', 'Floja'];
+const STRENGTH_COLOR = { Fuerte: '#4ADE80', Normal: '#FBBF24', Floja: '#F87171' };
+
+function defaultWeeklyNotes(monthKey) {
+  const [y, m] = monthKey.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const ranges = [[1, 7], [8, 14], [15, 21], [22, lastDay]];
+  return ranges.map(([a, b], i) => ({ label: `Semana ${i + 1} (${a}-${b})`, strength: 'Normal', note: '' }));
+}
 const TABS = [
   { key: 'resumen', label: 'Resumen' },
   { key: 'mes', label: 'Mes actual' },
@@ -50,6 +59,22 @@ async function getLogoDataUrl() {
   }
 }
 
+// Aproxima un anillo de progreso con segmentos de línea — jsPDF no tiene
+// arcos nativos, pero esto da el mismo efecto visual.
+function drawProgressRing(doc, cx, cy, r, pct, rgb) {
+  doc.setLineWidth(2.6);
+  doc.setDrawColor(228, 228, 228);
+  doc.circle(cx, cy, r, 'S');
+  doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+  const totalSteps = 72;
+  const activeSteps = Math.round(pct * totalSteps);
+  for (let i = 0; i < activeSteps; i++) {
+    const a1 = (-90 + (360 * i) / totalSteps) * (Math.PI / 180);
+    const a2 = (-90 + (360 * (i + 1)) / totalSteps) * (Math.PI / 180);
+    doc.line(cx + r * Math.cos(a1), cy + r * Math.sin(a1), cx + r * Math.cos(a2), cy + r * Math.sin(a2));
+  }
+}
+
 async function downloadCheckinPDF(client, checkin) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF();
@@ -77,6 +102,25 @@ async function downloadCheckinPDF(client, checkin) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(120, 120, 120);
   doc.text(`${monthLabelFull(checkin.month)} · Fase: ${checkin.phase || '—'}`, marginX, 59);
+
+  const weeklyNotes = checkin.weekly_notes && checkin.weekly_notes.length ? checkin.weekly_notes : [];
+  const ratedWeeks = weeklyNotes.filter((w) => w.strength);
+  if (ratedWeeks.length) {
+    const strongPct = ratedWeeks.filter((w) => w.strength === 'Fuerte').length / ratedWeeks.length;
+    const ringColor = strongPct >= 0.6 ? [22, 163, 74] : strongPct >= 0.3 ? [180, 83, 9] : [220, 38, 38];
+    const cx = maxX - 12;
+    const cy = 46;
+    drawProgressRing(doc, cx, cy, 11, strongPct, ringColor);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(ringColor[0], ringColor[1], ringColor[2]);
+    doc.text(`${Math.round(strongPct * 100)}%`, cx, cy + 1.5, { align: 'center' });
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(130, 130, 130);
+    doc.text('Semanas fuertes', cx, cy + 17, { align: 'center' });
+  }
+
   doc.setDrawColor(210, 210, 210);
   doc.line(marginX, 64, maxX, 64);
 
@@ -129,6 +173,33 @@ async function downloadCheckinPDF(client, checkin) {
   field('Otros datos', checkin.other_metrics);
   field('Videollamada', checkin.call_date ? `${new Date(checkin.call_date + 'T00:00:00').toLocaleDateString('es-ES')} — ${checkin.call_done ? 'Realizada' : 'Pendiente'}` : null);
   field('Notas', checkin.notes);
+
+  // Semanas del mes, con su punto de color — igual que en el panel
+  if (weeklyNotes.length) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(130, 130, 130);
+    doc.text('SEMANAS DEL MES', marginX, y);
+    y += 7;
+    const dotColors = { Fuerte: [22, 163, 74], Normal: [180, 83, 9], Floja: [220, 38, 38] };
+    weeklyNotes.forEach((w) => {
+      const c = dotColors[w.strength] || [150, 150, 150];
+      doc.setFillColor(c[0], c[1], c[2]);
+      doc.circle(marginX + 1.5, y - 1.5, 1.5, 'F');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(20, 20, 20);
+      doc.text(w.label || '', marginX + 6, y);
+      if (w.note) {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(110, 110, 110);
+        const noteLines = doc.splitTextToSize(w.note, maxX - marginX - 55);
+        doc.text(noteLines[0] || '', marginX + 44, y);
+      }
+      y += 6.5;
+    });
+    y += 4;
+  }
 
   // Resultado del objetivo, destacado
   const okColors = { Cumplido: [22, 163, 74, 234, 243, 222], Parcial: [180, 83, 9, 250, 238, 218], 'No cumplido': [220, 38, 38, 252, 235, 235] };
@@ -199,12 +270,16 @@ export default function ClientProfileModal({ client }) {
 
   const hasCurrentMonth = checkins.some((c) => c.month === currentMonth);
   const addMonth = async () => {
-    await supabase.from('client_checkins').insert({ active_client_id: client.id, month: currentMonth, phase: phaseForDate(phases, todayISO())?.name || null });
+    await supabase.from('client_checkins').insert({ active_client_id: client.id, month: currentMonth, phase: phaseForDate(phases, todayISO())?.name || null, weekly_notes: defaultWeeklyNotes(currentMonth) });
   };
   const currentCheckin = checkins.find((c) => c.month === currentMonth);
   const updateCheckin = async (id, patch) => {
     setCheckins((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)));
     await supabase.from('client_checkins').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+  };
+  const updateWeekNote = (checkin, weekIdx, patch) => {
+    const notes = (checkin.weekly_notes && checkin.weekly_notes.length ? checkin.weekly_notes : defaultWeeklyNotes(checkin.month)).map((w, i) => (i === weekIdx ? { ...w, ...patch } : w));
+    updateCheckin(checkin.id, { weekly_notes: notes });
   };
   const removeCheckin = async (id, month) => {
     if (!window.confirm(`¿Borrar el seguimiento de ${monthLabelFull(month)}? No se puede deshacer.`)) return;
@@ -358,6 +433,40 @@ export default function ClientProfileModal({ client }) {
               <div>
                 <div className="text-muted text-[10px] uppercase tracking-wide mb-1">Objetivos del mes</div>
                 <textarea value={currentCheckin.goals || ''} onChange={(e) => updateCheckin(currentCheckin.id, { goals: e.target.value })} rows={2} placeholder="Bajar a 80kg, 10.000 pasos diarios..." className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y" />
+              </div>
+
+              <div className="rounded-lg p-3" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <div className="flex items-center gap-1.5 text-muted text-[10px] uppercase tracking-wide mb-2"><Clock size={11} /> Semana a semana</div>
+                <div className="space-y-2">
+                  {(currentCheckin.weekly_notes && currentCheckin.weekly_notes.length ? currentCheckin.weekly_notes : defaultWeeklyNotes(currentCheckin.month)).map((w, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: STRENGTH_COLOR[w.strength] || 'var(--color-muted)' }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="text-ink text-xs font-semibold">{w.label}</span>
+                          <div className="flex gap-1">
+                            {WEEK_STRENGTHS.map((s) => (
+                              <button
+                                key={s}
+                                onClick={() => updateWeekNote(currentCheckin, i, { strength: s })}
+                                className="px-2 py-0.5 rounded text-[10px] font-semibold"
+                                style={{ background: w.strength === s ? `${STRENGTH_COLOR[s]}22` : 'transparent', color: w.strength === s ? STRENGTH_COLOR[s] : 'var(--color-muted)', border: `1px solid ${w.strength === s ? STRENGTH_COLOR[s] : 'var(--color-border)'}` }}
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <input
+                          value={w.note || ''}
+                          onChange={(e) => updateWeekNote(currentCheckin, i, { note: e.target.value })}
+                          placeholder="Nota rápida de esta semana..."
+                          className="bg-surface border border-border text-ink rounded px-2 py-1 text-[11px] w-full outline-none focus:border-cyan mt-1"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -534,6 +643,17 @@ export default function ClientProfileModal({ client }) {
                 <div className="px-4 pb-4 border-t border-border pt-3 space-y-2">
                   {c.goals && <div className="text-xs"><span className="text-muted">Objetivos: </span>{c.goals}</div>}
                   {c.weight && <div className="text-xs"><span className="text-muted">Peso: </span>{c.weight}kg</div>}
+                  {c.weekly_notes && c.weekly_notes.length > 0 && (
+                    <div className="space-y-1 pt-1">
+                      {c.weekly_notes.map((w, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-xs">
+                          <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STRENGTH_COLOR[w.strength] || 'var(--color-muted)' }} />
+                          <span className="text-ink font-medium">{w.label}</span>
+                          {w.note && <span className="text-muted">— {w.note}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {c.training_notes && <div className="text-xs"><span className="text-muted">Entrenamiento: </span>{c.training_notes}</div>}
                   {c.nutrition_notes && <div className="text-xs"><span className="text-muted">Nutrición: </span>{c.nutrition_notes}</div>}
                   {c.notes && <div className="text-xs"><span className="text-muted">Notas: </span>{c.notes}</div>}

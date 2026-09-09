@@ -993,6 +993,7 @@ alter table public.client_checkins add column if not exists steps_avg numeric;
 alter table public.client_checkins add column if not exists measurements jsonb not null default '{}'::jsonb;
 alter table public.client_checkins add column if not exists training_notes text;
 alter table public.client_checkins add column if not exists nutrition_notes text;
+alter table public.client_checkins add column if not exists weekly_notes jsonb not null default '[]'::jsonb;
 alter table public.client_checkins enable row level security;
 drop policy if exists "client_checkins_full_access_authenticated" on public.client_checkins;
 create policy "client_checkins_full_access_authenticated" on public.client_checkins for all to authenticated using (true) with check (true);
