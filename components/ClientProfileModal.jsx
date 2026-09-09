@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, Legend } from 'recharts';
+import { LineChart, Line, AreaChart, Area, ReferenceLine, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, Legend } from 'recharts';
 import {
   Plus, Trash2, Video, Check, X, FileDown, Loader2, Flag, Ruler, Footprints,
   Calendar as CalendarIcon, ChevronDown, ChevronRight, Dumbbell, Apple, TrendingDown, Info, Clock,
@@ -75,7 +75,44 @@ function drawProgressRing(doc, cx, cy, r, pct, rgb) {
   }
 }
 
-async function downloadCheckinPDF(client, checkin) {
+// Dibuja un gráfico de líneas a mano (ejes, cuadrícula, puntos) — jsPDF no
+// puede incrustar un gráfico de React, así que se traza igual que el
+// anillo: con líneas nativas del propio PDF.
+function drawLineChartPDF(doc, x, y, w, h, points, colorRGB) {
+  const values = points.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = (max - min) * 0.15 || 1;
+  const yMin = min - pad;
+  const yMax = max + pad;
+
+  doc.setDrawColor(230, 230, 230);
+  doc.setLineWidth(0.2);
+  for (let i = 0; i <= 3; i++) {
+    const gy = y + (h * i) / 3;
+    doc.line(x, gy, x + w, gy);
+  }
+
+  const px = (i) => x + (w * i) / Math.max(1, points.length - 1);
+  const py = (v) => y + h - ((v - yMin) / (yMax - yMin)) * h;
+
+  doc.setDrawColor(colorRGB[0], colorRGB[1], colorRGB[2]);
+  doc.setLineWidth(0.7);
+  for (let i = 0; i < points.length - 1; i++) {
+    doc.line(px(i), py(points[i].value), px(i + 1), py(points[i + 1].value));
+  }
+  doc.setFillColor(colorRGB[0], colorRGB[1], colorRGB[2]);
+  points.forEach((p, i) => doc.circle(px(i), py(p.value), 1.1, 'F'));
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(140, 140, 140);
+  doc.setFont('helvetica', 'normal');
+  points.forEach((p, i) => doc.text(p.label, px(i), y + h + 6, { align: 'center' }));
+  doc.text(yMax.toFixed(0), x - 3, y + 2, { align: 'right' });
+  doc.text(yMin.toFixed(0), x - 3, y + h, { align: 'right' });
+}
+
+async function downloadCheckinPDF(client, checkin, allCheckins = []) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -147,6 +184,24 @@ async function downloadCheckinPDF(client, checkin) {
   });
 
   let y = cardY + 36;
+
+  // Gráfica real de progreso de peso — con el histórico completo del
+  // cliente, no solo este mes, igual que en el panel.
+  const weightSeries = [...allCheckins]
+    .filter((c) => c.weight != null)
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .slice(-8)
+    .map((c) => ({ label: monthLabelFull(c.month).slice(0, 3), value: Number(c.weight) }));
+  if (weightSeries.length >= 2) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(130, 130, 130);
+    doc.text('PROGRESO DE PESO', marginX, y);
+    y += 4;
+    drawLineChartPDF(doc, marginX + 8, y, maxX - marginX - 12, 32, weightSeries, [8, 145, 178]);
+    y += 32 + 12;
+  }
+
   const field = (label, value) => {
     if (!value) return;
     doc.setFontSize(9);
@@ -288,7 +343,7 @@ export default function ClientProfileModal({ client }) {
   };
   const exportPdf = async (checkin) => {
     setExportingId(checkin.id);
-    await downloadCheckinPDF(client, checkin);
+    await downloadCheckinPDF(client, checkin, checkins);
     setExportingId(null);
   };
 
@@ -329,6 +384,7 @@ export default function ClientProfileModal({ client }) {
   }, [weeks]);
 
   const chartData = weeks.map((w) => ({ label: fmtDate(w.week_start), Objetivo: w.target_weight, Real: w.real_weight }));
+  const finalTargetWeight = weeks.length ? weeks[weeks.length - 1].target_weight : null;
 
   const currentPhaseName = phaseForDate(phases, todayISO())?.name;
 
@@ -391,15 +447,22 @@ export default function ClientProfileModal({ client }) {
               <div className="flex items-center gap-1.5 text-muted text-[11.5px] uppercase tracking-wide mb-3"><TrendingDown size={13} /> Progreso de peso</div>
               <div className="w-full h-[190px]">
                 <ResponsiveContainer>
-                  <LineChart data={chartData}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id={`weightFill-${client.id}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-cyan)" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="var(--color-cyan)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid stroke="var(--color-border)" vertical={false} />
                     <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={9} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} interval={Math.ceil(chartData.length / 8)} />
                     <YAxis stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} width={32} domain={['dataMin - 2', 'dataMax + 2']} />
                     <Tooltip contentStyle={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--color-ink)' }} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Line type="monotone" dataKey="Objetivo" stroke="var(--color-muted)" strokeDasharray="4 4" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="Real" stroke="var(--color-cyan)" strokeWidth={2.5} dot={{ r: 3 }} connectNulls={false} />
-                  </LineChart>
+                    {finalTargetWeight != null && (
+                      <ReferenceLine y={finalTargetWeight} stroke="var(--color-green)" strokeDasharray="4 4" label={{ value: `Objetivo ${finalTargetWeight}kg`, position: 'insideTopRight', fill: 'var(--color-green)', fontSize: 10 }} />
+                    )}
+                    <Area type="monotone" dataKey="Real" stroke="var(--color-cyan)" strokeWidth={2.5} fill={`url(#weightFill-${client.id})`} dot={{ r: 3.5 }} connectNulls={false} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
             </Card>

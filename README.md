@@ -5,6 +5,25 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Dos fallos reales confirmados y corregidos (no solo "ya está")
+
+Me pediste que comprobara de verdad, línea por línea, en vez de asumir
+que estaba bien — lo hice, y encontré dos cosas que de verdad no
+coincidían con lo que aprobaste:
+
+- **El gráfico de Resumen no tenía el relleno degradado ni la línea verde
+  de objetivo fijo** que sí tenía la maqueta — ahora sí: área con
+  degradado bajo la línea, y una línea de objetivo (calculada del final
+  de tu Timeline) marcada en verde discontinuo.
+- **El PDF no tenía ningún gráfico — directamente no estaba** — este era
+  el fallo más grave. Como un PDF no puede llevar un gráfico de React
+  dentro, lo dibujo a mano con las herramientas nativas del propio PDF
+  (líneas, puntos, ejes) — usando tu histórico real de peso mes a mes,
+  no datos inventados.
+
+Las dos cosas probadas con compilación de producción real antes de
+dártelo.
+
 ## Cerrado del todo: semana a semana en Mes actual, y PDF con círculo + semanas
 
 Comparando con calma lo que habías aprobado en la maqueta contra lo que
