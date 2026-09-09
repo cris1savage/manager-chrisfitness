@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Target, Pencil, Check, Search, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Target, Pencil, Check, Search, Sparkles, User } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge, Ring } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { todayISO, addDaysISO, addMonthsISO, DURATIONS } from '@/lib/config';
+import Modal from '@/components/Modal';
+import ClientProfileModal from '@/components/ClientProfileModal';
 
 function ActiveClientsGoal({ activeCount }) {
   const supabase = useMemo(() => createClient(), []);
@@ -104,6 +106,7 @@ export default function ClientsClient() {
   const [search, setSearch] = useState('');
   const emptyForm = { name: '', program: '', start_date: todayISO(), duration: 'Mensual', renewal_date: addMonthsISO(todayISO(), 1), status: 'Activo' };
   const [form, setForm] = useState(emptyForm);
+  const [openProfile, setOpenProfile] = useState(null);
 
   const load = async () => {
     const { data } = await supabase.from('active_clients').select('*').order('renewal_date', { ascending: true });
@@ -309,6 +312,7 @@ export default function ClientsClient() {
                 </select>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
                   <AuthorBadge profile={profiles?.[c.created_by]} />
+                  <button onClick={() => setOpenProfile(c)} className="p-1.5 rounded-lg text-cyan" title="Ver perfil de seguimiento"><User size={16} /></button>
                   <button onClick={() => remove(c.id, c.name)} className="p-1.5 rounded-lg text-red"><Trash2 size={16} /></button>
                 </div>
               </div>
@@ -316,6 +320,12 @@ export default function ClientsClient() {
           );
         })}
       </div>
+
+      {openProfile && (
+        <Modal title={`Perfil de seguimiento — ${openProfile.name}`} onClose={() => setOpenProfile(null)}>
+          <ClientProfileModal key={openProfile.id} client={openProfile} />
+        </Modal>
+      )}
     </div>
   );
 }

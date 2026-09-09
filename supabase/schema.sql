@@ -962,6 +962,82 @@ end $$;
 alter table public.profiles add column if not exists theme text not null default 'dark';
 
 -- ---------------------------------------------------------------------------
+-- SEGUIMIENTO MENSUAL POR CLIENTE
+-- Una fila por (cliente, mes): fase (volumen/definición...), objetivos de
+-- ese mes, peso u otro dato numérico para la gráfica, si se cumplió el
+-- objetivo, y la videollamada mensual (fecha y si se hizo). Compartida
+-- (como el resto de Clientes activos) — no es dato de dinero.
+-- ---------------------------------------------------------------------------
+create table if not exists public.client_checkins (
+  id uuid primary key default gen_random_uuid(),
+  active_client_id uuid references public.active_clients(id) on delete cascade,
+  month text not null, -- 'YYYY-MM'
+  phase text, -- ej. 'Volumen', 'Definición', 'Mantenimiento', o libre
+  goals text, -- objetivos de ese mes (peso objetivo, pasos, etc.)
+  weight numeric, -- para la gráfica de progreso
+  steps_avg numeric, -- media de pasos del mes
+  measurements jsonb not null default '{}'::jsonb, -- cuello, hombros, pecho, etc. — libre, no columnas fijas
+  training_notes text, -- entrenamiento, aparte de nutrición
+  nutrition_notes text, -- nutrición, aparte de entrenamiento
+  other_metrics text, -- cualquier otro dato que quiera anotar
+  goal_status text default 'Pendiente', -- 'Cumplido' | 'Parcial' | 'No cumplido' | 'Pendiente'
+  call_date date,
+  call_done boolean not null default false,
+  notes text,
+  created_by uuid references auth.users(id) default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (active_client_id, month)
+);
+alter table public.client_checkins add column if not exists steps_avg numeric;
+alter table public.client_checkins add column if not exists measurements jsonb not null default '{}'::jsonb;
+alter table public.client_checkins add column if not exists training_notes text;
+alter table public.client_checkins add column if not exists nutrition_notes text;
+alter table public.client_checkins enable row level security;
+drop policy if exists "client_checkins_full_access_authenticated" on public.client_checkins;
+create policy "client_checkins_full_access_authenticated" on public.client_checkins for all to authenticated using (true) with check (true);
+
+-- Fases con fecha de inicio/fin y su propio ritmo semanal (%) — el programa
+-- sabe solo en cuál estamos según la fecha de hoy, no hace falta cambiarla
+-- a mano cada mes. Guardado como lista dentro del propio cliente porque es
+-- un dato pequeño y específico de cada uno, no hace falta tabla aparte.
+alter table public.active_clients add column if not exists phases jsonb not null default '[]'::jsonb;
+alter table public.active_clients add column if not exists long_term_goal text;
+
+-- Timeline semanal (periodización): una fila por semana, con el kcal, el
+-- peso objetivo (calculado en cadena según el ritmo de la fase de esa
+-- semana) y el peso real que anota Chris. Editar una semana recalcula las
+-- siguientes — las anteriores nunca se tocan.
+create table if not exists public.client_timeline_weeks (
+  id uuid primary key default gen_random_uuid(),
+  active_client_id uuid references public.active_clients(id) on delete cascade,
+  week_start date not null,
+  kcal numeric,
+  target_weight numeric,
+  target_overridden boolean not null default false,
+  real_weight numeric,
+  updated_at timestamptz not null default now(),
+  unique (active_client_id, week_start)
+);
+alter table public.client_timeline_weeks enable row level security;
+drop policy if exists "client_timeline_weeks_full_access_authenticated" on public.client_timeline_weeks;
+create policy "client_timeline_weeks_full_access_authenticated" on public.client_timeline_weeks for all to authenticated using (true) with check (true);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.client_timeline_weeks;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.client_checkins;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- LIMPIEZA OPCIONAL
 -- Las tablas antiguas (leads, conversations, invites, calls, sales) ya no las
 -- usa la app. Si NO tienes datos importantes ahí, puedes borrarlas con esto

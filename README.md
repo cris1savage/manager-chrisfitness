@@ -5,6 +5,39 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Perfil de seguimiento por cliente — completo: fases con fecha, timeline semanal, mediciones y PDF visual
+
+Reconstruido de cero tras varias vueltas de diseño contigo — ahora es un
+panel de coach de verdad, con 4 pestañas dentro del perfil de cada cliente
+(icono de la personita en Clientes activos):
+
+- **Resumen**: fases con fecha de inicio/fin y su propio ritmo semanal
+  (%) — cada fase la programas tú, y el panel detecta solo en cuál estás
+  hoy, sin que tengas que cambiarla a mano cada mes. Objetivo a largo
+  plazo aparte, y la gráfica de progreso de peso (objetivo vs. real).
+- **Mes actual**: fase, objetivos, **Entrenamiento** y **Nutrición** cada
+  uno en su propio apartado (ya no todo mezclado), **13 mediciones** (cuello,
+  hombros, pecho, bíceps, antebrazo, cintura, cadera, muslo, gemelo — cada
+  lado por separado), media de pasos, peso, si se cumplió el objetivo,
+  videollamada (fecha + realizada/pendiente), notas, y exportar PDF.
+- **Timeline** (la pieza grande): una semana a la vez, agrupadas por mes y
+  plegadas salvo el mes en curso — para cada semana ves la fase (con su
+  color), las kcal, el peso objetivo y el peso real. El objetivo se
+  **calcula solo en cadena** usando el ritmo de la fase de cada semana —
+  edita el objetivo de una semana cualquiera y todas las siguientes se
+  recalculan solas (las anteriores nunca se tocan), exactamente como
+  arrastrar tu fórmula de Excel pero editable donde tú quieras. Arriba, un
+  gráfico con las 52 semanas del año, objetivo vs. real.
+- **Historial**: meses anteriores plegados, con el resultado a la vista
+  sin abrir — se despliegan solo si haces clic.
+- **PDF exportado, ahora visual de verdad**: cabecera con tu marca,
+  tarjetas de datos clave, y el objetivo del mes destacado en verde
+  (cumplido), ámbar (parcial) o rojo (no cumplido) — no es solo texto.
+- Compartida como el resto de Clientes activos — Ana también la ve.
+- Antes de construirlo te enseñé varias maquetas interactivas para que
+  probaras el recalculo en cadena tú mismo — lo que tienes ahora es
+  exactamente esa versión, ya de verdad, no una demo.
+
 ## Modo claro: barrido completo, no solo un par de sitios
 
 - Tenías razón — Canal y Calendario se veían rotos en modo claro (texto
