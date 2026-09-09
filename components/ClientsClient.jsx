@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Card, AuthorBadge, Ring } from '@/components/ui';
 import { useProfiles } from '@/components/ProfilesProvider';
 import { todayISO, addDaysISO, addMonthsISO, DURATIONS } from '@/lib/config';
-import Modal from '@/components/Modal';
+import FullScreenModal from '@/components/FullScreenModal';
 import ClientProfileModal from '@/components/ClientProfileModal';
 
 function ActiveClientsGoal({ activeCount }) {
@@ -322,9 +322,18 @@ export default function ClientsClient() {
       </div>
 
       {openProfile && (
-        <Modal title={`Perfil de seguimiento — ${openProfile.name}`} onClose={() => setOpenProfile(null)}>
+        <FullScreenModal
+          title={openProfile.name}
+          subtitle={`${openProfile.program || 'Sin programa'} · ${openProfile.duration || ''} · ${openProfile.status}`}
+          avatar={
+            <div className="w-10 h-10 rounded-full flex items-center justify-center font-display text-lg shrink-0" style={{ background: 'var(--color-cyan)22', color: 'var(--color-cyan)' }}>
+              {openProfile.name?.[0]?.toUpperCase() || '?'}
+            </div>
+          }
+          onClose={() => setOpenProfile(null)}
+        >
           <ClientProfileModal key={openProfile.id} client={openProfile} />
-        </Modal>
+        </FullScreenModal>
       )}
     </div>
   );

@@ -5,6 +5,22 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Perfil de cliente: pantalla completa (no una ventanita) + fallo del gráfico corregido
+
+- **La ventana pequeña era el problema real**: el perfil reutilizaba el
+  mismo cuadro que usa el AI Closer (limitado a un ancho fijo pequeño),
+  y con gráfico + timeline no cabía bien nada. Ahora el perfil se abre a
+  **pantalla completa de verdad**, con tu nombre y avatar arriba y sitio
+  de sobra para todo — no afecta a cómo se abren las demás ventanas del
+  panel (Contactos, etc.), que se quedan igual que antes.
+- **Bug real encontrado en el gráfico**: las fechas del eje salían pegadas
+  y sin sentido (tipo "Sep 26 05") por un fallo mío al construir la
+  etiqueta — corregido, ahora muestra la fecha limpia.
+- **Timeline reorganizado** para aprovechar el ancho nuevo: en ordenador
+  se ve como una tabla de verdad con cabecera (Fecha / Fase / Kcal /
+  Objetivo / Real / Diferencia); en el móvil se queda con las etiquetas
+  por campo para que no se apriete.
+
 ## Perfil de seguimiento por cliente — completo: fases con fecha, timeline semanal, mediciones y PDF visual
 
 Reconstruido de cero tras varias vueltas de diseño contigo — ahora es un

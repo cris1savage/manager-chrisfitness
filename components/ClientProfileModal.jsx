@@ -28,10 +28,6 @@ function monthLabelFull(key) {
   const [y, m] = key.split('-');
   return `${MONTH_NAMES_FULL[Number(m) - 1]} ${y}`;
 }
-function monthLabelShort(key) {
-  const [y, m] = key.split('-');
-  return `${MONTH_NAMES_FULL[Number(m) - 1].slice(0, 3)} ${y.slice(2)}`;
-}
 function fmtDate(dateISO) {
   return new Date(dateISO + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
 }
@@ -257,7 +253,7 @@ export default function ClientProfileModal({ client }) {
     return map;
   }, [weeks]);
 
-  const chartData = weeks.map((w) => ({ label: monthLabelShort(monthKeyOf(w.week_start)) + ' ' + fmtDate(w.week_start).split(' ')[0], Objetivo: w.target_weight, Real: w.real_weight }));
+  const chartData = weeks.map((w) => ({ label: fmtDate(w.week_start), Objetivo: w.target_weight, Real: w.real_weight }));
 
   const currentPhaseName = phaseForDate(phases, todayISO())?.name;
 
@@ -472,32 +468,42 @@ export default function ClientProfileModal({ client }) {
                       </div>
                     </button>
                     {isOpen && (
-                      <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
-                        {mWeeks.map((w) => {
-                          const idx = weeks.findIndex((x) => x.id === w.id);
-                          const ph = phaseForDate(phases, w.week_start);
-                          const diff = w.real_weight != null ? Math.round((w.real_weight - w.target_weight) * 10) / 10 : null;
-                          const isThisWeek = w.week_start === currentWeekStart;
-                          return (
-                            <div key={w.id} className="rounded-lg p-2.5 flex items-center gap-2 flex-wrap" style={{ background: isThisWeek ? 'var(--color-cyan)0D' : 'var(--color-surfaceAlt)', border: `1px solid ${isThisWeek ? 'var(--color-cyan)' : 'var(--color-border)'}` }}>
-                              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: ph ? phaseColor(phases, ph.name) : 'var(--color-muted)' }} />
-                              <span className="text-ink text-xs font-medium w-16 shrink-0">{fmtDate(w.week_start)}</span>
-                              <div className="flex items-center gap-1">
-                                <span className="text-muted text-[10px]">Kcal</span>
-                                <input type="number" value={w.kcal ?? ''} onChange={(e) => editWeekField(w.id, { kcal: e.target.value ? Number(e.target.value) : null })} className="bg-surface border border-border rounded px-1.5 py-1 text-xs w-16 outline-none focus:border-cyan" />
+                      <div className="px-4 pb-4 border-t border-border pt-3">
+                        <div className="hidden sm:grid text-muted text-[10px] uppercase tracking-wide px-2.5 mb-1.5 sm:grid-cols-[28px_90px_1fr_100px_100px_100px_60px]">
+                          <div></div><div>Fecha</div><div>Fase</div><div>Kcal</div><div>Objetivo</div><div>Real</div><div>Dif.</div>
+                        </div>
+                        <div className="space-y-1.5">
+                          {mWeeks.map((w) => {
+                            const idx = weeks.findIndex((x) => x.id === w.id);
+                            const ph = phaseForDate(phases, w.week_start);
+                            const diff = w.real_weight != null ? Math.round((w.real_weight - w.target_weight) * 10) / 10 : null;
+                            const isThisWeek = w.week_start === currentWeekStart;
+                            const rowStyle = {
+                              background: isThisWeek ? 'color-mix(in srgb, var(--color-cyan) 6%, var(--color-surfaceAlt))' : 'var(--color-surfaceAlt)',
+                              border: `1px solid ${isThisWeek ? 'var(--color-cyan)' : 'var(--color-border)'}`,
+                            };
+                            return (
+                              <div key={w.id} className="rounded-lg p-2.5 flex items-center gap-2 flex-wrap sm:grid sm:grid-cols-[28px_90px_1fr_100px_100px_100px_60px] sm:gap-2" style={rowStyle}>
+                                <div className="w-2 h-2 rounded-full shrink-0 hidden sm:block" style={{ background: ph ? phaseColor(phases, ph.name) : 'var(--color-muted)' }} />
+                                <span className="text-ink text-xs font-medium">{fmtDate(w.week_start)}</span>
+                                <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded w-fit" style={{ background: ph ? `${phaseColor(phases, ph.name)}22` : 'transparent', color: ph ? phaseColor(phases, ph.name) : 'var(--color-muted)' }}>{ph?.name || '—'}</span>
+                                <div className="flex items-center gap-1 sm:contents">
+                                  <span className="text-muted text-[10px] sm:hidden">Kcal</span>
+                                  <input type="number" value={w.kcal ?? ''} onChange={(e) => editWeekField(w.id, { kcal: e.target.value ? Number(e.target.value) : null })} className="bg-surface border border-border rounded px-2 py-1.5 text-xs w-16 sm:w-full outline-none focus:border-cyan" />
+                                </div>
+                                <div className="flex items-center gap-1 sm:contents">
+                                  <span className="text-muted text-[10px] sm:hidden">Objetivo</span>
+                                  <input type="number" step="0.1" value={w.target_weight ?? ''} onChange={(e) => editWeekTarget(idx, e.target.value)} className="border rounded px-2 py-1.5 text-xs w-16 sm:w-full outline-none font-semibold" style={{ background: w.target_overridden ? '#FBBF2422' : 'var(--color-surface)', borderColor: w.target_overridden ? 'var(--color-amber)' : 'var(--color-border)', color: 'var(--color-ink)' }} />
+                                </div>
+                                <div className="flex items-center gap-1 sm:contents">
+                                  <span className="text-muted text-[10px] sm:hidden">Real</span>
+                                  <input type="number" step="0.1" value={w.real_weight ?? ''} placeholder="—" onChange={(e) => editWeekField(w.id, { real_weight: e.target.value === '' ? null : Number(e.target.value) })} className="bg-surface border border-border rounded px-2 py-1.5 text-xs w-16 sm:w-full outline-none focus:border-cyan" />
+                                </div>
+                                <span className="text-[11px] font-bold sm:text-right" style={{ color: diff == null ? 'var(--color-muted)' : diff <= 0 ? 'var(--color-green)' : 'var(--color-red)' }}>{diff != null ? `${diff > 0 ? '+' : ''}${diff}` : '—'}</span>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <span className="text-muted text-[10px]">Objetivo</span>
-                                <input type="number" step="0.1" value={w.target_weight ?? ''} onChange={(e) => editWeekTarget(idx, e.target.value)} className="border rounded px-1.5 py-1 text-xs w-16 outline-none" style={{ background: w.target_overridden ? '#FBBF2422' : 'var(--color-surface)', borderColor: w.target_overridden ? 'var(--color-amber)' : 'var(--color-border)', color: 'var(--color-ink)' }} />
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <span className="text-muted text-[10px]">Real</span>
-                                <input type="number" step="0.1" value={w.real_weight ?? ''} placeholder="—" onChange={(e) => editWeekField(w.id, { real_weight: e.target.value === '' ? null : Number(e.target.value) })} className="bg-surface border border-border rounded px-1.5 py-1 text-xs w-16 outline-none focus:border-cyan" />
-                              </div>
-                              {diff != null && <span className="text-[10.5px] font-bold" style={{ color: diff <= 0 ? 'var(--color-green)' : 'var(--color-red)' }}>{diff > 0 ? '+' : ''}{diff}</span>}
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </Card>
