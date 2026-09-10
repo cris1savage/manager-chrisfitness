@@ -403,7 +403,8 @@ export default function ClientProfileModal({ client }) {
   const chartData = weeks.map((w) => ({ label: fmtDate(w.week_start), Objetivo: w.target_weight, Real: w.real_weight }));
   const finalTargetWeight = weeks.length ? weeks[weeks.length - 1].target_weight : null;
 
-  const currentPhaseName = phaseForDate(phases, todayISO())?.name;
+  const currentPhaseObj = phaseForDate(phases, todayISO());
+  const currentPhaseName = currentPhaseObj?.name;
 
   return (
     <div className="space-y-4">
@@ -424,6 +425,35 @@ export default function ClientProfileModal({ client }) {
 
       {!loading && tab === 'resumen' && (
         <div className="space-y-3">
+          {/* Cards de resumen rápido */}
+          {(() => {
+            const latestCheckin = [...checkins].sort((a, b) => b.month.localeCompare(a.month)).find((c) => c.weight != null);
+            const firstCheckin = [...checkins].sort((a, b) => a.month.localeCompare(b.month)).find((c) => c.weight != null);
+            const currentWeight = latestCheckin?.weight ?? null;
+            const firstWeight = firstCheckin?.weight ?? null;
+            const weightDiff = currentWeight != null && firstWeight != null ? Math.round((currentWeight - firstWeight) * 10) / 10 : null;
+            return (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Peso actual</span>
+                  <span className="text-cyan text-xl font-bold">{currentWeight != null ? `${currentWeight} kg` : '—'}</span>
+                </div>
+                <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Desde el inicio</span>
+                  <span className="text-xl font-bold" style={{ color: weightDiff != null ? (weightDiff < 0 ? 'var(--color-green)' : weightDiff > 0 ? 'var(--color-red)' : 'var(--color-ink)') : 'var(--color-muted)' }}>
+                    {weightDiff != null ? `${weightDiff > 0 ? '+' : ''}${weightDiff} kg` : '—'}
+                  </span>
+                </div>
+                <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Fase</span>
+                  <span className="text-xl font-bold" style={{ color: currentPhaseName ? phaseColor(phases, currentPhaseName) : 'var(--color-muted)' }}>
+                    {currentPhaseName || '—'}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
           <Card style={{ borderColor: 'var(--color-cyan)' }}>
             <div className="flex items-center gap-1.5 text-cyan text-[11px] font-bold mb-2"><Flag size={13} /> FASE ACTUAL: {(currentPhaseName || 'sin definir').toUpperCase()}</div>
             <div className="space-y-2">
@@ -440,6 +470,12 @@ export default function ClientProfileModal({ client }) {
                     <span className="text-muted text-[10px]">%/sem</span>
                   </div>
                   <button onClick={() => removePhase(i)} className="text-red ml-auto"><Trash2 size={13} /></button>
+                  <input
+                    value={p.goal || ''}
+                    onChange={(e) => updatePhase(i, { goal: e.target.value })}
+                    placeholder="Objetivo de esta fase (ej. Bajar a 80kg manteniendo fuerza...)"
+                    className="bg-surface border border-border rounded px-2 py-1 text-[11px] text-ink w-full mt-1"
+                  />
                 </div>
               ))}
               <button onClick={addPhase} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted border border-border flex items-center gap-1.5"><Plus size={13} /> Añadir fase</button>
@@ -448,15 +484,38 @@ export default function ClientProfileModal({ client }) {
           </Card>
 
           <Card>
-            <div className="text-muted text-[11px] uppercase tracking-wide mb-2">Objetivo a largo plazo</div>
-            <textarea
-              value={longTermGoal}
-              onChange={(e) => setLongTermGoal(e.target.value)}
-              onBlur={(e) => saveLongTermGoal(e.target.value)}
-              placeholder="Ej. Llegar a 78kg con visibilidad abdominal para junio de 2027..."
-              rows={2}
-              className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y"
-            />
+            <div className="flex items-center gap-1.5 text-muted text-[11px] uppercase tracking-wide mb-2"><Flag size={13} /> Objetivos</div>
+            <div className="space-y-2.5">
+              <div className="flex gap-2.5">
+                <div className="w-1 rounded shrink-0" style={{ background: 'var(--color-cyan)' }} />
+                <div className="flex-1">
+                  <div className="text-cyan text-[10.5px] font-bold mb-1">LARGO PLAZO</div>
+                  <textarea
+                    value={longTermGoal}
+                    onChange={(e) => setLongTermGoal(e.target.value)}
+                    onBlur={(e) => saveLongTermGoal(e.target.value)}
+                    placeholder="Ej. Llegar a 78kg con visibilidad abdominal para junio de 2027..."
+                    rows={2}
+                    className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y"
+                  />
+                </div>
+              </div>
+              {currentPhaseObj && (
+                <div className="flex gap-2.5">
+                  <div className="w-1 rounded shrink-0" style={{ background: 'var(--color-amber)' }} />
+                  <div className="flex-1">
+                    <div className="text-amber text-[10.5px] font-bold mb-1">FASE ACTUAL — {currentPhaseName?.toUpperCase()}</div>
+                    <textarea
+                      value={currentPhaseObj.goal || ''}
+                      onChange={(e) => updatePhase(phases.indexOf(currentPhaseObj), { goal: e.target.value })}
+                      placeholder="Objetivo de esta fase (ej. Bajar a 80kg manteniendo fuerza en press banca...)"
+                      rows={2}
+                      className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </Card>
 
           {chartData.some((d) => d.Real != null) && (
@@ -560,15 +619,48 @@ export default function ClientProfileModal({ client }) {
                 </div>
               </div>
 
+              {/* Stats rápidos del mes: Peso / Pasos / Cintura */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl p-3 flex flex-col gap-0.5" style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
+                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Peso actual</span>
+                  <div className="flex items-baseline gap-1">
+                    <input
+                      type="number" step="0.1"
+                      value={currentCheckin.weight ?? ''}
+                      onChange={(e) => updateCheckin(currentCheckin.id, { weight: e.target.value ? Number(e.target.value) : null })}
+                      className="text-cyan text-xl font-bold bg-transparent outline-none w-full"
+                      placeholder="— kg"
+                    />
+                    {currentCheckin.weight != null && <span className="text-cyan text-sm font-bold -ml-1">kg</span>}
+                  </div>
+                </div>
+                <div className="rounded-xl p-3 flex flex-col gap-0.5" style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
+                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Media pasos</span>
+                  <input
+                    type="number"
+                    value={currentCheckin.steps_avg ?? ''}
+                    onChange={(e) => updateCheckin(currentCheckin.id, { steps_avg: e.target.value ? Number(e.target.value) : null })}
+                    className="text-green text-xl font-bold bg-transparent outline-none w-full"
+                    placeholder="—"
+                  />
+                </div>
+                <div className="rounded-xl p-3 flex flex-col gap-0.5" style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
+                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Cintura</span>
+                  <div className="flex items-baseline gap-1">
+                    <input
+                      type="number" step="0.5"
+                      value={(measurementsDraft ?? currentCheckin.measurements ?? {})['Cintura'] ?? ''}
+                      onChange={(e) => editMeasurement('Cintura', e.target.value)}
+                      className="text-amber text-xl font-bold bg-transparent outline-none w-full"
+                      placeholder="— cm"
+                    />
+                    {((measurementsDraft ?? currentCheckin.measurements ?? {})['Cintura'] != null) && <span className="text-amber text-sm font-bold -ml-1">cm</span>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Videollamada + goal status + otros controles */}
               <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-1">
-                  <span className="text-muted text-xs">Peso</span>
-                  <input type="number" step="0.1" value={currentCheckin.weight ?? ''} onChange={(e) => updateCheckin(currentCheckin.id, { weight: e.target.value ? Number(e.target.value) : null })} className="bg-surfaceAlt border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-16 outline-none focus:border-cyan" placeholder="kg" />
-                </div>
-                <div className="flex items-center gap-1">
-                  <Footprints size={13} className="text-muted" />
-                  <input type="number" value={currentCheckin.steps_avg ?? ''} onChange={(e) => updateCheckin(currentCheckin.id, { steps_avg: e.target.value ? Number(e.target.value) : null })} className="bg-surfaceAlt border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-20 outline-none focus:border-cyan" placeholder="media" />
-                </div>
                 <select value={currentCheckin.goal_status || 'Pendiente'} onChange={(e) => updateCheckin(currentCheckin.id, { goal_status: e.target.value })} className="bg-surfaceAlt border rounded-lg px-2 py-1.5 text-xs font-semibold outline-none" style={{ borderColor: GOAL_COLORS[currentCheckin.goal_status], color: GOAL_COLORS[currentCheckin.goal_status] }}>
                   {GOAL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>

@@ -5,6 +5,16 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Objetivo de fase añadido — la pieza que faltaba de la mezcla v2+v4
+
+- Cada fase ahora tiene su propio campo de objetivo (además del nombre,
+  fechas y ritmo) — editable en la tarjeta de fases de Resumen.
+- La tarjeta "Objetivos" de Resumen ahora muestra las dos entradas: **Largo
+  plazo** (barra cian) y **Fase actual** (barra ámbar, con el objetivo de
+  la fase que esté activa según la fecha de hoy) — antes solo existía el
+  objetivo a largo plazo, la parte de la fase se había quedado solo en
+  la maqueta.
+
 ## Aclarado el lío de versiones + mediciones con botón de guardar y su propia gráfica
 
 - **Encontrado el motivo real de por qué nunca cuadraba del todo**: varias
