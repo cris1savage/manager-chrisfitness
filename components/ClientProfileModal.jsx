@@ -431,15 +431,29 @@ export default function ClientProfileModal({ client }) {
         const firstWeight = firstWithWeight?.weight ?? null;
         const weightDiff = currentWeight != null && firstWeight != null ? Math.round((currentWeight - firstWeight) * 10) / 10 : null;
 
-        // Etiqueta de mes abreviada
+        // Etiqueta de mes abreviada — fuente: checkins mensuales reales
         const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
         const weightChartData = sortedCheckins.filter((c) => c.weight != null).map((c) => {
           const [, mm] = c.month.split('-');
           return { label: MONTH_SHORT[Number(mm) - 1], Peso: Number(c.weight) };
         });
 
-        // Línea de objetivo: último peso objetivo del timeline, o el objetivo de la fase actual si tiene goal (texto), fallback null
-        const goalWeight = weeks.length ? weeks[weeks.length - 1].target_weight : null;
+        // Objetivo: cogemos el target_weight de la última semana de la fase actual
+        // Si no hay timeline, intentamos parsear un número del texto del objetivo de la fase
+        let goalWeight = null;
+        if (currentPhaseObj) {
+          // Buscar "XXkg" o "XX kg" en el texto del objetivo de la fase
+          const match = (currentPhaseObj.goal || '').match(/(\d{2,3})\s*kg/i);
+          if (match) goalWeight = Number(match[1]);
+        }
+        // Fallback: el menor target_weight del timeline (el final de la fase)
+        if (goalWeight == null && weeks.length > 0) {
+          const phaseWeeks = phases.length > 0
+            ? weeks.filter((w) => phaseForDate(phases, w.week_start)?.name === currentPhaseName)
+            : weeks;
+          const lastPhaseWeek = [...phaseWeeks].reverse().find((w) => w.target_weight != null);
+          if (lastPhaseWeek) goalWeight = Math.round(lastPhaseWeek.target_weight * 10) / 10;
+        }
 
         return (
           <div className="space-y-3">
@@ -500,49 +514,70 @@ export default function ClientProfileModal({ client }) {
             </Card>
 
             {/* Gráfica de peso — solo aparece si hay al menos 2 meses con peso registrado */}
-            {weightChartData.length >= 2 && (
-              <Card>
-                <div className="flex items-center gap-1.5 text-muted text-[11px] font-semibold uppercase tracking-widest mb-3"><TrendingDown size={12} /> Progreso de peso</div>
-                <div className="w-full h-[200px]">
-                  <ResponsiveContainer>
-                    <AreaChart data={weightChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id={`wfill-${client.id}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#5ECCFA" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#5ECCFA" stopOpacity={0.02} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke="#212729" vertical={false} />
-                      <XAxis dataKey="label" tick={{ fill: '#7C878B', fontSize: 11 }} tickLine={false} axisLine={false} />
-                      <YAxis tick={{ fill: '#7C878B', fontSize: 11 }} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} />
-                      <Tooltip
-                        contentStyle={{ background: '#151A1D', border: '1px solid #212729', borderRadius: 8, fontSize: 12 }}
-                        labelStyle={{ color: '#F2F6F7' }}
-                        itemStyle={{ color: '#5ECCFA' }}
-                        formatter={(v) => [`${v} kg`, 'Peso']}
-                      />
-                      {goalWeight != null && (
-                        <ReferenceLine
-                          y={goalWeight}
-                          stroke="#4ADE80"
-                          strokeDasharray="5 4"
-                          label={{ value: `Objetivo ${goalWeight}kg`, position: 'insideTopRight', fill: '#4ADE80', fontSize: 10 }}
+            {weightChartData.length >= 2 && (() => {
+              const pesos = weightChartData.map((d) => d.Peso);
+              const minPeso = Math.min(...pesos);
+              const maxPeso = Math.max(...pesos);
+              // Si hay objetivo, el dominio lo incluye
+              const domainMin = Math.floor(Math.min(minPeso, goalWeight ?? minPeso) - 2);
+              const domainMax = Math.ceil(maxPeso + 1);
+              return (
+                <div className="rounded-xl p-4" style={{ background: '#0D1117', border: '1px solid var(--color-border)' }}>
+                  <div className="flex items-center gap-1.5 text-muted text-[11px] font-semibold uppercase tracking-widest mb-4"><TrendingDown size={12} /> Progreso de peso</div>
+                  <div className="w-full h-[210px]">
+                    <ResponsiveContainer>
+                      <AreaChart data={weightChartData} margin={{ top: 5, right: 12, left: -10, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id={`wfill-${client.id}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#5ECCFA" stopOpacity={0.22} />
+                            <stop offset="85%" stopColor="#5ECCFA" stopOpacity={0.03} />
+                            <stop offset="100%" stopColor="#5ECCFA" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="#1C2226" strokeDasharray="0" vertical={false} />
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fill: '#5A6870', fontSize: 11 }}
+                          tickLine={false}
+                          axisLine={false}
                         />
-                      )}
-                      <Area
-                        type="monotone"
-                        dataKey="Peso"
-                        stroke="#5ECCFA"
-                        strokeWidth={2.5}
-                        fill={`url(#wfill-${client.id})`}
-                        dot={{ r: 4, fill: '#5ECCFA', stroke: '#050708', strokeWidth: 2 }}
-                        activeDot={{ r: 5 }}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                        <YAxis
+                          tick={{ fill: '#5A6870', fontSize: 11 }}
+                          tickLine={false}
+                          axisLine={false}
+                          domain={[domainMin, domainMax]}
+                          width={28}
+                        />
+                        <Tooltip
+                          contentStyle={{ background: '#0D1117', border: '1px solid #1C2226', borderRadius: 8, fontSize: 12 }}
+                          labelStyle={{ color: '#C8D5DA' }}
+                          itemStyle={{ color: '#5ECCFA' }}
+                          formatter={(v) => [`${v} kg`, 'Peso']}
+                        />
+                        {goalWeight != null && (
+                          <ReferenceLine
+                            y={goalWeight}
+                            stroke="#4ADE80"
+                            strokeDasharray="6 4"
+                            strokeWidth={1.5}
+                            label={{ value: `Objetivo ${goalWeight}kg`, position: 'insideBottomRight', fill: '#4ADE80', fontSize: 10, dy: -6 }}
+                          />
+                        )}
+                        <Area
+                          type="monotone"
+                          dataKey="Peso"
+                          stroke="#5ECCFA"
+                          strokeWidth={2.5}
+                          fill={`url(#wfill-${client.id})`}
+                          dot={{ r: 4, fill: '#5ECCFA', stroke: '#0D1117', strokeWidth: 2 }}
+                          activeDot={{ r: 5, fill: '#5ECCFA', stroke: '#0D1117', strokeWidth: 2 }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-              </Card>
-            )}
+              );
+            })()}
 
             {/* Editor de fases — al final, no al principio */}
             <Card style={{ borderColor: 'var(--color-cyan)' }}>
