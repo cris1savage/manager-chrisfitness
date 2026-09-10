@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { LineChart, Line, AreaChart, Area, ReferenceLine, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, Legend } from 'recharts';
+import { LineChart, Line, AreaChart, Area, ReferenceLine, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
 import {
-  Plus, Trash2, Video, Check, X, FileDown, Loader2, Flag, Ruler, Footprints,
+  Plus, Trash2, Video, Check, X, FileDown, Loader2, Flag, Ruler,
   Calendar as CalendarIcon, ChevronDown, ChevronRight, Dumbbell, Apple, TrendingDown, Info, Clock,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -413,7 +413,7 @@ export default function ClientProfileModal({ client }) {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+            className="px-4 py-1.5 rounded-lg text-sm font-semibold"
             style={{ background: tab === t.key ? 'var(--color-cyan)' : 'transparent', color: tab === t.key ? '#00161C' : 'var(--color-muted)', border: `1px solid ${tab === t.key ? 'var(--color-cyan)' : 'var(--color-border)'}` }}
           >
             {t.label}
@@ -423,184 +423,218 @@ export default function ClientProfileModal({ client }) {
 
       {loading && <Card className="text-center py-8 text-muted">Cargando…</Card>}
 
-      {!loading && tab === 'resumen' && (
-        <div className="space-y-3">
-          {/* Cards de resumen rápido */}
-          {(() => {
-            const latestCheckin = [...checkins].sort((a, b) => b.month.localeCompare(a.month)).find((c) => c.weight != null);
-            const firstCheckin = [...checkins].sort((a, b) => a.month.localeCompare(b.month)).find((c) => c.weight != null);
-            const currentWeight = latestCheckin?.weight ?? null;
-            const firstWeight = firstCheckin?.weight ?? null;
-            const weightDiff = currentWeight != null && firstWeight != null ? Math.round((currentWeight - firstWeight) * 10) / 10 : null;
-            return (
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
-                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Peso actual</span>
-                  <span className="text-cyan text-xl font-bold">{currentWeight != null ? `${currentWeight} kg` : '—'}</span>
-                </div>
-                <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
-                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Desde el inicio</span>
-                  <span className="text-xl font-bold" style={{ color: weightDiff != null ? (weightDiff < 0 ? 'var(--color-green)' : weightDiff > 0 ? 'var(--color-red)' : 'var(--color-ink)') : 'var(--color-muted)' }}>
-                    {weightDiff != null ? `${weightDiff > 0 ? '+' : ''}${weightDiff} kg` : '—'}
-                  </span>
-                </div>
-                <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
-                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Fase</span>
-                  <span className="text-xl font-bold" style={{ color: currentPhaseName ? phaseColor(phases, currentPhaseName) : 'var(--color-muted)' }}>
-                    {currentPhaseName || '—'}
-                  </span>
-                </div>
-              </div>
-            );
-          })()}
+      {!loading && tab === 'resumen' && (() => {
+        const sortedCheckins = [...checkins].sort((a, b) => a.month.localeCompare(b.month));
+        const firstWithWeight = sortedCheckins.find((c) => c.weight != null);
+        const latestWithWeight = [...sortedCheckins].reverse().find((c) => c.weight != null);
+        const currentWeight = latestWithWeight?.weight ?? null;
+        const firstWeight = firstWithWeight?.weight ?? null;
+        const weightDiff = currentWeight != null && firstWeight != null ? Math.round((currentWeight - firstWeight) * 10) / 10 : null;
 
-          <Card style={{ borderColor: 'var(--color-cyan)' }}>
-            <div className="flex items-center gap-1.5 text-cyan text-[11px] font-bold mb-2"><Flag size={13} /> FASE ACTUAL: {(currentPhaseName || 'sin definir').toUpperCase()}</div>
-            <div className="space-y-2">
-              {phases.map((p, i) => (
-                <div key={i} className="rounded-lg p-2.5 flex items-center gap-2 flex-wrap" style={{ background: p.name === currentPhaseName ? `${phaseColor(phases, p.name)}22` : 'var(--color-surfaceAlt)', border: `1px solid ${p.name === currentPhaseName ? phaseColor(phases, p.name) : 'var(--color-border)'}` }}>
-                  <select value={p.name} onChange={(e) => updatePhase(i, { name: e.target.value })} className="bg-surface border border-border rounded px-1.5 py-1 text-xs font-bold" style={{ color: phaseColor(phases, p.name) }}>
-                    {PHASE_NAMES.map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                  <input type="date" value={p.start_date} onChange={(e) => updatePhase(i, { start_date: e.target.value })} className="bg-surface border border-border rounded px-1.5 py-1 text-[11px] text-ink" />
-                  <span className="text-muted text-[11px]">→</span>
-                  <input type="date" value={p.end_date} onChange={(e) => updatePhase(i, { end_date: e.target.value })} className="bg-surface border border-border rounded px-1.5 py-1 text-[11px] text-ink" />
-                  <div className="flex items-center gap-1">
-                    <input type="number" step="0.05" value={p.rate} onChange={(e) => updatePhase(i, { rate: Number(e.target.value) })} className="bg-surface border border-border rounded px-1.5 py-1 text-[11px] text-ink w-14" />
-                    <span className="text-muted text-[10px]">%/sem</span>
-                  </div>
-                  <button onClick={() => removePhase(i)} className="text-red ml-auto"><Trash2 size={13} /></button>
-                  <input
-                    value={p.goal || ''}
-                    onChange={(e) => updatePhase(i, { goal: e.target.value })}
-                    placeholder="Objetivo de esta fase (ej. Bajar a 80kg manteniendo fuerza...)"
-                    className="bg-surface border border-border rounded px-2 py-1 text-[11px] text-ink w-full mt-1"
-                  />
-                </div>
-              ))}
-              <button onClick={addPhase} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted border border-border flex items-center gap-1.5"><Plus size={13} /> Añadir fase</button>
+        // Etiqueta de mes abreviada
+        const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        const weightChartData = sortedCheckins.filter((c) => c.weight != null).map((c) => {
+          const [, mm] = c.month.split('-');
+          return { label: MONTH_SHORT[Number(mm) - 1], Peso: Number(c.weight) };
+        });
+
+        // Línea de objetivo: último peso objetivo del timeline, o el objetivo de la fase actual si tiene goal (texto), fallback null
+        const goalWeight = weeks.length ? weeks[weeks.length - 1].target_weight : null;
+
+        return (
+          <div className="space-y-3">
+            {/* 3 cards principales */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl p-4 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <span className="text-muted text-[10px] uppercase tracking-widest">Peso actual</span>
+                <span className="text-cyan text-2xl font-bold leading-tight">{currentWeight != null ? `${currentWeight} kg` : '—'}</span>
+              </div>
+              <div className="rounded-xl p-4 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <span className="text-muted text-[10px] uppercase tracking-widest">Desde el inicio</span>
+                <span className="text-2xl font-bold leading-tight" style={{ color: weightDiff == null ? 'var(--color-muted)' : weightDiff < 0 ? 'var(--color-green)' : weightDiff > 0 ? 'var(--color-red)' : 'var(--color-ink)' }}>
+                  {weightDiff != null ? `${weightDiff > 0 ? '+' : ''}${weightDiff} kg` : '—'}
+                </span>
+              </div>
+              <div className="rounded-xl p-4 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <span className="text-muted text-[10px] uppercase tracking-widest">Fase</span>
+                <span className="text-2xl font-bold leading-tight" style={{ color: currentPhaseName ? phaseColor(phases, currentPhaseName) : 'var(--color-muted)' }}>
+                  {currentPhaseName || '—'}
+                </span>
+              </div>
             </div>
-            <div className="text-muted text-[10.5px] mt-2">Cada fase con su propio ritmo semanal — tú lo pones, se detecta sola según la fecha de hoy.</div>
-          </Card>
 
-          <Card>
-            <div className="flex items-center gap-1.5 text-muted text-[11px] uppercase tracking-wide mb-2"><Flag size={13} /> Objetivos</div>
-            <div className="space-y-2.5">
-              <div className="flex gap-2.5">
-                <div className="w-1 rounded shrink-0" style={{ background: 'var(--color-cyan)' }} />
-                <div className="flex-1">
-                  <div className="text-cyan text-[10.5px] font-bold mb-1">LARGO PLAZO</div>
-                  <textarea
-                    value={longTermGoal}
-                    onChange={(e) => setLongTermGoal(e.target.value)}
-                    onBlur={(e) => saveLongTermGoal(e.target.value)}
-                    placeholder="Ej. Llegar a 78kg con visibilidad abdominal para junio de 2027..."
-                    rows={2}
-                    className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y"
-                  />
-                </div>
-              </div>
-              {currentPhaseObj && (
-                <div className="flex gap-2.5">
-                  <div className="w-1 rounded shrink-0" style={{ background: 'var(--color-amber)' }} />
-                  <div className="flex-1">
-                    <div className="text-amber text-[10.5px] font-bold mb-1">FASE ACTUAL — {currentPhaseName?.toUpperCase()}</div>
+            {/* Objetivos */}
+            <Card>
+              <div className="flex items-center gap-1.5 text-muted text-[11px] font-semibold uppercase tracking-widest mb-3"><Flag size={12} /> Objetivos</div>
+              <div className="space-y-3">
+                <div className="flex gap-3">
+                  <div className="w-0.5 rounded-full shrink-0 self-stretch" style={{ background: 'var(--color-cyan)' }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-cyan text-[11px] font-bold mb-1">LARGO PLAZO</div>
                     <textarea
-                      value={currentPhaseObj.goal || ''}
-                      onChange={(e) => updatePhase(phases.indexOf(currentPhaseObj), { goal: e.target.value })}
-                      placeholder="Objetivo de esta fase (ej. Bajar a 80kg manteniendo fuerza en press banca...)"
+                      value={longTermGoal}
+                      onChange={(e) => setLongTermGoal(e.target.value)}
+                      onBlur={(e) => saveLongTermGoal(e.target.value)}
+                      placeholder="Ej. Llegar a 78kg con visibilidad abdominal para junio de 2027..."
                       rows={2}
-                      className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y"
+                      className="bg-transparent border-none text-ink text-sm w-full outline-none resize-none leading-relaxed"
                     />
                   </div>
                 </div>
-              )}
-            </div>
-          </Card>
-
-          {chartData.some((d) => d.Real != null) && (
-            <Card>
-              <div className="flex items-center gap-1.5 text-muted text-[11.5px] uppercase tracking-wide mb-3"><TrendingDown size={13} /> Progreso de peso</div>
-              <div className="w-full h-[190px]">
-                <ResponsiveContainer>
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id={`weightFill-${client.id}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-cyan)" stopOpacity={0.35} />
-                        <stop offset="100%" stopColor="var(--color-cyan)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="var(--color-border)" vertical={false} />
-                    <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={9} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} interval={Math.ceil(chartData.length / 8)} />
-                    <YAxis stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} width={32} domain={['dataMin - 2', 'dataMax + 2']} />
-                    <Tooltip contentStyle={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--color-ink)' }} />
-                    {finalTargetWeight != null && (
-                      <ReferenceLine y={finalTargetWeight} stroke="var(--color-green)" strokeDasharray="4 4" label={{ value: `Objetivo ${finalTargetWeight}kg`, position: 'insideTopRight', fill: 'var(--color-green)', fontSize: 10 }} />
-                    )}
-                    <Area type="monotone" dataKey="Real" stroke="var(--color-cyan)" strokeWidth={2.5} fill={`url(#weightFill-${client.id})`} dot={{ r: 3.5 }} connectNulls={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {currentPhaseObj && (
+                  <div className="flex gap-3">
+                    <div className="w-0.5 rounded-full shrink-0 self-stretch" style={{ background: 'var(--color-amber)' }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-amber text-[11px] font-bold mb-1">FASE ACTUAL — {currentPhaseName?.toUpperCase()}</div>
+                      <textarea
+                        value={currentPhaseObj.goal || ''}
+                        onChange={(e) => updatePhase(phases.indexOf(currentPhaseObj), { goal: e.target.value })}
+                        placeholder="Objetivo de esta fase (ej. Bajar a 80kg manteniendo fuerza en press banca...)"
+                        rows={2}
+                        className="bg-transparent border-none text-ink text-sm w-full outline-none resize-none leading-relaxed"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
-          )}
-        </div>
-      )}
+
+            {/* Gráfica de peso — solo aparece si hay al menos 2 meses con peso registrado */}
+            {weightChartData.length >= 2 && (
+              <Card>
+                <div className="flex items-center gap-1.5 text-muted text-[11px] font-semibold uppercase tracking-widest mb-3"><TrendingDown size={12} /> Progreso de peso</div>
+                <div className="w-full h-[200px]">
+                  <ResponsiveContainer>
+                    <AreaChart data={weightChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id={`wfill-${client.id}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#5ECCFA" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="#5ECCFA" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="#212729" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fill: '#7C878B', fontSize: 11 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: '#7C878B', fontSize: 11 }} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} />
+                      <Tooltip
+                        contentStyle={{ background: '#151A1D', border: '1px solid #212729', borderRadius: 8, fontSize: 12 }}
+                        labelStyle={{ color: '#F2F6F7' }}
+                        itemStyle={{ color: '#5ECCFA' }}
+                        formatter={(v) => [`${v} kg`, 'Peso']}
+                      />
+                      {goalWeight != null && (
+                        <ReferenceLine
+                          y={goalWeight}
+                          stroke="#4ADE80"
+                          strokeDasharray="5 4"
+                          label={{ value: `Objetivo ${goalWeight}kg`, position: 'insideTopRight', fill: '#4ADE80', fontSize: 10 }}
+                        />
+                      )}
+                      <Area
+                        type="monotone"
+                        dataKey="Peso"
+                        stroke="#5ECCFA"
+                        strokeWidth={2.5}
+                        fill={`url(#wfill-${client.id})`}
+                        dot={{ r: 4, fill: '#5ECCFA', stroke: '#050708', strokeWidth: 2 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            )}
+
+            {/* Editor de fases — al final, no al principio */}
+            <Card style={{ borderColor: 'var(--color-cyan)' }}>
+              <div className="flex items-center gap-1.5 text-cyan text-[11px] font-bold mb-2"><Flag size={13} /> FASE ACTUAL: {(currentPhaseName || 'sin definir').toUpperCase()}</div>
+              <div className="space-y-2">
+                {phases.map((p, i) => (
+                  <div key={i} className="rounded-lg p-2.5 flex items-center gap-2 flex-wrap" style={{ background: p.name === currentPhaseName ? `${phaseColor(phases, p.name)}22` : 'var(--color-surfaceAlt)', border: `1px solid ${p.name === currentPhaseName ? phaseColor(phases, p.name) : 'var(--color-border)'}` }}>
+                    <select value={p.name} onChange={(e) => updatePhase(i, { name: e.target.value })} className="bg-surface border border-border rounded px-1.5 py-1 text-xs font-bold" style={{ color: phaseColor(phases, p.name) }}>
+                      {PHASE_NAMES.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                    <input type="date" value={p.start_date} onChange={(e) => updatePhase(i, { start_date: e.target.value })} className="bg-surface border border-border rounded px-1.5 py-1 text-[11px] text-ink" />
+                    <span className="text-muted text-[11px]">→</span>
+                    <input type="date" value={p.end_date} onChange={(e) => updatePhase(i, { end_date: e.target.value })} className="bg-surface border border-border rounded px-1.5 py-1 text-[11px] text-ink" />
+                    <div className="flex items-center gap-1">
+                      <input type="number" step="0.05" value={p.rate} onChange={(e) => updatePhase(i, { rate: Number(e.target.value) })} className="bg-surface border border-border rounded px-1.5 py-1 text-[11px] text-ink w-14" />
+                      <span className="text-muted text-[10px]">%/sem</span>
+                    </div>
+                    <button onClick={() => removePhase(i)} className="text-red ml-auto"><Trash2 size={13} /></button>
+                    <input
+                      value={p.goal || ''}
+                      onChange={(e) => updatePhase(i, { goal: e.target.value })}
+                      placeholder="Objetivo de esta fase..."
+                      className="bg-surface border border-border rounded px-2 py-1 text-[11px] text-ink w-full mt-1"
+                    />
+                  </div>
+                ))}
+                <button onClick={addPhase} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted border border-border flex items-center gap-1.5"><Plus size={13} /> Añadir fase</button>
+              </div>
+              <div className="text-muted text-[10.5px] mt-2">Cada fase con su propio ritmo semanal — tú lo pones, se detecta sola según la fecha de hoy.</div>
+            </Card>
+          </div>
+        );
+      })()}
 
       {!loading && tab === 'mes' && (
         <div className="space-y-3">
           {!hasCurrentMonth && (
-            <button onClick={addMonth} className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5" style={{ background: 'var(--color-cyan)', color: '#00161C' }}>
-              <Plus size={13} /> Añadir {monthLabelFull(currentMonth)}
+            <button onClick={addMonth} className="rounded-lg px-4 py-2 text-sm font-semibold flex items-center gap-2" style={{ background: 'var(--color-cyan)', color: '#00161C' }}>
+              <Plus size={14} /> Añadir {monthLabelFull(currentMonth)}
             </button>
           )}
           {hasCurrentMonth && currentCheckin && (
-            <Card className="space-y-3" style={{ borderColor: 'var(--color-cyan)' }}>
-              <div className="flex items-center justify-between">
-                <span className="text-ink font-bold text-sm capitalize">{monthLabelFull(currentCheckin.month)}</span>
-                <button onClick={() => removeCheckin(currentCheckin.id, currentCheckin.month)} className="text-red p-1"><Trash2 size={14} /></button>
-              </div>
-
-              <div>
-                <div className="text-muted text-[10px] uppercase tracking-wide mb-1">Fase</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {PHASE_NAMES.map((p) => (
-                    <button key={p} onClick={() => updateCheckin(currentCheckin.id, { phase: p })} className="px-2.5 py-1 rounded-lg text-xs font-semibold" style={{ background: currentCheckin.phase === p ? 'var(--color-cyan)' : 'var(--color-surfaceAlt)', color: currentCheckin.phase === p ? '#00161C' : 'var(--color-muted)', border: '1px solid var(--color-border)' }}>{p}</button>
+            <div className="space-y-3">
+              {/* Selector de fase */}
+              <div className="rounded-xl p-4" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <div className="text-muted text-[10px] uppercase tracking-widest mb-3">Fase de este mes</div>
+                <div className="flex flex-wrap gap-2">
+                  {PHASE_NAMES.filter(n => n !== 'Otra').map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => updateCheckin(currentCheckin.id, { phase: p })}
+                      className="px-4 py-1.5 rounded-lg text-sm font-semibold"
+                      style={{
+                        background: currentCheckin.phase === p ? 'var(--color-cyan)' : 'transparent',
+                        color: currentCheckin.phase === p ? '#00161C' : 'var(--color-muted)',
+                        border: `1px solid ${currentCheckin.phase === p ? 'var(--color-cyan)' : 'var(--color-border)'}`,
+                      }}
+                    >{p}</button>
                   ))}
                 </div>
               </div>
 
-              <div>
-                <div className="text-muted text-[10px] uppercase tracking-wide mb-1">Objetivos del mes</div>
-                <textarea value={currentCheckin.goals || ''} onChange={(e) => updateCheckin(currentCheckin.id, { goals: e.target.value })} rows={2} placeholder="Bajar a 80kg, 10.000 pasos diarios..." className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y" />
-              </div>
-
-              <div className="rounded-lg p-3" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
-                <div className="flex items-center gap-1.5 text-muted text-[10px] uppercase tracking-wide mb-2"><Clock size={11} /> Semana a semana</div>
-                <div className="space-y-2">
+              {/* Semana a semana */}
+              <div className="rounded-xl p-4" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <div className="flex items-center gap-2 text-muted text-[10px] uppercase tracking-widest mb-3"><Clock size={11} /> Semana a semana</div>
+                <div className="space-y-4">
                   {(currentCheckin.weekly_notes && currentCheckin.weekly_notes.length ? currentCheckin.weekly_notes : defaultWeeklyNotes(currentCheckin.month)).map((w, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: STRENGTH_COLOR[w.strength] || 'var(--color-muted)' }} />
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: STRENGTH_COLOR[w.strength] || 'var(--color-muted)' }} />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <span className="text-ink text-xs font-semibold">{w.label}</span>
-                          <div className="flex gap-1">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <span className="text-ink text-sm font-semibold">{w.label}</span>
+                          <div className="flex gap-1.5">
                             {WEEK_STRENGTHS.map((s) => (
                               <button
                                 key={s}
                                 onClick={() => updateWeekNote(currentCheckin, i, { strength: s })}
-                                className="px-2 py-0.5 rounded text-[10px] font-semibold"
-                                style={{ background: w.strength === s ? `${STRENGTH_COLOR[s]}22` : 'transparent', color: w.strength === s ? STRENGTH_COLOR[s] : 'var(--color-muted)', border: `1px solid ${w.strength === s ? STRENGTH_COLOR[s] : 'var(--color-border)'}` }}
-                              >
-                                {s}
-                              </button>
+                                className="px-2.5 py-0.5 rounded-md text-xs font-bold"
+                                style={{
+                                  background: w.strength === s ? `${STRENGTH_COLOR[s]}20` : 'transparent',
+                                  color: w.strength === s ? STRENGTH_COLOR[s] : 'var(--color-muted)',
+                                  border: `1px solid ${w.strength === s ? STRENGTH_COLOR[s] : 'transparent'}`,
+                                }}
+                              >{s}</button>
                             ))}
                           </div>
                         </div>
                         <input
                           value={w.note || ''}
                           onChange={(e) => updateWeekNote(currentCheckin, i, { note: e.target.value })}
-                          placeholder="Nota rápida de esta semana..."
-                          className="bg-surface border border-border text-ink rounded px-2 py-1 text-[11px] w-full outline-none focus:border-cyan mt-1"
+                          placeholder="Nota de esta semana..."
+                          className="text-muted text-sm bg-transparent border-none outline-none w-full"
                         />
                       </div>
                     </div>
@@ -608,135 +642,150 @@ export default function ClientProfileModal({ client }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div>
-                  <div className="text-muted text-[10px] uppercase tracking-wide mb-1 flex items-center gap-1"><Dumbbell size={11} /> Entrenamiento</div>
-                  <textarea value={currentCheckin.training_notes || ''} onChange={(e) => updateCheckin(currentCheckin.id, { training_notes: e.target.value })} rows={2} className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y" />
-                </div>
-                <div>
-                  <div className="text-muted text-[10px] uppercase tracking-wide mb-1 flex items-center gap-1"><Apple size={11} /> Nutrición</div>
-                  <textarea value={currentCheckin.nutrition_notes || ''} onChange={(e) => updateCheckin(currentCheckin.id, { nutrition_notes: e.target.value })} rows={2} className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-2 text-xs w-full outline-none focus:border-cyan resize-y" />
-                </div>
-              </div>
-
-              {/* Stats rápidos del mes: Peso / Pasos / Cintura */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-xl p-3 flex flex-col gap-0.5" style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
-                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Peso actual</span>
-                  <div className="flex items-baseline gap-1">
-                    <input
-                      type="number" step="0.1"
-                      value={currentCheckin.weight ?? ''}
-                      onChange={(e) => updateCheckin(currentCheckin.id, { weight: e.target.value ? Number(e.target.value) : null })}
-                      className="text-cyan text-xl font-bold bg-transparent outline-none w-full"
-                      placeholder="— kg"
-                    />
-                    {currentCheckin.weight != null && <span className="text-cyan text-sm font-bold -ml-1">kg</span>}
-                  </div>
-                </div>
-                <div className="rounded-xl p-3 flex flex-col gap-0.5" style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
-                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Media pasos</span>
-                  <input
-                    type="number"
-                    value={currentCheckin.steps_avg ?? ''}
-                    onChange={(e) => updateCheckin(currentCheckin.id, { steps_avg: e.target.value ? Number(e.target.value) : null })}
-                    className="text-green text-xl font-bold bg-transparent outline-none w-full"
-                    placeholder="—"
+              {/* Entrenamiento + Nutrición — dos cards lado a lado */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl p-4" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                  <div className="flex items-center gap-1.5 text-muted text-[10px] uppercase tracking-widest mb-2"><Dumbbell size={11} /> Entrenamiento</div>
+                  <textarea
+                    value={currentCheckin.training_notes || ''}
+                    onChange={(e) => updateCheckin(currentCheckin.id, { training_notes: e.target.value })}
+                    rows={3}
+                    placeholder="Notas de entrenamiento..."
+                    className="bg-transparent text-ink text-sm w-full outline-none resize-none leading-relaxed border-none"
                   />
                 </div>
-                <div className="rounded-xl p-3 flex flex-col gap-0.5" style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
-                  <span className="text-muted text-[9.5px] uppercase tracking-wide">Cintura</span>
-                  <div className="flex items-baseline gap-1">
+                <div className="rounded-xl p-4" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                  <div className="flex items-center gap-1.5 text-muted text-[10px] uppercase tracking-widest mb-2"><Apple size={11} /> Nutrición</div>
+                  <textarea
+                    value={currentCheckin.nutrition_notes || ''}
+                    onChange={(e) => updateCheckin(currentCheckin.id, { nutrition_notes: e.target.value })}
+                    rows={3}
+                    placeholder="Notas de nutrición..."
+                    className="bg-transparent text-ink text-sm w-full outline-none resize-none leading-relaxed border-none"
+                  />
+                </div>
+              </div>
+
+              {/* Videollamada mensual */}
+              <div className="rounded-xl p-4" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <div className="flex items-center gap-2 text-ink font-semibold text-sm mb-0.5"><Video size={14} className="text-muted" /> Videollamada mensual</div>
                     <input
-                      type="number" step="0.5"
-                      value={(measurementsDraft ?? currentCheckin.measurements ?? {})['Cintura'] ?? ''}
-                      onChange={(e) => editMeasurement('Cintura', e.target.value)}
-                      className="text-amber text-xl font-bold bg-transparent outline-none w-full"
-                      placeholder="— cm"
+                      type="date"
+                      value={currentCheckin.call_date || ''}
+                      onChange={(e) => updateCheckin(currentCheckin.id, { call_date: e.target.value || null })}
+                      className="bg-transparent text-muted text-xs outline-none border-none"
                     />
-                    {((measurementsDraft ?? currentCheckin.measurements ?? {})['Cintura'] != null) && <span className="text-amber text-sm font-bold -ml-1">cm</span>}
+                  </div>
+                  <button
+                    onClick={() => updateCheckin(currentCheckin.id, { call_done: !currentCheckin.call_done })}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                    style={{
+                      background: currentCheckin.call_done ? '#4ADE8018' : 'var(--color-bg)',
+                      color: currentCheckin.call_done ? 'var(--color-green)' : 'var(--color-muted)',
+                      border: `1px solid ${currentCheckin.call_done ? 'var(--color-green)' : 'var(--color-border)'}`,
+                    }}
+                  >
+                    {currentCheckin.call_done ? <Check size={12} /> : <X size={12} />}
+                    {currentCheckin.call_done ? 'Realizada' : 'Pendiente'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Objetivo del mes + estado */}
+              <div className="rounded-xl p-4" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <div className="text-muted text-[10px] uppercase tracking-widest mb-2">Objetivo del mes</div>
+                <textarea
+                  value={currentCheckin.goals || ''}
+                  onChange={(e) => updateCheckin(currentCheckin.id, { goals: e.target.value })}
+                  rows={2}
+                  placeholder="Ej. Bajar a 80kg manteniendo la fuerza en press banca..."
+                  className="bg-transparent text-ink text-sm w-full outline-none resize-none leading-relaxed border-none mb-3"
+                />
+                <div className="flex gap-2 flex-wrap">
+                  {GOAL_STATUSES.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => updateCheckin(currentCheckin.id, { goal_status: s })}
+                      className="px-3 py-1 rounded-lg text-xs font-semibold"
+                      style={{
+                        background: currentCheckin.goal_status === s ? `${GOAL_COLORS[s]}20` : 'transparent',
+                        color: currentCheckin.goal_status === s ? GOAL_COLORS[s] : 'var(--color-muted)',
+                        border: `1px solid ${currentCheckin.goal_status === s ? GOAL_COLORS[s] : 'var(--color-border)'}`,
+                      }}
+                    >{s}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stats rápidos: Peso / Pasos / Cintura */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl p-4" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                  <div className="text-muted text-[10px] uppercase tracking-widest mb-1">Peso actual</div>
+                  <div className="flex items-baseline gap-1">
+                    <input type="number" step="0.1" value={currentCheckin.weight ?? ''} onChange={(e) => updateCheckin(currentCheckin.id, { weight: e.target.value ? Number(e.target.value) : null })} className="text-cyan text-2xl font-bold bg-transparent outline-none w-full" placeholder="—" />
+                    {currentCheckin.weight != null && <span className="text-cyan text-base font-bold">kg</span>}
+                  </div>
+                </div>
+                <div className="rounded-xl p-4" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                  <div className="text-muted text-[10px] uppercase tracking-widest mb-1">Media pasos</div>
+                  <input type="number" value={currentCheckin.steps_avg ?? ''} onChange={(e) => updateCheckin(currentCheckin.id, { steps_avg: e.target.value ? Number(e.target.value) : null })} className="text-green text-2xl font-bold bg-transparent outline-none w-full" placeholder="—" />
+                </div>
+                <div className="rounded-xl p-4" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                  <div className="text-muted text-[10px] uppercase tracking-widest mb-1">Cintura</div>
+                  <div className="flex items-baseline gap-1">
+                    <input type="number" step="0.5" value={(measurementsDraft ?? currentCheckin.measurements ?? {})['Cintura'] ?? ''} onChange={(e) => editMeasurement('Cintura', e.target.value)} className="text-amber text-2xl font-bold bg-transparent outline-none w-full" placeholder="—" />
+                    {(measurementsDraft ?? currentCheckin.measurements ?? {})['Cintura'] != null && <span className="text-amber text-base font-bold">cm</span>}
                   </div>
                 </div>
               </div>
 
-              {/* Videollamada + goal status + otros controles */}
-              <div className="flex items-center gap-3 flex-wrap">
-                <select value={currentCheckin.goal_status || 'Pendiente'} onChange={(e) => updateCheckin(currentCheckin.id, { goal_status: e.target.value })} className="bg-surfaceAlt border rounded-lg px-2 py-1.5 text-xs font-semibold outline-none" style={{ borderColor: GOAL_COLORS[currentCheckin.goal_status], color: GOAL_COLORS[currentCheckin.goal_status] }}>
-                  {GOAL_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <div className="flex items-center gap-1">
-                  <Video size={13} className="text-muted" />
-                  <input type="date" value={currentCheckin.call_date || ''} onChange={(e) => updateCheckin(currentCheckin.id, { call_date: e.target.value || null })} className="bg-surfaceAlt border border-border text-ink rounded-lg px-2 py-1.5 text-xs outline-none focus:border-cyan" />
-                  <button onClick={() => updateCheckin(currentCheckin.id, { call_done: !currentCheckin.call_done })} className="px-2 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1" style={{ background: currentCheckin.call_done ? '#4ADE8022' : 'var(--color-surfaceAlt)', color: currentCheckin.call_done ? 'var(--color-green)' : 'var(--color-muted)', border: '1px solid var(--color-border)' }}>
-                    {currentCheckin.call_done ? <Check size={12} /> : <X size={12} />} {currentCheckin.call_done ? 'Realizada' : 'Pendiente'}
+              {/* Mediciones corporales */}
+              <div className="rounded-xl p-4" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5 text-muted text-[10px] uppercase tracking-widest"><Ruler size={11} /> Mediciones (este mes)</div>
+                  <button onClick={saveMeasurements} className="rounded-lg px-3 py-1 text-xs font-semibold flex items-center gap-1.5" style={{ background: measurementsSaved ? '#4ADE8018' : 'var(--color-cyan)', color: measurementsSaved ? 'var(--color-green)' : '#00161C' }}>
+                    {measurementsSaved ? <><Check size={11} /> Guardado</> : 'Guardar'}
                   </button>
                 </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-muted text-[10px] uppercase tracking-wide flex items-center gap-1"><Ruler size={11} /> Mediciones (cm)</div>
-                  <button
-                    onClick={saveMeasurements}
-                    className="rounded-lg px-2.5 py-1 text-[11px] font-semibold flex items-center gap-1"
-                    style={{ background: measurementsSaved ? '#4ADE8022' : 'var(--color-cyan)', color: measurementsSaved ? 'var(--color-green)' : '#00161C', border: measurementsSaved ? '1px solid var(--color-green)' : 'none' }}
-                  >
-                    {measurementsSaved ? <><Check size={12} /> Guardado</> : 'Guardar mediciones'}
-                  </button>
-                </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-x-4 gap-y-3">
                   {MEASUREMENTS.map((m) => (
                     <div key={m}>
-                      <div className="text-muted text-[9.5px]">{m}</div>
+                      <div className="text-muted text-[10px] mb-1">{m}</div>
                       <input
                         type="number"
                         value={(measurementsDraft ?? currentCheckin.measurements ?? {})[m] ?? ''}
                         onChange={(e) => editMeasurement(m, e.target.value)}
-                        className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-1 text-xs w-full outline-none focus:border-cyan"
+                        placeholder="—"
+                        className="bg-surface border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan"
                       />
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-lg p-3" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
-                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                  <div className="text-muted text-[10px] uppercase tracking-wide">Progreso de la medida</div>
-                  <select value={chartMeasurement} onChange={(e) => setChartMeasurement(e.target.value)} className="bg-surface border border-border rounded px-2 py-1 text-[11px] text-ink outline-none">
-                    {MEASUREMENTS.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-                {(() => {
-                  const series = [...checkins].filter((c) => c.measurements?.[chartMeasurement] != null).sort((a, b) => a.month.localeCompare(b.month)).map((c) => ({ label: fmtDate(`${c.month}-01`), Valor: Number(c.measurements[chartMeasurement]) }));
-                  if (series.length < 2) return <div className="text-muted text-[11px] text-center py-4">Todavía no hay suficientes meses con esta medida para comparar.</div>;
-                  return (
-                    <div className="w-full h-[140px]">
-                      <ResponsiveContainer>
-                        <LineChart data={series}>
-                          <CartesianGrid stroke="var(--color-border)" vertical={false} />
-                          <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={9} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} />
-                          <YAxis stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} width={30} domain={['dataMin - 1', 'dataMax + 1']} />
-                          <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--color-ink)' }} />
-                          <Line type="monotone" dataKey="Valor" stroke="var(--color-amber)" strokeWidth={2.5} dot={{ r: 3 }} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  );
-                })()}
-              </div>
+              {/* Notas + Export */}
+              <input value={currentCheckin.notes || ''} onChange={(e) => updateCheckin(currentCheckin.id, { notes: e.target.value })} placeholder="Notas de la videollamada..." className="bg-surfaceAlt border border-border text-ink rounded-xl px-4 py-3 text-sm w-full outline-none focus:border-cyan" />
 
-              <input value={currentCheckin.notes || ''} onChange={(e) => updateCheckin(currentCheckin.id, { notes: e.target.value })} placeholder="Notas de la videollamada..." className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-xs w-full outline-none focus:border-cyan" />
-
-              <button onClick={() => exportPdf(currentCheckin)} disabled={exportingId === currentCheckin.id} className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50 w-fit" style={{ background: 'transparent', color: 'var(--color-cyan)', border: '1px solid var(--color-cyan)' }}>
-                {exportingId === currentCheckin.id ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />} Exportar informe PDF
+              <button onClick={() => exportPdf(currentCheckin)} disabled={exportingId === currentCheckin.id} className="rounded-xl px-5 py-2.5 text-sm font-semibold flex items-center gap-2 disabled:opacity-50 w-full justify-center" style={{ background: 'var(--color-cyan)', color: '#00161C' }}>
+                {exportingId === currentCheckin.id ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Exportar informe PDF de este mes
               </button>
-            </Card>
+
+              <button onClick={() => removeCheckin(currentCheckin.id, currentCheckin.month)} className="text-red text-xs flex items-center gap-1 mx-auto opacity-60 hover:opacity-100"><Trash2 size={12} /> Borrar este mes</button>
+            </div>
           )}
         </div>
       )}
 
       {!loading && tab === 'timeline' && (
         <div className="space-y-3">
+          {/* Info banner */}
+          <div className="rounded-xl px-4 py-3 flex items-start gap-2.5 text-sm text-ink" style={{ background: '#5ECCFA12', border: '1px solid #5ECCFA30' }}>
+            <Info size={15} className="text-cyan shrink-0 mt-0.5" />
+            <span className="text-muted leading-relaxed">El ritmo de cada semana viene de la fase a la que pertenece (ajústalo en Resumen). Prueba a cambiar el Objetivo de la Semana 8 y mira cómo recalcula hacia adelante usando el ritmo de la fase de cada semana.</span>
+          </div>
+
           {weeks.length === 0 && (
             <Card className="text-center py-6 space-y-2">
               <div className="text-muted text-sm">Todavía no hay timeline generado para este cliente.</div>
@@ -749,82 +798,72 @@ export default function ClientProfileModal({ client }) {
 
           {weeks.length > 0 && (
             <>
-              <Card>
-                <div className="text-muted text-[11px] uppercase tracking-wide mb-2">Objetivo vs. real — año completo</div>
-                <div className="w-full h-[190px]">
-                  <ResponsiveContainer>
-                    <LineChart data={chartData}>
-                      <CartesianGrid stroke="var(--color-border)" vertical={false} />
-                      <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={9} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} interval={Math.ceil(chartData.length / 8)} />
-                      <YAxis stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} width={32} domain={['dataMin - 2', 'dataMax + 2']} />
-                      <Tooltip contentStyle={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--color-ink)' }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Line type="monotone" dataKey="Objetivo" stroke="var(--color-muted)" strokeDasharray="4 4" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="Real" stroke="var(--color-cyan)" strokeWidth={2.5} dot={{ r: 2.5 }} connectNulls={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card>
+              {/* Botón reiniciar cadena + tabla plana */}
+              <div className="flex justify-end">
+                <button onClick={ensureWeeks} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-muted" style={{ border: '1px solid var(--color-border)' }}>
+                  ↺ Reiniciar cadena
+                </button>
+              </div>
 
-              {Object.entries(weeksByMonth).map(([mk, mWeeks]) => {
-                const isOpen = !!expandedMonths[mk];
-                const withReal = mWeeks.filter((w) => w.real_weight != null);
-                const onTrack = withReal.length ? withReal.filter((w) => Math.abs(w.real_weight - w.target_weight) <= 0.3).length / withReal.length : null;
-                return (
-                  <Card key={mk} className="!p-0">
-                    <button onClick={() => setExpandedMonths((m) => ({ ...m, [mk]: !m[mk] }))} className="w-full flex items-center justify-between px-4 py-3 text-left">
-                      <div className="flex items-center gap-2">
-                        <CalendarIcon size={14} className={mk === currentMonth ? 'text-cyan' : 'text-muted'} />
-                        <span className="text-ink text-sm font-semibold capitalize">{monthLabelFull(mk)}</span>
-                        {mk === currentMonth && <span className="text-cyan text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-cyan/15">En curso</span>}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {onTrack != null && <span className="text-[10.5px] font-semibold" style={{ color: onTrack >= 0.6 ? 'var(--color-green)' : onTrack >= 0.3 ? 'var(--color-amber)' : 'var(--color-red)' }}>{Math.round(onTrack * 100)}% en línea</span>}
-                        {isOpen ? <ChevronDown size={16} className="text-muted" /> : <ChevronRight size={16} className="text-muted" />}
-                      </div>
-                    </button>
-                    {isOpen && (
-                      <div className="px-4 pb-4 border-t border-border pt-3">
-                        <div className="hidden sm:grid text-muted text-[10px] uppercase tracking-wide px-2.5 mb-1.5 sm:grid-cols-[28px_90px_1fr_100px_100px_100px_60px]">
-                          <div></div><div>Fecha</div><div>Fase</div><div>Kcal</div><div>Objetivo</div><div>Real</div><div>Dif.</div>
-                        </div>
-                        <div className="space-y-1.5">
-                          {mWeeks.map((w) => {
-                            const idx = weeks.findIndex((x) => x.id === w.id);
-                            const ph = phaseForDate(phases, w.week_start);
-                            const diff = w.real_weight != null ? Math.round((w.real_weight - w.target_weight) * 10) / 10 : null;
-                            const isThisWeek = w.week_start === currentWeekStart;
-                            const rowStyle = {
-                              background: isThisWeek ? 'color-mix(in srgb, var(--color-cyan) 6%, var(--color-surfaceAlt))' : 'var(--color-surfaceAlt)',
-                              border: `1px solid ${isThisWeek ? 'var(--color-cyan)' : 'var(--color-border)'}`,
-                            };
-                            return (
-                              <div key={w.id} className="rounded-lg p-2.5 flex items-center gap-2 flex-wrap sm:grid sm:grid-cols-[28px_90px_1fr_100px_100px_100px_60px] sm:gap-2" style={rowStyle}>
-                                <div className="w-2 h-2 rounded-full shrink-0 hidden sm:block" style={{ background: ph ? phaseColor(phases, ph.name) : 'var(--color-muted)' }} />
-                                <span className="text-ink text-xs font-medium">{fmtDate(w.week_start)}</span>
-                                <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded w-fit" style={{ background: ph ? `${phaseColor(phases, ph.name)}22` : 'transparent', color: ph ? phaseColor(phases, ph.name) : 'var(--color-muted)' }}>{ph?.name || '—'}</span>
-                                <div className="flex items-center gap-1 sm:contents">
-                                  <span className="text-muted text-[10px] sm:hidden">Kcal</span>
-                                  <input type="number" value={w.kcal ?? ''} onChange={(e) => editWeekField(w.id, { kcal: e.target.value ? Number(e.target.value) : null })} className="bg-surface border border-border rounded px-2 py-1.5 text-xs w-16 sm:w-full outline-none focus:border-cyan" />
-                                </div>
-                                <div className="flex items-center gap-1 sm:contents">
-                                  <span className="text-muted text-[10px] sm:hidden">Objetivo</span>
-                                  <input type="number" step="0.1" value={w.target_weight ?? ''} onChange={(e) => editWeekTarget(idx, e.target.value)} className="border rounded px-2 py-1.5 text-xs w-16 sm:w-full outline-none font-semibold" style={{ background: w.target_overridden ? '#FBBF2422' : 'var(--color-surface)', borderColor: w.target_overridden ? 'var(--color-amber)' : 'var(--color-border)', color: 'var(--color-ink)' }} />
-                                </div>
-                                <div className="flex items-center gap-1 sm:contents">
-                                  <span className="text-muted text-[10px] sm:hidden">Real</span>
-                                  <input type="number" step="0.1" value={w.real_weight ?? ''} placeholder="—" onChange={(e) => editWeekField(w.id, { real_weight: e.target.value === '' ? null : Number(e.target.value) })} className="bg-surface border border-border rounded px-2 py-1.5 text-xs w-16 sm:w-full outline-none focus:border-cyan" />
-                                </div>
-                                <span className="text-[11px] font-bold sm:text-right" style={{ color: diff == null ? 'var(--color-muted)' : diff <= 0 ? 'var(--color-green)' : 'var(--color-red)' }}>{diff != null ? `${diff > 0 ? '+' : ''}${diff}` : '—'}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
+              {/* Tabla plana semana a semana */}
+              <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+                {/* Cabecera */}
+                <div className="grid grid-cols-[40px_90px_110px_80px_90px_90px_60px] px-4 py-2.5 text-muted text-[10px] uppercase tracking-widest" style={{ background: 'var(--color-surfaceAlt)' }}>
+                  <div>Sem.</div>
+                  <div>Fecha</div>
+                  <div>Fase</div>
+                  <div>Kcal</div>
+                  <div>Objetivo</div>
+                  <div>Real</div>
+                  <div></div>
+                </div>
+                {/* Filas */}
+                {weeks.map((w, idx) => {
+                  const ph = phaseForDate(phases, w.week_start);
+                  const diff = w.real_weight != null ? Math.round((w.real_weight - w.target_weight) * 10) / 10 : null;
+                  const isThisWeek = w.week_start === currentWeekStart;
+                  return (
+                    <div
+                      key={w.id}
+                      className="grid grid-cols-[40px_90px_110px_80px_90px_90px_60px] px-4 py-2 items-center text-sm"
+                      style={{
+                        background: isThisWeek ? '#5ECCFA08' : idx % 2 === 0 ? 'var(--color-bg)' : 'var(--color-surface)',
+                        borderTop: '1px solid var(--color-border)',
+                        borderLeft: isThisWeek ? '2px solid var(--color-cyan)' : '2px solid transparent',
+                      }}
+                    >
+                      <span className="text-muted text-xs">{idx + 1}</span>
+                      <span className="text-ink text-xs">{fmtDate(w.week_start)}</span>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md w-fit" style={{ background: ph ? `${phaseColor(phases, ph.name)}20` : 'transparent', color: ph ? phaseColor(phases, ph.name) : 'var(--color-muted)' }}>
+                        {ph?.name || '—'}
+                      </span>
+                      <input
+                        type="number"
+                        value={w.kcal ?? ''}
+                        onChange={(e) => editWeekField(w.id, { kcal: e.target.value ? Number(e.target.value) : null })}
+                        className="bg-surface border border-border rounded-lg px-2 py-1 text-xs w-16 outline-none focus:border-cyan text-ink"
+                      />
+                      <input
+                        type="number" step="0.1"
+                        value={w.target_weight ?? ''}
+                        onChange={(e) => editWeekTarget(idx, e.target.value)}
+                        className="rounded-lg px-2 py-1 text-xs w-16 outline-none font-semibold text-ink"
+                        style={{ background: w.target_overridden ? '#FBBF2415' : 'var(--color-surface)', border: `1px solid ${w.target_overridden ? 'var(--color-amber)' : 'var(--color-border)'}` }}
+                      />
+                      <input
+                        type="number" step="0.1"
+                        value={w.real_weight ?? ''}
+                        placeholder="—"
+                        onChange={(e) => editWeekField(w.id, { real_weight: e.target.value === '' ? null : Number(e.target.value) })}
+                        className="bg-surface border border-border rounded-lg px-2 py-1 text-xs w-16 outline-none focus:border-cyan text-ink"
+                      />
+                      <span className="text-xs font-bold text-right" style={{ color: diff == null ? 'var(--color-muted)' : diff <= 0 ? 'var(--color-green)' : 'var(--color-red)' }}>
+                        {diff != null ? `${diff > 0 ? '+' : ''}${diff}` : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </>
           )}
         </div>
@@ -832,28 +871,34 @@ export default function ClientProfileModal({ client }) {
 
       {!loading && tab === 'historial' && (
         <div className="space-y-2">
-          {checkins.filter((c) => c.month !== currentMonth).length === 0 && <Card className="text-center py-8 text-muted">Sin meses anteriores todavía.</Card>}
+          {checkins.filter((c) => c.month !== currentMonth).length === 0 && (
+            <div className="text-center py-12 text-muted text-sm">Sin meses anteriores todavía.</div>
+          )}
           {checkins.filter((c) => c.month !== currentMonth).map((c) => (
-            <Card key={c.id} className="!p-0">
-              <button onClick={() => setExpandedHistory(expandedHistory === c.id ? null : c.id)} className="w-full flex items-center justify-between px-4 py-3 text-left">
-                <div className="flex items-center gap-2">
-                  <CalendarIcon size={14} className="text-muted" />
-                  <span className="text-ink text-sm font-semibold capitalize">{monthLabelFull(c.month)}</span>
-                  <span className="text-muted text-[10.5px]">· {c.phase || 'sin fase'}</span>
+            <div key={c.id} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+              <button onClick={() => setExpandedHistory(expandedHistory === c.id ? null : c.id)} className="w-full flex items-center justify-between px-4 py-3.5 text-left" style={{ background: 'var(--color-surfaceAlt)' }}>
+                <div className="flex items-center gap-3">
+                  <CalendarIcon size={15} className="text-muted shrink-0" />
+                  <div>
+                    <span className="text-ink text-sm font-semibold">{monthLabelFull(c.month)}</span>
+                    <span className="text-muted text-xs ml-2">· {c.phase || 'sin fase'}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold" style={{ color: GOAL_COLORS[c.goal_status] }}>{c.goal_status}</span>
+                <div className="flex items-center gap-3">
+                  {c.goal_status && <span className="text-xs font-bold" style={{ color: GOAL_COLORS[c.goal_status] }}>{c.goal_status}</span>}
                   {expandedHistory === c.id ? <ChevronDown size={15} className="text-muted" /> : <ChevronRight size={15} className="text-muted" />}
                 </div>
               </button>
               {expandedHistory === c.id && (
-                <div className="px-4 pb-4 border-t border-border pt-3 space-y-2">
-                  {c.goals && <div className="text-xs"><span className="text-muted">Objetivos: </span>{c.goals}</div>}
-                  {c.weight && <div className="text-xs"><span className="text-muted">Peso: </span>{c.weight}kg</div>}
+                <div className="px-4 pb-4 pt-3 space-y-3" style={{ background: 'var(--color-bg)' }}>
+                  {c.weight && (
+                    <div className="text-sm"><span className="text-muted">Peso: </span><span className="text-ink font-semibold">{c.weight} kg</span></div>
+                  )}
+                  {c.goals && <div className="text-sm"><span className="text-muted">Objetivos: </span><span className="text-ink">{c.goals}</span></div>}
                   {c.weekly_notes && c.weekly_notes.length > 0 && (
-                    <div className="space-y-1 pt-1">
+                    <div className="space-y-2">
                       {c.weekly_notes.map((w, i) => (
-                        <div key={i} className="flex items-center gap-1.5 text-xs">
+                        <div key={i} className="flex items-center gap-2 text-sm">
                           <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STRENGTH_COLOR[w.strength] || 'var(--color-muted)' }} />
                           <span className="text-ink font-medium">{w.label}</span>
                           {w.note && <span className="text-muted">— {w.note}</span>}
@@ -861,16 +906,16 @@ export default function ClientProfileModal({ client }) {
                       ))}
                     </div>
                   )}
-                  {c.training_notes && <div className="text-xs"><span className="text-muted">Entrenamiento: </span>{c.training_notes}</div>}
-                  {c.nutrition_notes && <div className="text-xs"><span className="text-muted">Nutrición: </span>{c.nutrition_notes}</div>}
-                  {c.notes && <div className="text-xs"><span className="text-muted">Notas: </span>{c.notes}</div>}
+                  {c.training_notes && <div className="text-sm"><span className="text-muted">Entrenamiento: </span><span className="text-ink">{c.training_notes}</span></div>}
+                  {c.nutrition_notes && <div className="text-sm"><span className="text-muted">Nutrición: </span><span className="text-ink">{c.nutrition_notes}</span></div>}
+                  {c.notes && <div className="text-sm"><span className="text-muted">Notas: </span><span className="text-ink">{c.notes}</span></div>}
                   <div className="flex items-center gap-2 pt-1">
-                    <button onClick={() => exportPdf(c)} className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5" style={{ background: 'transparent', color: 'var(--color-cyan)', border: '1px solid var(--color-cyan)' }}><FileDown size={13} /> Exportar PDF</button>
-                    <button onClick={() => removeCheckin(c.id, c.month)} className="text-red p-1"><Trash2 size={14} /></button>
+                    <button onClick={() => exportPdf(c)} className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5" style={{ background: 'var(--color-cyan)', color: '#00161C' }}><FileDown size={13} /> Exportar PDF</button>
+                    <button onClick={() => removeCheckin(c.id, c.month)} className="text-red p-1 opacity-60 hover:opacity-100"><Trash2 size={14} /></button>
                   </div>
                 </div>
               )}
-            </Card>
+            </div>
           ))}
         </div>
       )}
