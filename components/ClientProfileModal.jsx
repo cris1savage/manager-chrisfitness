@@ -429,7 +429,10 @@ export default function ClientProfileModal({ client }) {
         const latestWithWeight = [...sortedCheckins].reverse().find((c) => c.weight != null);
         const currentWeight = latestWithWeight?.weight ?? null;
         const firstWeight = firstWithWeight?.weight ?? null;
-        const weightDiff = currentWeight != null && firstWeight != null ? Math.round((currentWeight - firstWeight) * 10) / 10 : null;
+        // Solo mostramos diferencia si hay al menos 2 checkins distintos con peso
+        const weightDiff = currentWeight != null && firstWeight != null && firstWithWeight?.month !== latestWithWeight?.month
+          ? Math.round((currentWeight - firstWeight) * 10) / 10
+          : null;
 
         // Etiqueta de mes abreviada — fuente: checkins mensuales reales
         const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -513,12 +516,11 @@ export default function ClientProfileModal({ client }) {
               </div>
             </Card>
 
-            {/* Gráfica de peso — solo aparece si hay al menos 2 meses con peso registrado */}
-            {weightChartData.length >= 2 && (() => {
+            {/* Gráfica de peso — aparece si hay al menos 1 mes con peso registrado */}
+            {weightChartData.length >= 1 && (() => {
               const pesos = weightChartData.map((d) => d.Peso);
               const minPeso = Math.min(...pesos);
               const maxPeso = Math.max(...pesos);
-              // Si hay objetivo, el dominio lo incluye
               const domainMin = Math.floor(Math.min(minPeso, goalWeight ?? minPeso) - 2);
               const domainMax = Math.ceil(maxPeso + 1);
               return (
