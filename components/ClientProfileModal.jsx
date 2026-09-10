@@ -283,6 +283,9 @@ export default function ClientProfileModal({ client }) {
   const [exportingId, setExportingId] = useState(null);
   const [expandedMonths, setExpandedMonths] = useState({});
   const [expandedHistory, setExpandedHistory] = useState(null);
+  const [measurementsDraft, setMeasurementsDraft] = useState(null);
+  const [measurementsSaved, setMeasurementsSaved] = useState(false);
+  const [chartMeasurement, setChartMeasurement] = useState(MEASUREMENTS[0]);
 
   const currentMonth = todayISO().slice(0, 7);
   const currentWeekStart = mondayOf(todayISO());
@@ -328,9 +331,23 @@ export default function ClientProfileModal({ client }) {
     await supabase.from('client_checkins').insert({ active_client_id: client.id, month: currentMonth, phase: phaseForDate(phases, todayISO())?.name || null, weekly_notes: defaultWeeklyNotes(currentMonth) });
   };
   const currentCheckin = checkins.find((c) => c.month === currentMonth);
+  useEffect(() => {
+    setMeasurementsDraft(null);
+    setMeasurementsSaved(false);
+  }, [currentCheckin?.id]);
   const updateCheckin = async (id, patch) => {
     setCheckins((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)));
     await supabase.from('client_checkins').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+  };
+  const editMeasurement = (name, value) => {
+    setMeasurementsSaved(false);
+    setMeasurementsDraft((d) => ({ ...(d || currentCheckin?.measurements || {}), [name]: value === '' ? null : Number(value) }));
+  };
+  const saveMeasurements = async () => {
+    if (!currentCheckin) return;
+    await updateCheckin(currentCheckin.id, { measurements: measurementsDraft || currentCheckin.measurements || {} });
+    setMeasurementsSaved(true);
+    setTimeout(() => setMeasurementsSaved(false), 2500);
   };
   const updateWeekNote = (checkin, weekIdx, patch) => {
     const notes = (checkin.weekly_notes && checkin.weekly_notes.length ? checkin.weekly_notes : defaultWeeklyNotes(checkin.month)).map((w, i) => (i === weekIdx ? { ...w, ...patch } : w));
@@ -565,20 +582,55 @@ export default function ClientProfileModal({ client }) {
               </div>
 
               <div>
-                <div className="text-muted text-[10px] uppercase tracking-wide mb-1 flex items-center gap-1"><Ruler size={11} /> Mediciones (cm)</div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-muted text-[10px] uppercase tracking-wide flex items-center gap-1"><Ruler size={11} /> Mediciones (cm)</div>
+                  <button
+                    onClick={saveMeasurements}
+                    className="rounded-lg px-2.5 py-1 text-[11px] font-semibold flex items-center gap-1"
+                    style={{ background: measurementsSaved ? '#4ADE8022' : 'var(--color-cyan)', color: measurementsSaved ? 'var(--color-green)' : '#00161C', border: measurementsSaved ? '1px solid var(--color-green)' : 'none' }}
+                  >
+                    {measurementsSaved ? <><Check size={12} /> Guardado</> : 'Guardar mediciones'}
+                  </button>
+                </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {MEASUREMENTS.map((m) => (
                     <div key={m}>
                       <div className="text-muted text-[9.5px]">{m}</div>
                       <input
                         type="number"
-                        value={currentCheckin.measurements?.[m] ?? ''}
-                        onChange={(e) => updateCheckin(currentCheckin.id, { measurements: { ...(currentCheckin.measurements || {}), [m]: e.target.value ? Number(e.target.value) : null } })}
+                        value={(measurementsDraft ?? currentCheckin.measurements ?? {})[m] ?? ''}
+                        onChange={(e) => editMeasurement(m, e.target.value)}
                         className="bg-surfaceAlt border border-border text-ink rounded px-1.5 py-1 text-xs w-full outline-none focus:border-cyan"
                       />
                     </div>
                   ))}
                 </div>
+              </div>
+
+              <div className="rounded-lg p-3" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                  <div className="text-muted text-[10px] uppercase tracking-wide">Progreso de la medida</div>
+                  <select value={chartMeasurement} onChange={(e) => setChartMeasurement(e.target.value)} className="bg-surface border border-border rounded px-2 py-1 text-[11px] text-ink outline-none">
+                    {MEASUREMENTS.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                {(() => {
+                  const series = [...checkins].filter((c) => c.measurements?.[chartMeasurement] != null).sort((a, b) => a.month.localeCompare(b.month)).map((c) => ({ label: fmtDate(`${c.month}-01`), Valor: Number(c.measurements[chartMeasurement]) }));
+                  if (series.length < 2) return <div className="text-muted text-[11px] text-center py-4">Todavía no hay suficientes meses con esta medida para comparar.</div>;
+                  return (
+                    <div className="w-full h-[140px]">
+                      <ResponsiveContainer>
+                        <LineChart data={series}>
+                          <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                          <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={9} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} />
+                          <YAxis stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} width={30} domain={['dataMin - 1', 'dataMax + 1']} />
+                          <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--color-ink)' }} />
+                          <Line type="monotone" dataKey="Valor" stroke="var(--color-amber)" strokeWidth={2.5} dot={{ r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  );
+                })()}
               </div>
 
               <input value={currentCheckin.notes || ''} onChange={(e) => updateCheckin(currentCheckin.id, { notes: e.target.value })} placeholder="Notas de la videollamada..." className="bg-surfaceAlt border border-border text-ink rounded-lg px-2.5 py-1.5 text-xs w-full outline-none focus:border-cyan" />

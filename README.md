@@ -5,6 +5,21 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Aclarado el lío de versiones + mediciones con botón de guardar y su propia gráfica
+
+- **Encontrado el motivo real de por qué nunca cuadraba del todo**: varias
+  capturas que habías guardado de referencia eran de maquetas antiguas
+  (de antes de que existiera la pestaña Timeline) — comparar contra eso
+  no podía salir bien nunca. Confirmado y aclarado contigo.
+- **Mediciones — ahora con botón de guardar de verdad**: antes se
+  guardaban solas al escribir, sin ningún aviso de que había funcionado.
+  Ahora hay un botón "Guardar mediciones" que confirma con un
+  "✓ Guardado" cuando se ha guardado, para que no tengas que fiarte a
+  ciegas.
+- **Nueva gráfica para comparar cualquier medida en el tiempo** (cuello,
+  cintura, pecho...), igual que la de peso — con un selector para elegir
+  cuál quieres ver, justo debajo de las mediciones en Mes actual.
+
 ## Dos fallos reales confirmados y corregidos (no solo "ya está")
 
 Me pediste que comprobara de verdad, línea por línea, en vez de asumir
