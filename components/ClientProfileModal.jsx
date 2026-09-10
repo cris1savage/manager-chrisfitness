@@ -286,6 +286,7 @@ export default function ClientProfileModal({ client }) {
   const [measurementsDraft, setMeasurementsDraft] = useState(null);
   const [measurementsSaved, setMeasurementsSaved] = useState(false);
   const [chartMeasurement, setChartMeasurement] = useState(MEASUREMENTS[0]);
+  const [chartRange, setChartRange] = useState('TODO');
 
   const currentMonth = todayISO().slice(0, 7);
   const currentWeekStart = mondayOf(todayISO());
@@ -425,59 +426,77 @@ export default function ClientProfileModal({ client }) {
 
       {!loading && tab === 'resumen' && (() => {
         const sortedCheckins = [...checkins].sort((a, b) => a.month.localeCompare(b.month));
-        const firstWithWeight = sortedCheckins.find((c) => c.weight != null);
-        const latestWithWeight = [...sortedCheckins].reverse().find((c) => c.weight != null);
-        const currentWeight = latestWithWeight?.weight ?? null;
-        const firstWeight = firstWithWeight?.weight ?? null;
-        // Solo mostramos diferencia si hay al menos 2 checkins distintos con peso
-        const weightDiff = currentWeight != null && firstWeight != null && firstWithWeight?.month !== latestWithWeight?.month
+
+        // Peso más reciente: primero checkin mensual más reciente, si no el real_weight más reciente del timeline
+        const latestMonthlyWeight = [...sortedCheckins].reverse().find((c) => c.weight != null);
+        const latestWeeklyWeight = [...weeks].reverse().find((w) => w.real_weight != null);
+        const currentWeight = latestMonthlyWeight?.weight ?? latestWeeklyWeight?.real_weight ?? null;
+
+        // Peso inicial: primer checkin mensual con peso, o primer real_weight del timeline
+        const firstMonthlyWeight = sortedCheckins.find((c) => c.weight != null);
+        const firstWeeklyWeight = weeks.find((w) => w.real_weight != null);
+        const firstWeight = firstMonthlyWeight?.weight ?? firstWeeklyWeight?.real_weight ?? null;
+
+        // Diferencia desde inicio — solo si hay al menos 2 puntos distintos
+        const hasMultiplePoints = (latestMonthlyWeight && firstMonthlyWeight && latestMonthlyWeight.month !== firstMonthlyWeight.month)
+          || (!latestMonthlyWeight && latestWeeklyWeight && firstWeeklyWeight && latestWeeklyWeight.id !== firstWeeklyWeight.id)
+          || (latestMonthlyWeight && firstWeeklyWeight);
+        const weightDiff = currentWeight != null && firstWeight != null && hasMultiplePoints
           ? Math.round((currentWeight - firstWeight) * 10) / 10
           : null;
 
-        // Fuente de datos del gráfico:
-        // Si hay 2+ checkins mensuales con peso → usamos esos (etiqueta mes)
-        // Si no → usamos las semanas del timeline que tengan real_weight registrado
+        // Kcal de la semana actual desde el timeline
+        const thisWeek = weeks.find((w) => w.week_start === currentWeekStart);
+        const kcalOn = thisWeek?.kcal ?? thisWeek?.kcal_on ?? null;
+        const kcalOff = thisWeek?.kcal_off ?? null;
+
+        // ---- Gráfica con filtro de tiempo ----
         const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
         const monthlyPoints = sortedCheckins.filter((c) => c.weight != null);
+        const weeklyRealPoints = weeks.filter((w) => w.real_weight != null);
 
-        let weightChartData = [];
-        if (monthlyPoints.length >= 2) {
-          weightChartData = monthlyPoints.map((c) => {
-            const [, mm] = c.month.split('-');
-            return { label: MONTH_SHORT[Number(mm) - 1], Peso: Number(c.weight) };
-          });
-        } else {
-          // Usar semanas del timeline con real_weight registrado
-          const weeklyPoints = weeks
-            .filter((w) => w.real_weight != null)
-            .map((w) => ({
-              label: fmtDate(w.week_start),
-              Peso: Number(w.real_weight),
-            }));
-          weightChartData = weeklyPoints;
-        }
+        // Usamos mensuales si hay 2+, si no semanales
+        const useMonthly = monthlyPoints.length >= 2;
+        const allPoints = useMonthly
+          ? monthlyPoints.map((c) => { const [,mm] = c.month.split('-'); return { label: MONTH_SHORT[Number(mm)-1], Peso: Number(c.weight), _date: c.month }; })
+          : weeklyRealPoints.map((w) => ({ label: fmtDate(w.week_start), Peso: Number(w.real_weight), _date: w.week_start }));
 
-        // Objetivo: cogemos el target_weight de la última semana de la fase actual
-        // Si no hay timeline, intentamos parsear un número del texto del objetivo de la fase
+        // Estado del filtro — lo definimos fuera del IIFE para que sea state
+        // Como estamos dentro de un IIFE en el render, usamos una variable local que se lee del state
+        const rangeMap = { '1S': 1, '1M': 4, '3M': 13, '6M': 26, '12M': 52 };
+        const filteredPoints = chartRange === 'TODO'
+          ? allPoints
+          : (() => {
+              const weeksBack = rangeMap[chartRange] || 999;
+              if (useMonthly) {
+                const monthsBack = Math.ceil(weeksBack / 4);
+                return allPoints.slice(-monthsBack);
+              }
+              return allPoints.slice(-weeksBack);
+            })();
+
+        // Objetivo: extraer número del texto del objetivo de fase, o último target del timeline de la fase
         let goalWeight = null;
         if (currentPhaseObj) {
-          // Buscar "XXkg" o "XX kg" en el texto del objetivo de la fase
-          const match = (currentPhaseObj.goal || '').match(/(\d{2,3})\s*kg/i);
-          if (match) goalWeight = Number(match[1]);
+          const match = (currentPhaseObj.goal || '').match(/(\d{2,3}(?:[.,]\d)?)\s*kg/i);
+          if (match) goalWeight = Number(match[1].replace(',', '.'));
         }
-        // Fallback: el menor target_weight del timeline (el final de la fase)
         if (goalWeight == null && weeks.length > 0) {
-          const phaseWeeks = phases.length > 0
-            ? weeks.filter((w) => phaseForDate(phases, w.week_start)?.name === currentPhaseName)
-            : weeks;
-          const lastPhaseWeek = [...phaseWeeks].reverse().find((w) => w.target_weight != null);
-          if (lastPhaseWeek) goalWeight = Math.round(lastPhaseWeek.target_weight * 10) / 10;
+          const phaseWeeks = weeks.filter((w) => phaseForDate(phases, w.week_start)?.name === currentPhaseName);
+          const last = [...phaseWeeks].reverse().find((w) => w.target_weight != null);
+          if (last) goalWeight = Math.round(last.target_weight * 10) / 10;
         }
+
+        const pesos = filteredPoints.map((d) => d.Peso);
+        const minPeso = pesos.length ? Math.min(...pesos) : 70;
+        const maxPeso = pesos.length ? Math.max(...pesos) : 90;
+        const domainMin = Math.floor(Math.min(minPeso, goalWeight ?? minPeso) - 2);
+        const domainMax = Math.ceil(maxPeso + 1);
 
         return (
           <div className="space-y-3">
-            {/* 3 cards principales */}
-            <div className="grid grid-cols-3 gap-2">
+            {/* 4 cards: Peso / Diferencia / Fase / Kcal */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div className="rounded-xl p-4 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
                 <span className="text-muted text-[10px] uppercase tracking-widest">Peso actual</span>
                 <span className="text-cyan text-2xl font-bold leading-tight">{currentWeight != null ? `${currentWeight} kg` : '—'}</span>
@@ -493,6 +512,21 @@ export default function ClientProfileModal({ client }) {
                 <span className="text-2xl font-bold leading-tight" style={{ color: currentPhaseName ? phaseColor(phases, currentPhaseName) : 'var(--color-muted)' }}>
                   {currentPhaseName || '—'}
                 </span>
+              </div>
+              <div className="rounded-xl p-4 flex flex-col gap-1" style={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)' }}>
+                <span className="text-muted text-[10px] uppercase tracking-widest">Kcal semana</span>
+                {kcalOff != null ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-ink text-sm font-bold leading-tight">
+                      <span className="text-green">{kcalOn ?? '—'}</span> <span className="text-muted text-xs font-normal">on</span>
+                    </span>
+                    <span className="text-ink text-sm font-bold leading-tight">
+                      <span className="text-amber">{kcalOff}</span> <span className="text-muted text-xs font-normal">off</span>
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-ink text-2xl font-bold leading-tight">{kcalOn ?? '—'}</span>
+                )}
               </div>
             </div>
 
@@ -532,72 +566,70 @@ export default function ClientProfileModal({ client }) {
               </div>
             </Card>
 
-            {/* Gráfica de peso — aparece si hay al menos 1 mes con peso registrado */}
-            {weightChartData.length >= 1 && (() => {
-              const pesos = weightChartData.map((d) => d.Peso);
-              const minPeso = Math.min(...pesos);
-              const maxPeso = Math.max(...pesos);
-              const domainMin = Math.floor(Math.min(minPeso, goalWeight ?? minPeso) - 2);
-              const domainMax = Math.ceil(maxPeso + 1);
-              return (
-                <div className="rounded-xl p-4" style={{ background: '#0D1117', border: '1px solid var(--color-border)' }}>
-                  <div className="flex items-center gap-1.5 text-muted text-[11px] font-semibold uppercase tracking-widest mb-4"><TrendingDown size={12} /> Progreso de peso</div>
-                  <div className="w-full h-[210px]">
-                    <ResponsiveContainer>
-                      <AreaChart data={weightChartData} margin={{ top: 5, right: 12, left: -10, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id={`wfill-${client.id}`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#5ECCFA" stopOpacity={0.22} />
-                            <stop offset="85%" stopColor="#5ECCFA" stopOpacity={0.03} />
-                            <stop offset="100%" stopColor="#5ECCFA" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid stroke="#1C2226" strokeDasharray="0" vertical={false} />
-                        <XAxis
-                          dataKey="label"
-                          tick={{ fill: '#5A6870', fontSize: 11 }}
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <YAxis
-                          tick={{ fill: '#5A6870', fontSize: 11 }}
-                          tickLine={false}
-                          axisLine={false}
-                          domain={[domainMin, domainMax]}
-                          width={28}
-                        />
-                        <Tooltip
-                          contentStyle={{ background: '#0D1117', border: '1px solid #1C2226', borderRadius: 8, fontSize: 12 }}
-                          labelStyle={{ color: '#C8D5DA' }}
-                          itemStyle={{ color: '#5ECCFA' }}
-                          formatter={(v) => [`${v} kg`, 'Peso']}
-                        />
-                        {goalWeight != null && (
-                          <ReferenceLine
-                            y={goalWeight}
-                            stroke="#4ADE80"
-                            strokeDasharray="6 4"
-                            strokeWidth={1.5}
-                            label={{ value: `Objetivo ${goalWeight}kg`, position: 'insideBottomRight', fill: '#4ADE80', fontSize: 10, dy: -6 }}
-                          />
-                        )}
-                        <Area
-                          type="monotone"
-                          dataKey="Peso"
-                          stroke="#5ECCFA"
-                          strokeWidth={2.5}
-                          fill={`url(#wfill-${client.id})`}
-                          dot={{ r: 4, fill: '#5ECCFA', stroke: '#0D1117', strokeWidth: 2 }}
-                          activeDot={{ r: 5, fill: '#5ECCFA', stroke: '#0D1117', strokeWidth: 2 }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+            {/* Gráfica de peso con filtro de rango */}
+            {allPoints.length >= 1 && (
+              <div className="rounded-xl p-4" style={{ background: '#0D1117', border: '1px solid var(--color-border)' }}>
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5 text-muted text-[11px] font-semibold uppercase tracking-widest"><TrendingDown size={12} /> Progreso de peso</div>
+                  <div className="flex gap-1">
+                    {['1S','1M','3M','6M','12M','TODO'].map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setChartRange(r)}
+                        className="px-2.5 py-1 rounded-md text-[10px] font-bold"
+                        style={{
+                          background: chartRange === r ? 'var(--color-cyan)' : 'transparent',
+                          color: chartRange === r ? '#00161C' : 'var(--color-muted)',
+                          border: `1px solid ${chartRange === r ? 'var(--color-cyan)' : '#1C2226'}`,
+                        }}
+                      >{r}</button>
+                    ))}
                   </div>
                 </div>
-              );
-            })()}
+                <div className="w-full h-[210px]">
+                  <ResponsiveContainer>
+                    <AreaChart data={filteredPoints} margin={{ top: 5, right: 12, left: -10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id={`wfill-${client.id}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#5ECCFA" stopOpacity={0.22} />
+                          <stop offset="85%" stopColor="#5ECCFA" stopOpacity={0.03} />
+                          <stop offset="100%" stopColor="#5ECCFA" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="#1C2226" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fill: '#5A6870', fontSize: 11 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: '#5A6870', fontSize: 11 }} tickLine={false} axisLine={false} domain={[domainMin, domainMax]} width={28} />
+                      <Tooltip
+                        contentStyle={{ background: '#0D1117', border: '1px solid #1C2226', borderRadius: 8, fontSize: 12 }}
+                        labelStyle={{ color: '#C8D5DA' }}
+                        itemStyle={{ color: '#5ECCFA' }}
+                        formatter={(v) => [`${v} kg`, 'Peso']}
+                      />
+                      {goalWeight != null && (
+                        <ReferenceLine
+                          y={goalWeight}
+                          stroke="#4ADE80"
+                          strokeDasharray="6 4"
+                          strokeWidth={1.5}
+                          label={{ value: `Objetivo ${goalWeight}kg`, position: 'insideBottomRight', fill: '#4ADE80', fontSize: 10, dy: -6 }}
+                        />
+                      )}
+                      <Area
+                        type="monotone"
+                        dataKey="Peso"
+                        stroke="#5ECCFA"
+                        strokeWidth={2.5}
+                        fill={`url(#wfill-${client.id})`}
+                        dot={{ r: 4, fill: '#5ECCFA', stroke: '#0D1117', strokeWidth: 2 }}
+                        activeDot={{ r: 5, fill: '#5ECCFA', stroke: '#0D1117', strokeWidth: 2 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
 
-            {/* Editor de fases — al final, no al principio */}
+            {/* Editor de fases */}
             <Card style={{ borderColor: 'var(--color-cyan)' }}>
               <div className="flex items-center gap-1.5 text-cyan text-[11px] font-bold mb-2"><Flag size={13} /> FASE ACTUAL: {(currentPhaseName || 'sin definir').toUpperCase()}</div>
               <div className="space-y-2">
@@ -614,12 +646,7 @@ export default function ClientProfileModal({ client }) {
                       <span className="text-muted text-[10px]">%/sem</span>
                     </div>
                     <button onClick={() => removePhase(i)} className="text-red ml-auto"><Trash2 size={13} /></button>
-                    <input
-                      value={p.goal || ''}
-                      onChange={(e) => updatePhase(i, { goal: e.target.value })}
-                      placeholder="Objetivo de esta fase..."
-                      className="bg-surface border border-border rounded px-2 py-1 text-[11px] text-ink w-full mt-1"
-                    />
+                    <input value={p.goal || ''} onChange={(e) => updatePhase(i, { goal: e.target.value })} placeholder="Objetivo de esta fase..." className="bg-surface border border-border rounded px-2 py-1 text-[11px] text-ink w-full mt-1" />
                   </div>
                 ))}
                 <button onClick={addPhase} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-muted border border-border flex items-center gap-1.5"><Plus size={13} /> Añadir fase</button>
@@ -861,11 +888,12 @@ export default function ClientProfileModal({ client }) {
               {/* Tabla plana semana a semana */}
               <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
                 {/* Cabecera */}
-                <div className="grid grid-cols-[40px_90px_110px_80px_90px_90px_60px] px-4 py-2.5 text-muted text-[10px] uppercase tracking-widest" style={{ background: 'var(--color-surfaceAlt)' }}>
+                <div className="grid grid-cols-[40px_90px_110px_72px_72px_90px_90px_60px] px-4 py-2.5 text-muted text-[10px] uppercase tracking-widest" style={{ background: 'var(--color-surfaceAlt)' }}>
                   <div>Sem.</div>
                   <div>Fecha</div>
                   <div>Fase</div>
-                  <div>Kcal</div>
+                  <div>Kcal ON</div>
+                  <div>Kcal OFF</div>
                   <div>Objetivo</div>
                   <div>Real</div>
                   <div></div>
@@ -875,10 +903,13 @@ export default function ClientProfileModal({ client }) {
                   const ph = phaseForDate(phases, w.week_start);
                   const diff = w.real_weight != null ? Math.round((w.real_weight - w.target_weight) * 10) / 10 : null;
                   const isThisWeek = w.week_start === currentWeekStart;
+                  // kcal_on es el campo principal (antes "kcal"), kcal_off es nuevo
+                  const kcalOnVal = w.kcal_on ?? w.kcal ?? '';
+                  const kcalOffVal = w.kcal_off ?? '';
                   return (
                     <div
                       key={w.id}
-                      className="grid grid-cols-[40px_90px_110px_80px_90px_90px_60px] px-4 py-2 items-center text-sm"
+                      className="grid grid-cols-[40px_90px_110px_72px_72px_90px_90px_60px] px-4 py-2 items-center text-sm"
                       style={{
                         background: isThisWeek ? '#5ECCFA08' : idx % 2 === 0 ? 'var(--color-bg)' : 'var(--color-surface)',
                         borderTop: '1px solid var(--color-border)',
@@ -892,9 +923,17 @@ export default function ClientProfileModal({ client }) {
                       </span>
                       <input
                         type="number"
-                        value={w.kcal ?? ''}
-                        onChange={(e) => editWeekField(w.id, { kcal: e.target.value ? Number(e.target.value) : null })}
-                        className="bg-surface border border-border rounded-lg px-2 py-1 text-xs w-16 outline-none focus:border-cyan text-ink"
+                        value={kcalOnVal}
+                        onChange={(e) => editWeekField(w.id, { kcal_on: e.target.value ? Number(e.target.value) : null, kcal: e.target.value ? Number(e.target.value) : null })}
+                        placeholder="—"
+                        className="bg-surface border border-border rounded-lg px-2 py-1 text-xs w-14 outline-none focus:border-cyan text-ink"
+                      />
+                      <input
+                        type="number"
+                        value={kcalOffVal}
+                        onChange={(e) => editWeekField(w.id, { kcal_off: e.target.value ? Number(e.target.value) : null })}
+                        placeholder="—"
+                        className="bg-surface border border-border rounded-lg px-2 py-1 text-xs w-14 outline-none focus:border-amber text-ink"
                       />
                       <input
                         type="number" step="0.1"
