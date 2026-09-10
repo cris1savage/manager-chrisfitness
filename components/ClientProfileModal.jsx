@@ -434,12 +434,28 @@ export default function ClientProfileModal({ client }) {
           ? Math.round((currentWeight - firstWeight) * 10) / 10
           : null;
 
-        // Etiqueta de mes abreviada — fuente: checkins mensuales reales
+        // Fuente de datos del gráfico:
+        // Si hay 2+ checkins mensuales con peso → usamos esos (etiqueta mes)
+        // Si no → usamos las semanas del timeline que tengan real_weight registrado
         const MONTH_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-        const weightChartData = sortedCheckins.filter((c) => c.weight != null).map((c) => {
-          const [, mm] = c.month.split('-');
-          return { label: MONTH_SHORT[Number(mm) - 1], Peso: Number(c.weight) };
-        });
+        const monthlyPoints = sortedCheckins.filter((c) => c.weight != null);
+
+        let weightChartData = [];
+        if (monthlyPoints.length >= 2) {
+          weightChartData = monthlyPoints.map((c) => {
+            const [, mm] = c.month.split('-');
+            return { label: MONTH_SHORT[Number(mm) - 1], Peso: Number(c.weight) };
+          });
+        } else {
+          // Usar semanas del timeline con real_weight registrado
+          const weeklyPoints = weeks
+            .filter((w) => w.real_weight != null)
+            .map((w) => ({
+              label: fmtDate(w.week_start),
+              Peso: Number(w.real_weight),
+            }));
+          weightChartData = weeklyPoints;
+        }
 
         // Objetivo: cogemos el target_weight de la última semana de la fase actual
         // Si no hay timeline, intentamos parsear un número del texto del objetivo de la fase
