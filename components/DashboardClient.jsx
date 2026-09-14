@@ -1,0 +1,496 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Megaphone, Users, Video, DollarSign, Check, Target, UserCheck, CheckSquare,
+  TrendingUp, TrendingDown, Minus, Activity, Percent, Plus, Trash2, ListChecks, Pencil, X, Flame,
+} from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
+} from 'recharts';
+import { createClient } from '@/lib/supabase/client';
+import { Card, StatCard, Ring } from '@/components/ui';
+import { STAGES, todayISO, monthKey, eur, GOAL_METRICS, dateToISO } from '@/lib/config';
+import { useCategories } from '@/components/CategoriesProvider';
+import ActivityFeed from '@/components/ActivityFeed';
+
+export default function DashboardClient({ profile }) {
+  const supabase = useMemo(() => createClient(), []);
+  const { map: categoriesMap } = useCategories();
+  const [data, setData] = useState(null);
+  const [meId, setMeId] = useState(null);
+  const [goals, setGoals] = useState([]);
+  const [addingGoal, setAddingGoal] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [goalForm, setGoalForm] = useState({ title: '', metric: 'ventas', period: 'mensual', target: '' });
+
+  const load = async () => {
+    const [adSpend, contacts, calendarEntries, activeClients, tasks, goalsRows, videos] = await Promise.all([
+      supabase.from('ad_spend').select('*'),
+      supabase.from('contacts').select('*'),
+      supabase.from('calendar_entries').select('*'),
+      supabase.from('active_clients').select('*'),
+      supabase.from('tasks').select('*'),
+      supabase.from('goals').select('*').order('created_at', { ascending: true }),
+      supabase.from('videos').select('*'),
+    ]);
+    setData({
+      adSpend: adSpend.data || [],
+      contacts: contacts.data || [],
+      calendarEntries: calendarEntries.data || [],
+      activeClients: activeClients.data || [],
+      tasks: tasks.data || [],
+      videos: videos.data || [],
+    });
+    setGoals(goalsRows.data || []);
+  };
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMeId(data?.user?.id || null));
+    load();
+    const channel = supabase
+      .channel('dashboard-changes')
+      .on('postgres_changes', { event: '*', schema: 'public' }, load)
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleEntry = async (entry) => {
+    const nextStatus = entry.status === 'hecho' ? 'pendiente' : 'hecho';
+    setData((d) => ({ ...d, calendarEntries: d.calendarEntries.map((e) => (e.id === entry.id ? { ...e, status: nextStatus } : e)) }));
+    await supabase.from('calendar_entries').update({ status: nextStatus }).eq('id', entry.id);
+  };
+
+  const toggleTask = async (t) => {
+    const nextDone = !t.done;
+    await supabase.from('tasks').update({ done: nextDone, completed_at: nextDone ? new Date().toISOString() : null }).eq('id', t.id);
+    load();
+  };
+
+  const addGoal = async () => {
+    if (!goalForm.title.trim()) return;
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase.from('goals').insert({ ...goalForm, target: Number(goalForm.target) || 0, created_by: userData.user.id });
+    setGoalForm({ title: '', metric: 'ventas', period: 'mensual', target: '' });
+    setAddingGoal(false);
+    load();
+  };
+
+  const updateGoalManual = async (id, value) => {
+    setGoals((g) => g.map((x) => (x.id === id ? { ...x, manual_current: value } : x)));
+    await supabase.from('goals').update({ manual_current: Number(value) || 0 }).eq('id', id);
+  };
+
+  const startEditGoal = (g) => {
+    setEditingGoalId(g.id);
+    setEditForm({ title: g.title, metric: g.metric, period: g.period, target: g.target });
+  };
+
+  const saveEditGoal = async () => {
+    await supabase.from('goals').update({ ...editForm, target: Number(editForm.target) || 0 }).eq('id', editingGoalId);
+    setEditingGoalId(null);
+    load();
+  };
+
+  const removeGoal = async (id) => {
+    setGoals((g) => g.filter((x) => x.id !== id));
+    await supabase.from('goals').delete().eq('id', id);
+  };
+
+  if (!data) return <div className="text-muted py-12 text-center">Cargando panel…</div>;
+
+  const thisMonth = monthKey(todayISO());
+  const startOfWeekISO = (() => {
+    const d = new Date();
+    const day = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - day);
+    return dateToISO(d);
+  })();
+
+  const inPeriod = (dateStr, period) => {
+    if (!dateStr) return false;
+    if (period === 'semanal') return dateStr.slice(0, 10) >= startOfWeekISO;
+    return monthKey(dateStr) === thisMonth;
+  };
+
+  // --- Contactos / embudo ---
+  const stageCountsMonth = {};
+  STAGES.forEach((s) => (stageCountsMonth[s] = 0));
+  data.contacts.forEach((c) => {
+    if (monthKey(c.stage_updated_at) === thisMonth) stageCountsMonth[c.stage] = (stageCountsMonth[c.stage] || 0) + 1;
+  });
+  const leadsM = data.contacts.filter((c) => monthKey(c.created_at) === thisMonth).length;
+  const clientsThisMonth = data.contacts.filter((c) => c.stage === 'Cliente' && monthKey(c.stage_updated_at) === thisMonth);
+  const salesM = clientsThisMonth.length;
+  const revenueM = clientsThisMonth.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  const callsM = data.contacts.filter((c) => ['Realizada', 'Cliente', 'Perdido'].includes(c.stage) && monthKey(c.stage_updated_at) === thisMonth).length;
+
+  const funnel = STAGES.filter((s) => s !== 'Perdido').map((s, i) => ({
+    label: s,
+    value: stageCountsMonth[s] || 0,
+    color: ['var(--color-cyan)', '#7FD9F7', 'var(--color-amber)', 'var(--color-green)', 'var(--color-green)'][i] || 'var(--color-cyan)',
+  }));
+  const maxFunnel = Math.max(1, ...funnel.map((f) => f.value));
+
+  // --- Anuncios (cálculo acumulado) ---
+  const daysBetween = (a, b) => Math.max(0, Math.floor((new Date(b) - new Date(a)) / 86400000));
+  const spendThisMonth = data.adSpend.reduce((sum, ad) => {
+    const from = ad.start_date > `${thisMonth}-01` ? ad.start_date : `${thisMonth}-01`;
+    const to = ad.status === 'Pausado' && ad.paused_at ? ad.paused_at : todayISO();
+    if (to < from || monthKey(ad.start_date) > thisMonth) return sum;
+    const days = daysBetween(from, to) + 1;
+    return sum + Math.max(0, days) * (Number(ad.daily_amount) || 0);
+  }, 0);
+
+  const today = todayISO();
+  const tomorrow = dateToISO(new Date(Date.now() + 86400000));
+  const todayEntries = data.calendarEntries.filter((e) => e.date === today);
+  const tomorrowEntries = data.calendarEntries.filter((e) => e.date === tomorrow);
+
+  // Racha de días subiendo contenido seguidos, + total acumulado histórico (nunca se reinicia)
+  // Cuenta tanto lo marcado "hecho" en el Calendario como los Vídeos marcados subidos
+  // (que ya no pasan por el Calendario, pero siguen sumando aquí). Las entradas del
+  // Calendario que vienen de un guion (script_id) se excluyen aquí para no contarlas
+  // dos veces, ya que esas mismas ya se migraron a la tabla de Vídeos.
+  const doneDates = new Set(data.calendarEntries.filter((e) => e.status === 'hecho' && !e.script_id).map((e) => e.date));
+  (data.videos || []).forEach((v) => { if (v.uploaded && v.uploaded_at) doneDates.add(v.uploaded_at.slice(0, 10)); });
+  let streak = 0;
+  {
+    const cursor = new Date();
+    if (!doneDates.has(dateToISO(cursor))) cursor.setDate(cursor.getDate() - 1);
+    while (doneDates.has(dateToISO(cursor))) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+  }
+  const totalCompletedEver = data.calendarEntries.filter((e) => e.status === 'hecho' && !e.script_id).length + (data.videos || []).filter((v) => v.uploaded).length;
+  const streakColor = streak >= 7 ? 'var(--color-green)' : streak >= 3 ? 'var(--color-amber)' : 'var(--color-cyan)';
+
+  const in7 = dateToISO(new Date(Date.now() + 7 * 86400000));
+  const renewalsSoon = (data.activeClients || []).filter((c) => c.status === 'Activo' && c.renewal_date && c.renewal_date <= in7);
+  const myTasks = meId ? (data.tasks || []).filter((t) => t.assigned_to === meId) : (data.tasks || []);
+  const pendingTasks = myTasks.filter((t) => !t.done).sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''));
+  const doneThisWeek = myTasks.filter((t) => t.done && t.completed_at && t.completed_at.slice(0, 10) >= startOfWeekISO).length;
+  const dueThisWeek = myTasks.filter((t) => t.due_date && t.due_date >= startOfWeekISO);
+  const taskCompletionPct = dueThisWeek.length ? dueThisWeek.filter((t) => t.done).length / dueThisWeek.length : (myTasks.length ? myTasks.filter((t) => t.done).length / myTasks.length : 0);
+
+  const last14 = Array.from({ length: 14 }, (_, i) => {
+    const idx = 13 - i;
+    const d = dateToISO(new Date(Date.now() - idx * 86400000));
+    const label = new Date(d + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+    return {
+      label,
+      leads: data.contacts.filter((r) => r.created_at.slice(0, 10) === d).length,
+      ventas: data.contacts.filter((r) => r.stage === 'Cliente' && r.stage_updated_at.slice(0, 10) === d).length,
+    };
+  });
+
+  const costPerLead = leadsM > 0 ? spendThisMonth / leadsM : null;
+  const costPerSale = salesM > 0 ? spendThisMonth / salesM : null;
+  const roiPct = spendThisMonth > 0 ? ((revenueM - spendThisMonth) / spendThisMonth) * 100 : null;
+
+  const adsWithPerfThisMonth = data.adSpend.filter((ad) => monthKey(ad.start_date) === thisMonth && (ad.impressions || ad.ctr));
+  const totalImpressions = adsWithPerfThisMonth.reduce((s, ad) => s + (Number(ad.impressions) || 0), 0);
+  const avgCtr = adsWithPerfThisMonth.filter((ad) => ad.ctr).length
+    ? (adsWithPerfThisMonth.filter((ad) => ad.ctr).reduce((s, ad) => s + Number(ad.ctr), 0) / adsWithPerfThisMonth.filter((ad) => ad.ctr).length).toFixed(2)
+    : null;
+
+  const activeClientsCount = (data.activeClients || []).filter((c) => c.status === 'Activo').length;
+
+  const goalProgress = (g) => {
+    switch (g.metric) {
+      case 'ventas': return { current: salesM, target: g.target };
+      case 'clientes_nuevos': return { current: salesM, target: g.target };
+      case 'facturacion': return { current: revenueM, target: g.target };
+      case 'inversion_ads': return { current: spendThisMonth, target: g.target };
+      case 'clientes_activos_total': return { current: activeClientsCount, target: g.target };
+      default: return { current: Number(g.manual_current) || 0, target: g.target };
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h1 className="font-display text-ink text-[26px] tracking-wide">HOLA, {(profile?.display_name || '').toUpperCase()}</h1>
+        <div className="text-muted text-sm">
+          Chris Fitness · Entrenador Online · {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </div>
+      </div>
+
+      {/* Widget del día */}
+      <Card style={{ border: '1px solid var(--color-cyan)', boxShadow: '0 0 24px -8px #5ECCFA55' }}>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-2 h-2 rounded-full bg-cyan" style={{ boxShadow: '0 0 8px 2px var(--color-cyan)' }} />
+          <span className="text-cyan font-extrabold text-xs tracking-widest">HOY TIENES QUE SUBIR</span>
+        </div>
+        {todayEntries.length === 0 ? (
+          <div className="text-muted text-sm">No hay nada programado para hoy en el calendario de contenido.</div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {todayEntries.map((e) => {
+              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: 'var(--color-muted)' };
+              const done = e.status === 'hecho';
+              return (
+                <div key={e.id} className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: meta.color }} />
+                  <button onClick={() => toggleEntry(e)} className={`text-sm font-semibold text-left ${done ? 'line-through opacity-50' : ''}`} style={{ color: 'var(--color-ink)' }}>
+                    {meta.label}: {e.title}
+                  </button>
+                  {done && <Check size={13} color="var(--color-green)" />}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {tomorrowEntries.length > 0 && (
+          <div className="text-muted text-[11.5px] mt-2.5 border-t border-border pt-2">Mañana: {tomorrowEntries.map((e) => e.title).join(' · ')}</div>
+        )}
+      </Card>
+
+      {/* Racha de contenido */}
+      <Card className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="rounded-full p-2.5" style={{ background: `${streakColor}1A` }}>
+            <Flame size={22} color={streakColor} />
+          </div>
+          <div>
+            <div className="text-ink font-display text-xl leading-none">
+              {streak} {streak === 1 ? 'día seguido' : 'días seguidos'}
+            </div>
+            <div className="text-muted text-[11px] mt-1">
+              {streak === 0 ? 'Sube algo hoy para empezar la racha' : '¡Sigue así! Que no se corte hoy'}
+            </div>
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-ink font-display text-xl leading-none">{totalCompletedEver}</div>
+          <div className="text-muted text-[11px] mt-1">subidos en total</div>
+        </div>
+      </Card>
+
+      {/* Widget de tareas */}
+      {pendingTasks.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-muted text-[11.5px] uppercase tracking-wide flex items-center gap-1.5"><ListChecks size={13} /> Tus tareas pendientes</div>
+            <span className="text-ink text-xs font-bold">{pendingTasks.length}</span>
+          </div>
+          <div className="space-y-1.5">
+            {pendingTasks.slice(0, 4).map((t) => {
+              const overdue = t.due_date && t.due_date < todayISO();
+              return (
+                <div key={t.id} className="flex items-center gap-2">
+                  <button onClick={() => toggleTask(t)} className="shrink-0">
+                    <div className="w-3.5 h-3.5 rounded border border-border" />
+                  </button>
+                  <span className="text-ink text-sm truncate flex-1">{t.title}</span>
+                  {overdue && <span className="text-red text-[10px] font-semibold shrink-0">ATRASADA</span>}
+                </div>
+              );
+            })}
+            {pendingTasks.length > 4 && <div className="text-muted text-xs pt-1">+{pendingTasks.length - 4} más — ve a Tareas</div>}
+          </div>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard icon={Megaphone} label="Inversión anuncios (mes)" value={eur(spendThisMonth)} color="var(--color-cyan)" />
+        <StatCard icon={Users} label="Contactos nuevos (mes)" value={leadsM} color="#7FD9F7" />
+        <StatCard icon={Video} label="Llamadas realizadas (mes)" value={callsM} color="var(--color-amber)" />
+        <StatCard icon={DollarSign} label="Ingresos (mes)" value={eur(revenueM)} color="var(--color-green)" />
+      </div>
+
+      {(renewalsSoon.length > 0 || pendingTasks.length > 0) && (
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard icon={UserCheck} label="Renovaciones ≤ 7 días" value={renewalsSoon.length} color={renewalsSoon.length ? 'var(--color-red)' : 'var(--color-muted)'} />
+          <StatCard icon={CheckSquare} label="Tus tareas pendientes" value={pendingTasks.length} color="var(--color-amber)" />
+        </div>
+      )}
+
+      <Card>
+        <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3 flex items-center gap-1.5"><Percent size={13} /> Rentabilidad · este mes</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <StatCard icon={DollarSign} label="Coste por lead" value={costPerLead !== null ? eur(costPerLead) : '—'} color="var(--color-cyan)" />
+          <StatCard icon={DollarSign} label="Coste por venta" value={costPerSale !== null ? eur(costPerSale) : '—'} color="var(--color-amber)" />
+          <StatCard
+            icon={roiPct !== null && roiPct >= 0 ? TrendingUp : TrendingDown}
+            label="ROI de anuncios"
+            value={roiPct !== null ? `${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(0)}%` : '—'}
+            color={roiPct === null ? 'var(--color-muted)' : roiPct >= 0 ? 'var(--color-green)' : 'var(--color-red)'}
+          />
+        </div>
+        {roiPct === null && <div className="text-muted text-[11px] mt-2">Aparece en cuanto registres inversión en anuncios este mes.</div>}
+        {(totalImpressions > 0 || avgCtr !== null) && (
+          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border flex-wrap">
+            {totalImpressions > 0 && (
+              <div className="text-xs"><span className="text-ink font-bold">{totalImpressions.toLocaleString('es-ES')}</span> <span className="text-muted">impresiones (Meta)</span></div>
+            )}
+            {avgCtr !== null && (
+              <div className="text-xs"><span className="text-ink font-bold">{avgCtr}%</span> <span className="text-muted">CTR medio</span></div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      <div className="grid md:grid-cols-3 gap-3">
+        <Card className="flex justify-around items-center flex-wrap gap-4 md:col-span-1">
+          <Ring pct={taskCompletionPct} label="Tus tareas cumplidas" value={`${Math.round(taskCompletionPct * 100)}%`} color={taskCompletionPct >= 0.7 ? 'var(--color-green)' : taskCompletionPct >= 0.4 ? 'var(--color-amber)' : 'var(--color-red)'} />
+        </Card>
+        <Card className="md:col-span-2">
+          <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3">Embudo · este mes</div>
+          <div className="space-y-2">
+            {funnel.map((f) => (
+              <div key={f.label} className="flex items-center gap-2">
+                <div className="text-ink text-xs w-[120px] shrink-0">{f.label}</div>
+                <div className="flex-1 rounded bg-surfaceAlt h-4 overflow-hidden">
+                  <div className="h-full transition-all" style={{ width: `${(f.value / maxFunnel) * 100}%`, background: f.color }} />
+                </div>
+                <div className="text-ink text-xs w-7 text-right shrink-0 font-bold">{f.value}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <Card>
+        <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3">Contactos nuevos y ventas · últimos 14 días</div>
+        <div className="w-full h-[180px]">
+          <ResponsiveContainer>
+            <BarChart data={last14}>
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
+              <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} />
+              <YAxis stroke="var(--color-muted)" fontSize={10} allowDecimals={false} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} width={24} />
+              <Tooltip contentStyle={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--color-ink)' }} />
+              <Bar dataKey="leads" fill="var(--color-cyan)" radius={[3, 3, 0, 0]} name="Contactos" />
+              <Bar dataKey="ventas" fill="var(--color-green)" radius={[3, 3, 0, 0]} name="Ventas" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3 flex items-center gap-1.5"><Activity size={13} /> Actividad reciente</div>
+        <ActivityFeed limit={10} />
+      </Card>
+
+      {/* Objetivos personalizables */}
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-muted text-[11.5px] uppercase tracking-wide flex items-center gap-1.5"><Target size={13} /> Objetivos</div>
+          <button onClick={() => setAddingGoal(!addingGoal)} className="text-cyan text-xs font-semibold flex items-center gap-1">
+            <Plus size={14} /> Nuevo objetivo
+          </button>
+        </div>
+
+        {addingGoal && (
+          <div className="rounded-lg p-3 bg-surfaceAlt border border-border mb-3 space-y-2">
+            <input
+              value={goalForm.title}
+              onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })}
+              placeholder="Ej. Facturar 3000€ este mes"
+              className="bg-surface border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan"
+            />
+            <div className="grid grid-cols-3 gap-2">
+              <select
+                value={goalForm.metric}
+                onChange={(e) => setGoalForm({ ...goalForm, metric: e.target.value })}
+                className="bg-surface border border-border text-ink rounded-lg px-2 py-2 text-xs outline-none focus:border-cyan"
+              >
+                {GOAL_METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+              </select>
+              <select
+                value={goalForm.period}
+                onChange={(e) => setGoalForm({ ...goalForm, period: e.target.value })}
+                className="bg-surface border border-border text-ink rounded-lg px-2 py-2 text-xs outline-none focus:border-cyan"
+              >
+                <option value="mensual">Mensual</option>
+                <option value="semanal">Semanal</option>
+              </select>
+              <input
+                type="number"
+                value={goalForm.target}
+                onChange={(e) => setGoalForm({ ...goalForm, target: e.target.value })}
+                placeholder="Meta"
+                className="bg-surface border border-border text-ink rounded-lg px-2 py-2 text-xs w-full outline-none focus:border-cyan"
+              />
+            </div>
+            <button onClick={addGoal} className="rounded-lg px-3 py-1.5 font-semibold text-xs bg-cyan text-[#00161C]">Crear objetivo</button>
+          </div>
+        )}
+
+        {goals.length === 0 && !addingGoal && (
+          <div className="text-muted text-sm text-center py-4">Sin objetivos todavía. Crea el primero arriba.</div>
+        )}
+
+        <div className="flex flex-wrap gap-4 justify-around">
+          {goals.map((g) => {
+            const { current, target } = goalProgress(g);
+            const pct = target > 0 ? current / target : 0;
+            const isMoney = g.metric === 'facturacion' || g.metric === 'inversion_ads';
+            const completedGoal = target > 0 && current >= target;
+
+            if (editingGoalId === g.id) {
+              return (
+                <div key={g.id} className="rounded-lg p-3 bg-surfaceAlt border border-border space-y-2 w-full sm:w-64">
+                  <input
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                    className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-sm w-full outline-none focus:border-cyan"
+                  />
+                  <select
+                    value={editForm.metric}
+                    onChange={(e) => setEditForm({ ...editForm, metric: e.target.value })}
+                    className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-full outline-none focus:border-cyan"
+                  >
+                    {GOAL_METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={editForm.period}
+                      onChange={(e) => setEditForm({ ...editForm, period: e.target.value })}
+                      className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs outline-none focus:border-cyan"
+                    >
+                      <option value="mensual">Mensual</option>
+                      <option value="semanal">Semanal</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={editForm.target}
+                      onChange={(e) => setEditForm({ ...editForm, target: e.target.value })}
+                      className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-full outline-none focus:border-cyan"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={saveEditGoal} className="rounded-lg px-3 py-1.5 font-semibold text-xs bg-cyan text-[#00161C]">Guardar</button>
+                    <button onClick={() => setEditingGoalId(null)} className="rounded-lg px-3 py-1.5 font-semibold text-xs text-muted flex items-center gap-1"><X size={13} /> Cancelar</button>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={g.id} className="flex flex-col items-center gap-1.5">
+                <Ring pct={pct} label={g.title} value={`${isMoney ? eur(current) : current}/${isMoney ? eur(target) : target}`} color={completedGoal ? 'var(--color-green)' : 'var(--color-cyan)'} />
+                {completedGoal && <span className="text-green text-[10px] font-bold uppercase">Completado 🎉</span>}
+                {g.metric === 'manual' && (
+                  <input
+                    type="number"
+                    value={g.manual_current}
+                    onChange={(e) => updateGoalManual(g.id, e.target.value)}
+                    className="bg-surfaceAlt border border-border text-ink rounded px-2 py-1 text-xs w-20 text-center outline-none focus:border-cyan"
+                  />
+                )}
+                <div className="flex items-center gap-2">
+                  <button onClick={() => startEditGoal(g)} className="text-muted"><Pencil size={12} /></button>
+                  <button onClick={() => removeGoal(g.id)} className="text-muted"><Trash2 size={12} /></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+    </div>
+  );
+}
