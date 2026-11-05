@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import Sidebar from '@/components/Sidebar';
 import { ProfilesProvider } from '@/components/ProfilesProvider';
 import { CategoriesProvider } from '@/components/CategoriesProvider';
-import { NAV } from '@/lib/config';
+import { NAV_GROUPS } from '@/lib/config';
 
 export default async function AppLayout({ children }) {
   const supabase = createClient();
@@ -20,11 +20,13 @@ export default async function AppLayout({ children }) {
   const { data: categoryRows } = await supabase.from('content_categories').select('*').order('sort_order', { ascending: true });
 
   const isOwner = !!profiles[user.id]?.is_owner;
-  const nav = NAV.filter((item) => !item.ownerOnly || isOwner);
+  const groups = NAV_GROUPS
+    .map((g) => ({ ...g, items: g.items.filter((item) => !item.ownerOnly || isOwner) }))
+    .filter((g) => g.items.length > 0);
 
   return (
     <div className="min-h-screen flex">
-      <Sidebar nav={nav} profile={profiles[user.id]} />
+      <Sidebar groups={groups} profile={profiles[user.id]} />
       <ProfilesProvider profiles={profiles}>
         <CategoriesProvider initialCategories={categoryRows || []}>
           <main className="flex-1 p-4 md:p-6 lg:p-8 mt-12 md:mt-0">

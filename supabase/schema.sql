@@ -1045,3 +1045,43 @@ end $$;
 -- (opcional, no es necesario para que la app funcione):
 -- ---------------------------------------------------------------------------
 -- drop table if exists public.leads, public.conversations, public.invites, public.calls, public.sales cascade;
+
+-- ---------------------------------------------------------------------------
+-- CALENDARIO DE CONTENIDO (vista mensual tipo "Metricool")
+-- Solo AÑADE columnas y una tabla nueva — no toca ni borra nada existente.
+-- Cada entrada del calendario guarda ahora: hora de publicación, estado de
+-- publicación (borrador / programado / publicado / error), enlace al post y
+-- sus métricas (vistas, likes, comentarios). Hoy se rellenan a mano; cuando
+-- se conecten Instagram / YouTube las rellenará la sincronización.
+-- ---------------------------------------------------------------------------
+alter table public.calendar_entries add column if not exists publish_time time;
+alter table public.calendar_entries add column if not exists publish_status text; -- null = se deduce (hecho → publicado, vídeo Programado → programado, si no borrador)
+alter table public.calendar_entries add column if not exists post_url text;
+alter table public.calendar_entries add column if not exists views integer;
+alter table public.calendar_entries add column if not exists likes integer;
+alter table public.calendar_entries add column if not exists comments integer;
+alter table public.calendar_entries add column if not exists publish_error text;
+
+-- Estadísticas diarias por cuenta (seguidores ganados y vistas del día).
+-- Las llenará la sincronización con Instagram / YouTube / TikTok.
+create table if not exists public.social_daily_stats (
+  id uuid primary key default gen_random_uuid(),
+  date date not null,
+  platform text not null, -- instagram / youtube / tiktok
+  account text not null default '',
+  followers integer,
+  followers_gained integer,
+  views integer,
+  updated_at timestamptz not null default now(),
+  unique (date, platform, account)
+);
+alter table public.social_daily_stats enable row level security;
+drop policy if exists "social_daily_stats_full_access_authenticated" on public.social_daily_stats;
+create policy "social_daily_stats_full_access_authenticated" on public.social_daily_stats for all to authenticated using (true) with check (true);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.social_daily_stats;
+exception
+  when duplicate_object then null;
+end $$;

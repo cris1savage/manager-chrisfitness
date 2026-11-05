@@ -5,6 +5,30 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Menú por niveles + Calendario de contenido (vista mensual)
+
+- **Menú reorganizado por áreas del negocio**: Inicio, Contenido, Captación,
+  Ventas, Clientes, Dinero, Equipo, Documentos y Cuenta. Cada grupo con su
+  cabecera, y el menú tiene su propio scroll para que siempre quepa todo.
+  Facturación sigue siendo solo para el dueño (si un grupo queda vacío, no
+  se muestra).
+- **Nuevo Calendario de contenido** (`/contenido`): mes completo de lunes a
+  domingo con cada pieza (hora, formato, título y estado), KPIs del mes
+  (publicados, programados, borradores, con error, seguidores nuevos y
+  vistas), filtro por plataforma (Instagram / TikTok / YouTube) y leyenda
+  que se puede pulsar para ocultar estados. En el móvil se abre en vista
+  lista. Cada pieza se edita en una ventana: fecha, hora, estado, enlace al
+  post, vistas/likes/comentarios y copy.
+- Usa las mismas entradas que la Agenda día/semana (antes "Calendario"), así
+  que lo que ya tenías aparece solo. Marcar algo como Publicado lo deja como
+  hecho en la Agenda, y se sigue sincronizando con Google Calendar.
+- **Seguidores y vistas por día** se guardan en una tabla nueva
+  (`social_daily_stats`) que rellenará la conexión con Instagram/YouTube.
+  Hasta entonces esas tarjetas muestran "—".
+- **Hay que ejecutar SQL nuevo en Supabase**: la sección "CALENDARIO DE
+  CONTENIDO" al final de `supabase/schema.sql` (solo añade columnas y una
+  tabla, no borra nada). Sin eso, el calendario se ve pero no deja guardar.
+
 ## Objetivo de fase añadido — la pieza que faltaba de la mezcla v2+v4
 
 - Cada fase ahora tiene su propio campo de objetivo (además del nombre,
