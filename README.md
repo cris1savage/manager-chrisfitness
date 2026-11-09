@@ -5,6 +5,25 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Vídeos: tablero de producción + carga de los guiones del 8 nov
+
+- **Vídeos es ahora un tablero** con 5 columnas: **Recámara** (sin grabar)
+  → **Por editar** (grabado) → **Editado** → **Programado** → **Publicado**.
+  Cada vídeo tiene un botón para pasarlo a la siguiente fase y otro para
+  volver atrás. En el móvil, las fases son pestañas.
+- **Programar** pide fecha y hora y crea la pieza en el Calendario de
+  contenido (y en Google Calendar si está conectado). **Publicado** la marca
+  como publicada también en el calendario, así que cuenta para la racha y
+  las métricas.
+- Cada vídeo muestra su **guion desplegable**, el **enlace al reel de
+  referencia**, notas para la edición y comentarios.
+- **Guiones del 8 nov**: `supabase/seed_guiones_08nov26.sql` carga los 28
+  guiones del PDF (cada uno en Guiones con su texto, y su vídeo en el
+  tablero): los azules en "Por editar" y los naranjas en "Recámara".
+  Antes hay que ejecutar la sección "PRODUCCIÓN DE VÍDEOS" del final de
+  `supabase/schema.sql` (añade la columna del enlace de referencia). Se
+  puede ejecutar dos veces sin duplicar nada.
+
 ## Panel convertido en manager de redes ("Hoy")
 
 - **Enfoque nuevo**: el panel es para redes, contenido, leads y anuncios.

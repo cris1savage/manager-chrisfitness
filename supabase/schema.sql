@@ -1085,3 +1085,9 @@ begin
 exception
   when duplicate_object then null;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- PRODUCCIÓN DE VÍDEOS: enlace al reel de referencia de cada vídeo
+-- (solo añade una columna, no toca nada existente)
+-- ---------------------------------------------------------------------------
+alter table public.videos add column if not exists reference_url text;
