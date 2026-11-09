@@ -7,7 +7,7 @@ import { Card } from '@/components/ui';
 import Modal from '@/components/Modal';
 import { useCategories } from '@/components/CategoriesProvider';
 import { syncToGoogle } from '@/lib/googleSync';
-import { dateToISO, todayISO, PUBLISH_STATUSES, PLATFORMS, platformOf } from '@/lib/config';
+import { dateToISO, todayISO, PUBLISH_STATUSES, PLATFORMS, platformOf, publishStatusOf } from '@/lib/config';
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const FALLBACK_META = { label: 'Sin categoría', color: '#7C878B' };
@@ -17,14 +17,7 @@ const MIGRATION_HINT =
 const fmtNum = (n) => (Number(n) || 0).toLocaleString('es-ES');
 const hhmm = (t) => (t ? String(t).slice(0, 5) : '');
 
-// Estado de publicación: si está guardado explícitamente se usa ese; si no,
-// se deduce de lo que ya existía (marcado como hecho, o vídeo Programado).
-function statusOf(entry, video) {
-  if (entry.publish_status && PUBLISH_STATUSES[entry.publish_status]) return entry.publish_status;
-  if (entry.status === 'hecho' || video?.uploaded) return 'publicado';
-  if (video?.production_status === 'Programado') return 'programado';
-  return 'borrador';
-}
+const statusOf = publishStatusOf;
 
 function monthGrid(anchor) {
   const y = anchor.getFullYear();

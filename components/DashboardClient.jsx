@@ -1,18 +1,125 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
-  Megaphone, Users, Video, DollarSign, Check, Target, UserCheck, CheckSquare,
-  TrendingUp, TrendingDown, Minus, Activity, Percent, Plus, Trash2, ListChecks, Pencil, X, Flame,
+  Megaphone, Users, DollarSign, Check, Target, UserCheck, TrendingUp, TrendingDown, Activity,
+  Plus, Trash2, Pencil, X, Flame, CalendarDays, ArrowUpRight, ArrowDownRight, ChevronRight,
+  ListChecks, Filter, Percent, Clock, ShoppingBag,
 } from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
-} from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
-import { Card, StatCard, Ring } from '@/components/ui';
-import { STAGES, todayISO, monthKey, eur, GOAL_METRICS, dateToISO } from '@/lib/config';
+import { Card } from '@/components/ui';
+import {
+  STAGES, todayISO, monthKey, eur, GOAL_METRICS, dateToISO, PUBLISH_STATUSES, publishStatusOf,
+} from '@/lib/config';
 import { useCategories } from '@/components/CategoriesProvider';
 import ActivityFeed from '@/components/ActivityFeed';
+
+// ---------------------------------------------------------------------------
+// Piezas visuales
+// ---------------------------------------------------------------------------
+
+function SectionTitle({ icon: Icon, children, href, linkLabel = 'Ver todo', right }) {
+  return (
+    <div className="flex items-center justify-between gap-2 mb-3">
+      <div className="flex items-center gap-2 text-ink text-[13px] font-bold">
+        {Icon && <Icon size={15} className="text-muted" />} {children}
+      </div>
+      {right}
+      {href && (
+        <Link href={href} className="text-muted hover:text-cyan text-xs flex items-center gap-0.5 shrink-0">
+          {linkLabel} <ChevronRight size={13} />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+// Variación frente al mismo punto del mes pasado
+function Delta({ current, previous, invert = false }) {
+  if (!previous && !current) return <span className="text-muted text-[11px]">sin datos aún</span>;
+  if (!previous) return <span className="text-muted text-[11px]">mes pasado: 0</span>;
+  const pct = ((current - previous) / previous) * 100;
+  if (Math.abs(pct) < 0.5) return <span className="text-muted text-[11px]">= que el mes pasado</span>;
+  const up = pct > 0;
+  const good = invert ? !up : up;
+  const Icon = up ? ArrowUpRight : ArrowDownRight;
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold" style={{ color: good ? 'var(--color-green)' : 'var(--color-red)' }}>
+      <Icon size={12} /> {up ? '+' : ''}{pct.toFixed(0)}% <span className="text-muted font-normal ml-1">vs mes pasado</span>
+    </span>
+  );
+}
+
+function KpiCard({ icon: Icon, label, value, current, previous, accent, href, invert }) {
+  const body = (
+    <Card className="!p-4 h-full hover:border-cyan transition-colors">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-muted text-[12px] font-medium">{label}</span>
+        <span className="rounded-lg p-1.5" style={{ background: `${accent}1A` }}>
+          <Icon size={15} color={accent} />
+        </span>
+      </div>
+      <div className="font-display text-ink text-[28px] leading-none tracking-wide">{value}</div>
+      <div className="mt-2"><Delta current={current} previous={previous} invert={invert} /></div>
+    </Card>
+  );
+  return href ? <Link href={href} className="block">{body}</Link> : body;
+}
+
+function ProgressBar({ pct, color }) {
+  return (
+    <div className="h-2 rounded-full bg-surfaceAlt overflow-hidden">
+      <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct * 100))}%`, background: color }} />
+    </div>
+  );
+}
+
+const inputCls = 'bg-surface border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan';
+
+function GoalForm({ value, onChange, onSubmit, onCancel, submitLabel }) {
+  return (
+    <div className="rounded-lg p-3 bg-surfaceAlt border border-border space-y-2">
+      <input value={value.title} onChange={(e) => onChange({ ...value, title: e.target.value })} placeholder="Ej. Facturar 3000€ este mes" className={inputCls} />
+      <div className="grid grid-cols-3 gap-2">
+        <select value={value.metric} onChange={(e) => onChange({ ...value, metric: e.target.value })} className={`${inputCls} !text-xs !px-2`}>
+          {GOAL_METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+        </select>
+        <select value={value.period} onChange={(e) => onChange({ ...value, period: e.target.value })} className={`${inputCls} !text-xs !px-2`}>
+          <option value="mensual">Mensual</option>
+          <option value="semanal">Semanal</option>
+        </select>
+        <input type="number" value={value.target} onChange={(e) => onChange({ ...value, target: e.target.value })} placeholder="Meta" className={`${inputCls} !text-xs !px-2`} />
+      </div>
+      <div className="flex gap-2">
+        <button onClick={onSubmit} className="rounded-lg px-3 py-1.5 font-semibold text-xs bg-cyan text-[#00161C]">{submitLabel}</button>
+        <button onClick={onCancel} className="rounded-lg px-3 py-1.5 font-semibold text-xs text-muted flex items-center gap-1"><X size={13} /> Cancelar</button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Utilidades de fechas
+// ---------------------------------------------------------------------------
+
+const DAY = 86400000;
+const daysBetween = (a, b) => Math.max(0, Math.floor((new Date(b) - new Date(a)) / DAY));
+const inRange = (dateStr, start, end) => !!dateStr && dateStr.slice(0, 10) >= start && dateStr.slice(0, 10) <= end;
+
+// Gasto acumulado en anuncios entre dos fechas (ambas incluidas)
+const spendBetween = (ads, start, end) =>
+  ads.reduce((sum, ad) => {
+    if (!ad.start_date) return sum;
+    const stop = ad.status === 'Pausado' && ad.paused_at ? ad.paused_at : todayISO();
+    const from = ad.start_date > start ? ad.start_date : start;
+    const to = stop < end ? stop : end;
+    if (to < from) return sum;
+    return sum + (daysBetween(from, to) + 1) * (Number(ad.daily_amount) || 0);
+  }, 0);
+
+// ---------------------------------------------------------------------------
 
 export default function DashboardClient({ profile }) {
   const supabase = useMemo(() => createClient(), []);
@@ -23,7 +130,8 @@ export default function DashboardClient({ profile }) {
   const [addingGoal, setAddingGoal] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const [goalForm, setGoalForm] = useState({ title: '', metric: 'ventas', period: 'mensual', target: '' });
+  const emptyGoal = { title: '', metric: 'ventas', period: 'mensual', target: '' };
+  const [goalForm, setGoalForm] = useState(emptyGoal);
 
   const load = async () => {
     const [adSpend, contacts, calendarEntries, activeClients, tasks, goalsRows, videos] = await Promise.all([
@@ -57,10 +165,14 @@ export default function DashboardClient({ profile }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Marcar una pieza de hoy como publicada / pendiente. Mantiene coherente el
+  // Calendario de contenido (publish_status) y la Agenda (status).
   const toggleEntry = async (entry) => {
-    const nextStatus = entry.status === 'hecho' ? 'pendiente' : 'hecho';
-    setData((d) => ({ ...d, calendarEntries: d.calendarEntries.map((e) => (e.id === entry.id ? { ...e, status: nextStatus } : e)) }));
-    await supabase.from('calendar_entries').update({ status: nextStatus }).eq('id', entry.id);
+    const done = entry.status === 'hecho';
+    const patch = { status: done ? 'pendiente' : 'hecho', publish_status: done ? null : 'publicado' };
+    setData((d) => ({ ...d, calendarEntries: d.calendarEntries.map((e) => (e.id === entry.id ? { ...e, ...patch } : e)) }));
+    const { error } = await supabase.from('calendar_entries').update(patch).eq('id', entry.id);
+    if (error) await supabase.from('calendar_entries').update({ status: patch.status }).eq('id', entry.id); // por si aún no está el SQL nuevo
   };
 
   const toggleTask = async (t) => {
@@ -73,89 +185,101 @@ export default function DashboardClient({ profile }) {
     if (!goalForm.title.trim()) return;
     const { data: userData } = await supabase.auth.getUser();
     await supabase.from('goals').insert({ ...goalForm, target: Number(goalForm.target) || 0, created_by: userData.user.id });
-    setGoalForm({ title: '', metric: 'ventas', period: 'mensual', target: '' });
+    setGoalForm(emptyGoal);
     setAddingGoal(false);
     load();
   };
-
   const updateGoalManual = async (id, value) => {
     setGoals((g) => g.map((x) => (x.id === id ? { ...x, manual_current: value } : x)));
     await supabase.from('goals').update({ manual_current: Number(value) || 0 }).eq('id', id);
   };
-
   const startEditGoal = (g) => {
     setEditingGoalId(g.id);
     setEditForm({ title: g.title, metric: g.metric, period: g.period, target: g.target });
   };
-
   const saveEditGoal = async () => {
     await supabase.from('goals').update({ ...editForm, target: Number(editForm.target) || 0 }).eq('id', editingGoalId);
     setEditingGoalId(null);
     load();
   };
-
   const removeGoal = async (id) => {
+    if (!window.confirm('¿Borrar este objetivo?')) return;
     setGoals((g) => g.filter((x) => x.id !== id));
     await supabase.from('goals').delete().eq('id', id);
   };
 
-  if (!data) return <div className="text-muted py-12 text-center">Cargando panel…</div>;
+  if (!data) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="h-10 w-64 rounded-lg bg-surface" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-28 rounded-xl bg-surface" />)}</div>
+        <div className="h-64 rounded-xl bg-surface" />
+      </div>
+    );
+  }
 
-  const thisMonth = monthKey(todayISO());
+  // --- Periodos: mes en curso vs. el mismo tramo del mes pasado ------------
+  const today = todayISO();
+  const now = new Date();
+  const thisMonth = monthKey(today);
+  const monthStart = `${thisMonth}-01`;
+  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonthStart = dateToISO(prevMonthDate);
+  const prevMonthLastDay = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+  const prevSameDay = dateToISO(new Date(now.getFullYear(), now.getMonth() - 1, Math.min(now.getDate(), prevMonthLastDay)));
   const startOfWeekISO = (() => {
     const d = new Date();
-    const day = (d.getDay() + 6) % 7;
-    d.setDate(d.getDate() - day);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
     return dateToISO(d);
   })();
 
-  const inPeriod = (dateStr, period) => {
-    if (!dateStr) return false;
-    if (period === 'semanal') return dateStr.slice(0, 10) >= startOfWeekISO;
-    return monthKey(dateStr) === thisMonth;
-  };
+  // --- Ventas, leads, ingresos, anuncios ------------------------------------
+  const C = data.contacts;
+  const leadsIn = (s, e) => C.filter((c) => inRange(c.created_at, s, e)).length;
+  const salesIn = (s, e) => C.filter((c) => c.stage === 'Cliente' && inRange(c.stage_updated_at, s, e));
+  const leadsM = leadsIn(monthStart, today);
+  const leadsPrev = leadsIn(prevMonthStart, prevSameDay);
+  const salesListM = salesIn(monthStart, today);
+  const salesM = salesListM.length;
+  const salesPrev = salesIn(prevMonthStart, prevSameDay).length;
+  const revenueM = salesListM.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  const revenuePrev = salesIn(prevMonthStart, prevSameDay).reduce((s, c) => s + (Number(c.amount) || 0), 0);
+  const spendThisMonth = spendBetween(data.adSpend, monthStart, today);
+  const spendPrev = spendBetween(data.adSpend, prevMonthStart, prevSameDay);
+  const callsM = C.filter((c) => ['Realizada', 'Cliente', 'Perdido'].includes(c.stage) && monthKey(c.stage_updated_at) === thisMonth).length;
 
-  // --- Contactos / embudo ---
-  const stageCountsMonth = {};
-  STAGES.forEach((s) => (stageCountsMonth[s] = 0));
-  data.contacts.forEach((c) => {
-    if (monthKey(c.stage_updated_at) === thisMonth) stageCountsMonth[c.stage] = (stageCountsMonth[c.stage] || 0) + 1;
+  const costPerLead = leadsM > 0 ? spendThisMonth / leadsM : null;
+  const costPerSale = salesM > 0 ? spendThisMonth / salesM : null;
+  const roiPct = spendThisMonth > 0 ? ((revenueM - spendThisMonth) / spendThisMonth) * 100 : null;
+  const closeRate = callsM > 0 ? salesM / callsM : null;
+
+  const adsWithPerf = data.adSpend.filter((ad) => monthKey(ad.start_date) === thisMonth && (ad.impressions || ad.ctr));
+  const totalImpressions = adsWithPerf.reduce((s, ad) => s + (Number(ad.impressions) || 0), 0);
+  const withCtr = adsWithPerf.filter((ad) => ad.ctr);
+  const avgCtr = withCtr.length ? (withCtr.reduce((s, ad) => s + Number(ad.ctr), 0) / withCtr.length).toFixed(2) : null;
+
+  // --- Embudo del mes --------------------------------------------------------
+  const stageCounts = {};
+  STAGES.forEach((s) => (stageCounts[s] = 0));
+  C.forEach((c) => {
+    if (monthKey(c.stage_updated_at) === thisMonth) stageCounts[c.stage] = (stageCounts[c.stage] || 0) + 1;
   });
-  const leadsM = data.contacts.filter((c) => monthKey(c.created_at) === thisMonth).length;
-  const clientsThisMonth = data.contacts.filter((c) => c.stage === 'Cliente' && monthKey(c.stage_updated_at) === thisMonth);
-  const salesM = clientsThisMonth.length;
-  const revenueM = clientsThisMonth.reduce((s, c) => s + (Number(c.amount) || 0), 0);
-  const callsM = data.contacts.filter((c) => ['Realizada', 'Cliente', 'Perdido'].includes(c.stage) && monthKey(c.stage_updated_at) === thisMonth).length;
-
-  const funnel = STAGES.filter((s) => s !== 'Perdido').map((s, i) => ({
-    label: s,
-    value: stageCountsMonth[s] || 0,
-    color: ['var(--color-cyan)', '#7FD9F7', 'var(--color-amber)', 'var(--color-green)', 'var(--color-green)'][i] || 'var(--color-cyan)',
-  }));
+  const funnelColors = ['#5ECCFA', '#7FD9F7', '#FBBF24', '#A3E3FB', '#4ADE80'];
+  const funnel = STAGES.filter((s) => s !== 'Perdido').map((s, i) => ({ label: s, value: stageCounts[s] || 0, color: funnelColors[i] }));
   const maxFunnel = Math.max(1, ...funnel.map((f) => f.value));
 
-  // --- Anuncios (cálculo acumulado) ---
-  const daysBetween = (a, b) => Math.max(0, Math.floor((new Date(b) - new Date(a)) / 86400000));
-  const spendThisMonth = data.adSpend.reduce((sum, ad) => {
-    const from = ad.start_date > `${thisMonth}-01` ? ad.start_date : `${thisMonth}-01`;
-    const to = ad.status === 'Pausado' && ad.paused_at ? ad.paused_at : todayISO();
-    if (to < from || monthKey(ad.start_date) > thisMonth) return sum;
-    const days = daysBetween(from, to) + 1;
-    return sum + Math.max(0, days) * (Number(ad.daily_amount) || 0);
-  }, 0);
+  // --- Contenido de hoy / mañana ------------------------------------------
+  const videoByEntry = {};
+  data.videos.forEach((v) => { if (v.calendar_entry_id) videoByEntry[v.calendar_entry_id] = v; });
+  const byTime = (a, b) => String(a.publish_time || '99').localeCompare(String(b.publish_time || '99'));
+  const tomorrow = dateToISO(new Date(Date.now() + DAY));
+  const todayEntries = data.calendarEntries.filter((e) => e.date === today).sort(byTime);
+  const tomorrowEntries = data.calendarEntries.filter((e) => e.date === tomorrow).sort(byTime);
+  const todayDone = todayEntries.filter((e) => publishStatusOf(e, videoByEntry[e.id]) === 'publicado').length;
 
-  const today = todayISO();
-  const tomorrow = dateToISO(new Date(Date.now() + 86400000));
-  const todayEntries = data.calendarEntries.filter((e) => e.date === today);
-  const tomorrowEntries = data.calendarEntries.filter((e) => e.date === tomorrow);
-
-  // Racha de días subiendo contenido seguidos, + total acumulado histórico (nunca se reinicia)
-  // Cuenta tanto lo marcado "hecho" en el Calendario como los Vídeos marcados subidos
-  // (que ya no pasan por el Calendario, pero siguen sumando aquí). Las entradas del
-  // Calendario que vienen de un guion (script_id) se excluyen aquí para no contarlas
-  // dos veces, ya que esas mismas ya se migraron a la tabla de Vídeos.
+  // Racha: días seguidos subiendo contenido (Calendario "hecho" + Vídeos subidos)
   const doneDates = new Set(data.calendarEntries.filter((e) => e.status === 'hecho' && !e.script_id).map((e) => e.date));
-  (data.videos || []).forEach((v) => { if (v.uploaded && v.uploaded_at) doneDates.add(v.uploaded_at.slice(0, 10)); });
+  data.videos.forEach((v) => { if (v.uploaded && v.uploaded_at) doneDates.add(v.uploaded_at.slice(0, 10)); });
   let streak = 0;
   {
     const cursor = new Date();
@@ -165,43 +289,42 @@ export default function DashboardClient({ profile }) {
       cursor.setDate(cursor.getDate() - 1);
     }
   }
-  const totalCompletedEver = data.calendarEntries.filter((e) => e.status === 'hecho' && !e.script_id).length + (data.videos || []).filter((v) => v.uploaded).length;
+  const totalCompletedEver = data.calendarEntries.filter((e) => e.status === 'hecho' && !e.script_id).length + data.videos.filter((v) => v.uploaded).length;
   const streakColor = streak >= 7 ? 'var(--color-green)' : streak >= 3 ? 'var(--color-amber)' : 'var(--color-cyan)';
-
-  const in7 = dateToISO(new Date(Date.now() + 7 * 86400000));
-  const renewalsSoon = (data.activeClients || []).filter((c) => c.status === 'Activo' && c.renewal_date && c.renewal_date <= in7);
-  const myTasks = meId ? (data.tasks || []).filter((t) => t.assigned_to === meId) : (data.tasks || []);
-  const pendingTasks = myTasks.filter((t) => !t.done).sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''));
-  const doneThisWeek = myTasks.filter((t) => t.done && t.completed_at && t.completed_at.slice(0, 10) >= startOfWeekISO).length;
-  const dueThisWeek = myTasks.filter((t) => t.due_date && t.due_date >= startOfWeekISO);
-  const taskCompletionPct = dueThisWeek.length ? dueThisWeek.filter((t) => t.done).length / dueThisWeek.length : (myTasks.length ? myTasks.filter((t) => t.done).length / myTasks.length : 0);
-
-  const last14 = Array.from({ length: 14 }, (_, i) => {
-    const idx = 13 - i;
-    const d = dateToISO(new Date(Date.now() - idx * 86400000));
-    const label = new Date(d + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
-    return {
-      label,
-      leads: data.contacts.filter((r) => r.created_at.slice(0, 10) === d).length,
-      ventas: data.contacts.filter((r) => r.stage === 'Cliente' && r.stage_updated_at.slice(0, 10) === d).length,
-    };
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(Date.now() - (6 - i) * DAY);
+    return { iso: dateToISO(d), label: d.toLocaleDateString('es-ES', { weekday: 'narrow' }) };
   });
 
-  const costPerLead = leadsM > 0 ? spendThisMonth / leadsM : null;
-  const costPerSale = salesM > 0 ? spendThisMonth / salesM : null;
-  const roiPct = spendThisMonth > 0 ? ((revenueM - spendThisMonth) / spendThisMonth) * 100 : null;
+  // --- Tareas y renovaciones ------------------------------------------------
+  const in7 = dateToISO(new Date(Date.now() + 7 * DAY));
+  const renewalsSoon = data.activeClients
+    .filter((c) => c.status === 'Activo' && c.renewal_date && c.renewal_date <= in7)
+    .sort((a, b) => a.renewal_date.localeCompare(b.renewal_date));
+  const myTasks = meId ? data.tasks.filter((t) => t.assigned_to === meId) : data.tasks;
+  const pendingTasks = myTasks.filter((t) => !t.done).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'));
+  const dueThisWeek = myTasks.filter((t) => t.due_date && t.due_date >= startOfWeekISO);
+  const taskPct = dueThisWeek.length
+    ? dueThisWeek.filter((t) => t.done).length / dueThisWeek.length
+    : myTasks.length ? myTasks.filter((t) => t.done).length / myTasks.length : 0;
+  const activeClientsCount = data.activeClients.filter((c) => c.status === 'Activo').length;
 
-  const adsWithPerfThisMonth = data.adSpend.filter((ad) => monthKey(ad.start_date) === thisMonth && (ad.impressions || ad.ctr));
-  const totalImpressions = adsWithPerfThisMonth.reduce((s, ad) => s + (Number(ad.impressions) || 0), 0);
-  const avgCtr = adsWithPerfThisMonth.filter((ad) => ad.ctr).length
-    ? (adsWithPerfThisMonth.filter((ad) => ad.ctr).reduce((s, ad) => s + Number(ad.ctr), 0) / adsWithPerfThisMonth.filter((ad) => ad.ctr).length).toFixed(2)
-    : null;
+  // --- Gráfica 14 días ------------------------------------------------------
+  const last14 = Array.from({ length: 14 }, (_, i) => {
+    const d = dateToISO(new Date(Date.now() - (13 - i) * DAY));
+    return {
+      label: new Date(d + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }),
+      Contactos: C.filter((r) => (r.created_at || '').slice(0, 10) === d).length,
+      Ventas: C.filter((r) => r.stage === 'Cliente' && (r.stage_updated_at || '').slice(0, 10) === d).length,
+    };
+  });
+  const leads14 = last14.reduce((s, x) => s + x.Contactos, 0);
+  const sales14 = last14.reduce((s, x) => s + x.Ventas, 0);
 
-  const activeClientsCount = (data.activeClients || []).filter((c) => c.status === 'Activo').length;
-
+  // --- Objetivos -------------------------------------------------------------
   const goalProgress = (g) => {
     switch (g.metric) {
-      case 'ventas': return { current: salesM, target: g.target };
+      case 'ventas':
       case 'clientes_nuevos': return { current: salesM, target: g.target };
       case 'facturacion': return { current: revenueM, target: g.target };
       case 'inversion_ads': return { current: spendThisMonth, target: g.target };
@@ -210,286 +333,382 @@ export default function DashboardClient({ profile }) {
     }
   };
 
+  const hour = now.getHours();
+  const greeting = hour < 13 ? 'Buenos días' : hour < 21 ? 'Buenas tardes' : 'Buenas noches';
+  const dateLabel = now.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  const fmtDay = (iso) => {
+    const diff = daysBetween(today, iso);
+    if (iso < today) return 'vencida';
+    if (diff === 0) return 'hoy';
+    if (diff === 1) return 'mañana';
+    return new Date(iso + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+  };
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-display text-ink text-[26px] tracking-wide">HOLA, {(profile?.display_name || '').toUpperCase()}</h1>
-        <div className="text-muted text-sm">
-          Chris Fitness · Entrenador Online · {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+      {/* ── Cabecera ─────────────────────────────────────────────── */}
+      <div className="flex items-end justify-between flex-wrap gap-3">
+        <div>
+          <div className="text-muted text-sm first-letter:uppercase">{dateLabel}</div>
+          <h1 className="font-display text-ink text-[28px] sm:text-[32px] leading-tight tracking-wide">
+            {greeting.toUpperCase()}, {(profile?.display_name || '').toUpperCase()}
+          </h1>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Link href="/contenido" className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold bg-cyan text-[#00161C]">
+            <Plus size={14} /> Contenido
+          </Link>
+          <Link href="/contactos" className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold border border-border text-ink hover:border-cyan">
+            <Plus size={14} /> Lead
+          </Link>
+          <Link href="/tareas" className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold border border-border text-ink hover:border-cyan">
+            <Plus size={14} /> Tarea
+          </Link>
         </div>
       </div>
 
-      {/* Widget del día */}
-      <Card style={{ border: '1px solid var(--color-cyan)', boxShadow: '0 0 24px -8px #5ECCFA55' }}>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-2 h-2 rounded-full bg-cyan" style={{ boxShadow: '0 0 8px 2px var(--color-cyan)' }} />
-          <span className="text-cyan font-extrabold text-xs tracking-widest">HOY TIENES QUE SUBIR</span>
-        </div>
-        {todayEntries.length === 0 ? (
-          <div className="text-muted text-sm">No hay nada programado para hoy en el calendario de contenido.</div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {todayEntries.map((e) => {
-              const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: 'var(--color-muted)' };
-              const done = e.status === 'hecho';
+      {/* ── KPIs del mes ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard icon={DollarSign} label="Ingresos del mes" value={eur(revenueM)} current={revenueM} previous={revenuePrev} accent="#4ADE80" href="/ventas" />
+        <KpiCard icon={ShoppingBag} label="Ventas del mes" value={salesM} current={salesM} previous={salesPrev} accent="#5ECCFA" href="/ventas" />
+        <KpiCard icon={Users} label="Leads nuevos" value={leadsM} current={leadsM} previous={leadsPrev} accent="#7FD9F7" href="/contactos" />
+        <KpiCard icon={Megaphone} label="Inversión en anuncios" value={eur(spendThisMonth)} current={spendThisMonth} previous={spendPrev} accent="#FBBF24" href="/anuncios" invert />
+      </div>
+
+      {/* ── Tu día ───────────────────────────────────────────────── */}
+      <div className="grid lg:grid-cols-3 gap-3">
+        {/* Contenido de hoy */}
+        <Card className="lg:col-span-2" style={{ borderColor: todayEntries.length && todayDone < todayEntries.length ? 'var(--color-cyan)' : undefined }}>
+          <SectionTitle
+            icon={CalendarDays}
+            href="/contenido"
+            linkLabel="Calendario"
+            right={todayEntries.length > 0 && (
+              <span className="ml-auto mr-2 text-[11px] font-bold rounded-full px-2 py-0.5" style={{ background: '#5ECCFA1A', color: 'var(--color-cyan)' }}>
+                {todayDone}/{todayEntries.length} publicado
+              </span>
+            )}
+          >
+            Contenido de hoy
+          </SectionTitle>
+          {todayEntries.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-5 text-center">
+              <div className="text-muted text-sm">No hay nada programado para hoy.</div>
+              <Link href="/contenido" className="inline-flex items-center gap-1 text-cyan text-xs font-semibold mt-2"><Plus size={13} /> Planificar contenido</Link>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {todayEntries.map((e) => {
+                const meta = categoriesMap[e.type] || { label: 'Sin categoría', color: '#7C878B' };
+                const st = publishStatusOf(e, videoByEntry[e.id]);
+                const s = PUBLISH_STATUSES[st];
+                const done = st === 'publicado';
+                return (
+                  <div key={e.id} className="flex items-center gap-3 rounded-lg bg-surfaceAlt border border-border p-2.5">
+                    <button
+                      onClick={() => toggleEntry(e)}
+                      className="w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0"
+                      style={{ borderColor: done ? 'var(--color-green)' : 'var(--color-border)', background: done ? 'var(--color-green)' : 'transparent' }}
+                      aria-label={done ? 'Marcar como pendiente' : 'Marcar como publicado'}
+                    >
+                      {done && <Check size={14} color="#00161C" strokeWidth={3} />}
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-ink text-sm font-semibold truncate ${done ? 'line-through opacity-60' : ''}`}>{e.title}</div>
+                      <div className="flex items-center gap-2 text-[11px] mt-0.5">
+                        <span className="flex items-center gap-1" style={{ color: meta.color }}>
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} /> {meta.label}
+                        </span>
+                        {e.publish_time && <span className="text-muted flex items-center gap-1"><Clock size={11} /> {String(e.publish_time).slice(0, 5)}</span>}
+                      </div>
+                    </div>
+                    <span className="text-[10.5px] font-bold rounded-full px-2 py-0.5 shrink-0" style={{ background: `${s.color}1A`, color: s.color }}>{s.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {tomorrowEntries.length > 0 && (
+            <div className="text-muted text-xs mt-3 pt-3 border-t border-border">
+              <span className="text-ink font-semibold">Mañana:</span> {tomorrowEntries.map((e) => e.title).join(' · ')}
+            </div>
+          )}
+        </Card>
+
+        {/* Racha */}
+        <Card className="flex flex-col">
+          <SectionTitle icon={Flame}>Racha de contenido</SectionTitle>
+          <div className="flex items-end gap-3">
+            <div className="font-display text-[44px] leading-none" style={{ color: streakColor }}>{streak}</div>
+            <div className="pb-1">
+              <div className="text-ink text-sm font-semibold">{streak === 1 ? 'día seguido' : 'días seguidos'}</div>
+              <div className="text-muted text-[11px]">{streak === 0 ? 'Sube algo hoy para empezar' : 'Que no se corte hoy'}</div>
+            </div>
+          </div>
+          <div className="flex gap-1.5 mt-4">
+            {last7.map((d) => {
+              const hit = doneDates.has(d.iso);
               return (
-                <div key={e.id} className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ background: meta.color }} />
-                  <button onClick={() => toggleEntry(e)} className={`text-sm font-semibold text-left ${done ? 'line-through opacity-50' : ''}`} style={{ color: 'var(--color-ink)' }}>
-                    {meta.label}: {e.title}
-                  </button>
-                  {done && <Check size={13} color="var(--color-green)" />}
+                <div key={d.iso} className="flex-1 flex flex-col items-center gap-1">
+                  <div
+                    className="w-full h-7 rounded-md"
+                    style={{ background: hit ? streakColor : 'var(--color-surfaceAlt)', border: d.iso === today ? '1px solid var(--color-cyan)' : '1px solid var(--color-border)' }}
+                    title={hit ? 'Subiste contenido' : 'Sin contenido'}
+                  />
+                  <span className="text-muted text-[10px] uppercase">{d.label}</span>
                 </div>
               );
             })}
           </div>
-        )}
-        {tomorrowEntries.length > 0 && (
-          <div className="text-muted text-[11.5px] mt-2.5 border-t border-border pt-2">Mañana: {tomorrowEntries.map((e) => e.title).join(' · ')}</div>
-        )}
-      </Card>
-
-      {/* Racha de contenido */}
-      <Card className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="rounded-full p-2.5" style={{ background: `${streakColor}1A` }}>
-            <Flame size={22} color={streakColor} />
+          <div className="flex-1" />
+          <div className="text-muted text-xs mt-4 pt-3 border-t border-border">
+            <span className="text-ink font-bold">{totalCompletedEver}</span> piezas subidas en total
           </div>
-          <div>
-            <div className="text-ink font-display text-xl leading-none">
-              {streak} {streak === 1 ? 'día seguido' : 'días seguidos'}
-            </div>
-            <div className="text-muted text-[11px] mt-1">
-              {streak === 0 ? 'Sube algo hoy para empezar la racha' : '¡Sigue así! Que no se corte hoy'}
-            </div>
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-ink font-display text-xl leading-none">{totalCompletedEver}</div>
-          <div className="text-muted text-[11px] mt-1">subidos en total</div>
-        </div>
-      </Card>
+        </Card>
+      </div>
 
-      {/* Widget de tareas */}
-      {pendingTasks.length > 0 && (
+      {/* ── Pendientes ───────────────────────────────────────────── */}
+      <div className="grid lg:grid-cols-3 gap-3">
+        <Card className="lg:col-span-2">
+          <SectionTitle icon={ListChecks} href="/tareas">
+            Tus tareas
+            {pendingTasks.length > 0 && (
+              <span className="ml-1 text-[10.5px] font-bold rounded-full px-2 py-0.5" style={{ background: '#FBBF241A', color: 'var(--color-amber)' }}>
+                {pendingTasks.length}
+              </span>
+            )}
+          </SectionTitle>
+          <div className="mb-3">
+            <ProgressBar pct={taskPct} color={taskPct >= 0.7 ? 'var(--color-green)' : taskPct >= 0.4 ? 'var(--color-amber)' : 'var(--color-red)'} />
+            <div className="text-muted text-[11px] mt-1.5">{Math.round(taskPct * 100)}% de tus tareas de esta semana cumplidas</div>
+          </div>
+          {pendingTasks.length === 0 ? (
+            <div className="text-muted text-sm py-3 text-center">Nada pendiente. Buen trabajo.</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {pendingTasks.slice(0, 5).map((t) => {
+                const overdue = t.due_date && t.due_date < today;
+                return (
+                  <div key={t.id} className="flex items-center gap-3 py-2">
+                    <button onClick={() => toggleTask(t)} className="w-5 h-5 rounded-md border-2 border-border shrink-0 hover:border-cyan" aria-label="Completar tarea" />
+                    <span className="text-ink text-sm truncate flex-1">{t.title}</span>
+                    {t.due_date && (
+                      <span className="text-[11px] font-semibold shrink-0" style={{ color: overdue ? 'var(--color-red)' : 'var(--color-muted)' }}>
+                        {overdue ? 'Atrasada' : fmtDay(t.due_date)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              {pendingTasks.length > 5 && (
+                <Link href="/tareas" className="block text-muted text-xs pt-2 hover:text-cyan">+{pendingTasks.length - 5} más</Link>
+              )}
+            </div>
+          )}
+        </Card>
+
         <Card>
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-muted text-[11.5px] uppercase tracking-wide flex items-center gap-1.5"><ListChecks size={13} /> Tus tareas pendientes</div>
-            <span className="text-ink text-xs font-bold">{pendingTasks.length}</span>
+          <SectionTitle icon={UserCheck} href="/clientes" linkLabel="Clientes">Renovaciones (7 días)</SectionTitle>
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="font-display text-[32px] leading-none" style={{ color: renewalsSoon.length ? 'var(--color-amber)' : 'var(--color-ink)' }}>{renewalsSoon.length}</span>
+            <span className="text-muted text-xs">de {activeClientsCount} clientes activos</span>
           </div>
-          <div className="space-y-1.5">
-            {pendingTasks.slice(0, 4).map((t) => {
-              const overdue = t.due_date && t.due_date < todayISO();
-              return (
-                <div key={t.id} className="flex items-center gap-2">
-                  <button onClick={() => toggleTask(t)} className="shrink-0">
-                    <div className="w-3.5 h-3.5 rounded border border-border" />
-                  </button>
-                  <span className="text-ink text-sm truncate flex-1">{t.title}</span>
-                  {overdue && <span className="text-red text-[10px] font-semibold shrink-0">ATRASADA</span>}
+          {renewalsSoon.length === 0 ? (
+            <div className="text-muted text-sm">Ninguna renovación esta semana.</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {renewalsSoon.slice(0, 4).map((c) => (
+                <div key={c.id} className="flex items-center justify-between py-1.5 text-sm gap-2">
+                  <span className="text-ink truncate">{c.name}</span>
+                  <span className="text-[11px] font-semibold shrink-0" style={{ color: c.renewal_date < today ? 'var(--color-red)' : 'var(--color-muted)' }}>{fmtDay(c.renewal_date)}</span>
                 </div>
-              );
-            })}
-            {pendingTasks.length > 4 && <div className="text-muted text-xs pt-1">+{pendingTasks.length - 4} más — ve a Tareas</div>}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
-      )}
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon={Megaphone} label="Inversión anuncios (mes)" value={eur(spendThisMonth)} color="var(--color-cyan)" />
-        <StatCard icon={Users} label="Contactos nuevos (mes)" value={leadsM} color="#7FD9F7" />
-        <StatCard icon={Video} label="Llamadas realizadas (mes)" value={callsM} color="var(--color-amber)" />
-        <StatCard icon={DollarSign} label="Ingresos (mes)" value={eur(revenueM)} color="var(--color-green)" />
       </div>
 
-      {(renewalsSoon.length > 0 || pendingTasks.length > 0) && (
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard icon={UserCheck} label="Renovaciones ≤ 7 días" value={renewalsSoon.length} color={renewalsSoon.length ? 'var(--color-red)' : 'var(--color-muted)'} />
-          <StatCard icon={CheckSquare} label="Tus tareas pendientes" value={pendingTasks.length} color="var(--color-amber)" />
-        </div>
-      )}
-
-      <Card>
-        <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3 flex items-center gap-1.5"><Percent size={13} /> Rentabilidad · este mes</div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <StatCard icon={DollarSign} label="Coste por lead" value={costPerLead !== null ? eur(costPerLead) : '—'} color="var(--color-cyan)" />
-          <StatCard icon={DollarSign} label="Coste por venta" value={costPerSale !== null ? eur(costPerSale) : '—'} color="var(--color-amber)" />
-          <StatCard
-            icon={roiPct !== null && roiPct >= 0 ? TrendingUp : TrendingDown}
-            label="ROI de anuncios"
-            value={roiPct !== null ? `${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(0)}%` : '—'}
-            color={roiPct === null ? 'var(--color-muted)' : roiPct >= 0 ? 'var(--color-green)' : 'var(--color-red)'}
-          />
-        </div>
-        {roiPct === null && <div className="text-muted text-[11px] mt-2">Aparece en cuanto registres inversión en anuncios este mes.</div>}
-        {(totalImpressions > 0 || avgCtr !== null) && (
-          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border flex-wrap">
-            {totalImpressions > 0 && (
-              <div className="text-xs"><span className="text-ink font-bold">{totalImpressions.toLocaleString('es-ES')}</span> <span className="text-muted">impresiones (Meta)</span></div>
-            )}
-            {avgCtr !== null && (
-              <div className="text-xs"><span className="text-ink font-bold">{avgCtr}%</span> <span className="text-muted">CTR medio</span></div>
-            )}
+      {/* ── Captación y ventas ───────────────────────────────────── */}
+      <div className="grid lg:grid-cols-3 gap-3">
+        <Card className="lg:col-span-2">
+          <SectionTitle
+            icon={TrendingUp}
+            right={
+              <div className="ml-auto flex items-center gap-3 text-[11px]">
+                <span className="flex items-center gap-1.5 text-muted"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#5ECCFA' }} /> Contactos <b className="text-ink">{leads14}</b></span>
+                <span className="flex items-center gap-1.5 text-muted"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: '#4ADE80' }} /> Ventas <b className="text-ink">{sales14}</b></span>
+              </div>
+            }
+          >
+            Últimos 14 días
+          </SectionTitle>
+          <div className="w-full h-[220px]">
+            <ResponsiveContainer>
+              <BarChart data={last14} barGap={2} margin={{ top: 4, right: 4, left: -8, bottom: 0 }}>
+                <CartesianGrid stroke="var(--color-border)" strokeDasharray="0" vertical={false} />
+                <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                <YAxis stroke="var(--color-muted)" fontSize={10} allowDecimals={false} tickLine={false} axisLine={false} width={28} />
+                <Tooltip
+                  cursor={{ fill: 'var(--color-surfaceAlt)' }}
+                  contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 10, fontSize: 12 }}
+                  labelStyle={{ color: 'var(--color-ink)', fontWeight: 700 }}
+                  itemStyle={{ color: 'var(--color-ink)' }}
+                />
+                <Bar dataKey="Contactos" fill="#5ECCFA" radius={[4, 4, 0, 0]} maxBarSize={14} />
+                <Bar dataKey="Ventas" fill="#4ADE80" radius={[4, 4, 0, 0]} maxBarSize={14} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        )}
-      </Card>
-
-      <div className="grid md:grid-cols-3 gap-3">
-        <Card className="flex justify-around items-center flex-wrap gap-4 md:col-span-1">
-          <Ring pct={taskCompletionPct} label="Tus tareas cumplidas" value={`${Math.round(taskCompletionPct * 100)}%`} color={taskCompletionPct >= 0.7 ? 'var(--color-green)' : taskCompletionPct >= 0.4 ? 'var(--color-amber)' : 'var(--color-red)'} />
         </Card>
-        <Card className="md:col-span-2">
-          <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3">Embudo · este mes</div>
-          <div className="space-y-2">
+
+        <Card>
+          <SectionTitle icon={Filter} href="/contactos" linkLabel="Leads">Embudo del mes</SectionTitle>
+          <div className="space-y-2.5">
             {funnel.map((f) => (
-              <div key={f.label} className="flex items-center gap-2">
-                <div className="text-ink text-xs w-[120px] shrink-0">{f.label}</div>
-                <div className="flex-1 rounded bg-surfaceAlt h-4 overflow-hidden">
-                  <div className="h-full transition-all" style={{ width: `${(f.value / maxFunnel) * 100}%`, background: f.color }} />
+              <div key={f.label}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-muted">{f.label}</span>
+                  <span className="text-ink font-bold">{f.value}</span>
                 </div>
-                <div className="text-ink text-xs w-7 text-right shrink-0 font-bold">{f.value}</div>
+                <ProgressBar pct={f.value / maxFunnel} color={f.color} />
               </div>
             ))}
           </div>
+          <div className="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-border">
+            <div>
+              <div className="text-ink font-display text-xl leading-none">{callsM}</div>
+              <div className="text-muted text-[11px] mt-1">llamadas hechas</div>
+            </div>
+            <div>
+              <div className="text-ink font-display text-xl leading-none">{closeRate === null ? '—' : `${Math.round(closeRate * 100)}%`}</div>
+              <div className="text-muted text-[11px] mt-1">tasa de cierre</div>
+            </div>
+          </div>
         </Card>
       </div>
 
-      <Card>
-        <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3">Contactos nuevos y ventas · últimos 14 días</div>
-        <div className="w-full h-[180px]">
-          <ResponsiveContainer>
-            <BarChart data={last14}>
-              <CartesianGrid stroke="var(--color-border)" vertical={false} />
-              <XAxis dataKey="label" stroke="var(--color-muted)" fontSize={10} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} />
-              <YAxis stroke="var(--color-muted)" fontSize={10} allowDecimals={false} tickLine={false} axisLine={{ stroke: 'var(--color-border)' }} width={24} />
-              <Tooltip contentStyle={{ background: 'var(--color-surfaceAlt)', border: '1px solid var(--color-border)', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: 'var(--color-ink)' }} />
-              <Bar dataKey="leads" fill="var(--color-cyan)" radius={[3, 3, 0, 0]} name="Contactos" />
-              <Bar dataKey="ventas" fill="var(--color-green)" radius={[3, 3, 0, 0]} name="Ventas" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
-
-      <Card>
-        <div className="text-muted text-[11.5px] uppercase tracking-wide mb-3 flex items-center gap-1.5"><Activity size={13} /> Actividad reciente</div>
-        <ActivityFeed limit={10} />
-      </Card>
-
-      {/* Objetivos personalizables */}
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-muted text-[11.5px] uppercase tracking-wide flex items-center gap-1.5"><Target size={13} /> Objetivos</div>
-          <button onClick={() => setAddingGoal(!addingGoal)} className="text-cyan text-xs font-semibold flex items-center gap-1">
-            <Plus size={14} /> Nuevo objetivo
-          </button>
-        </div>
-
-        {addingGoal && (
-          <div className="rounded-lg p-3 bg-surfaceAlt border border-border mb-3 space-y-2">
-            <input
-              value={goalForm.title}
-              onChange={(e) => setGoalForm({ ...goalForm, title: e.target.value })}
-              placeholder="Ej. Facturar 3000€ este mes"
-              className="bg-surface border border-border text-ink rounded-lg px-2.5 py-2 text-sm w-full outline-none focus:border-cyan"
-            />
-            <div className="grid grid-cols-3 gap-2">
-              <select
-                value={goalForm.metric}
-                onChange={(e) => setGoalForm({ ...goalForm, metric: e.target.value })}
-                className="bg-surface border border-border text-ink rounded-lg px-2 py-2 text-xs outline-none focus:border-cyan"
-              >
-                {GOAL_METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
-              </select>
-              <select
-                value={goalForm.period}
-                onChange={(e) => setGoalForm({ ...goalForm, period: e.target.value })}
-                className="bg-surface border border-border text-ink rounded-lg px-2 py-2 text-xs outline-none focus:border-cyan"
-              >
-                <option value="mensual">Mensual</option>
-                <option value="semanal">Semanal</option>
-              </select>
-              <input
-                type="number"
-                value={goalForm.target}
-                onChange={(e) => setGoalForm({ ...goalForm, target: e.target.value })}
-                placeholder="Meta"
-                className="bg-surface border border-border text-ink rounded-lg px-2 py-2 text-xs w-full outline-none focus:border-cyan"
-              />
+      {/* ── Rentabilidad + objetivos ─────────────────────────────── */}
+      <div className="grid lg:grid-cols-3 gap-3">
+        <Card>
+          <SectionTitle icon={Percent} href="/anuncios" linkLabel="Anuncios">Rentabilidad del mes</SectionTitle>
+          <div className="space-y-3">
+            {[
+              { label: 'Coste por lead', value: costPerLead !== null ? eur(costPerLead) : '—' },
+              { label: 'Coste por venta', value: costPerSale !== null ? eur(costPerSale) : '—' },
+            ].map((r) => (
+              <div key={r.label} className="flex items-center justify-between">
+                <span className="text-muted text-sm">{r.label}</span>
+                <span className="text-ink font-bold">{r.value}</span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between">
+              <span className="text-muted text-sm">ROI de anuncios</span>
+              <span className="font-bold flex items-center gap-1" style={{ color: roiPct === null ? 'var(--color-muted)' : roiPct >= 0 ? 'var(--color-green)' : 'var(--color-red)' }}>
+                {roiPct !== null && (roiPct >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />)}
+                {roiPct !== null ? `${roiPct >= 0 ? '+' : ''}${roiPct.toFixed(0)}%` : '—'}
+              </span>
             </div>
-            <button onClick={addGoal} className="rounded-lg px-3 py-1.5 font-semibold text-xs bg-cyan text-[#00161C]">Crear objetivo</button>
+            {(totalImpressions > 0 || avgCtr !== null) && (
+              <div className="pt-3 border-t border-border space-y-3">
+                {totalImpressions > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted text-sm">Impresiones (Meta)</span>
+                    <span className="text-ink font-bold">{totalImpressions.toLocaleString('es-ES')}</span>
+                  </div>
+                )}
+                {avgCtr !== null && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted text-sm">CTR medio</span>
+                    <span className="text-ink font-bold">{avgCtr}%</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {roiPct === null && <div className="text-muted text-[11px]">Aparece en cuanto registres inversión en anuncios este mes.</div>}
           </div>
-        )}
+        </Card>
 
-        {goals.length === 0 && !addingGoal && (
-          <div className="text-muted text-sm text-center py-4">Sin objetivos todavía. Crea el primero arriba.</div>
-        )}
+        <Card className="lg:col-span-2">
+          <SectionTitle
+            icon={Target}
+            right={
+              <button onClick={() => setAddingGoal(!addingGoal)} className="text-cyan text-xs font-semibold flex items-center gap-1">
+                <Plus size={14} /> Nuevo objetivo
+              </button>
+            }
+          >
+            Objetivos
+          </SectionTitle>
 
-        <div className="flex flex-wrap gap-4 justify-around">
-          {goals.map((g) => {
-            const { current, target } = goalProgress(g);
-            const pct = target > 0 ? current / target : 0;
-            const isMoney = g.metric === 'facturacion' || g.metric === 'inversion_ads';
-            const completedGoal = target > 0 && current >= target;
+          {addingGoal && (
+            <div className="mb-3">
+              <GoalForm value={goalForm} onChange={setGoalForm} onSubmit={addGoal} onCancel={() => setAddingGoal(false)} submitLabel="Crear objetivo" />
+            </div>
+          )}
 
-            if (editingGoalId === g.id) {
+          {goals.length === 0 && !addingGoal && (
+            <div className="rounded-lg border border-dashed border-border p-5 text-center text-muted text-sm">
+              Sin objetivos todavía. Crea el primero (p. ej. «Facturar 3000€ este mes»).
+            </div>
+          )}
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            {goals.map((g) => {
+              if (editingGoalId === g.id) {
+                return (
+                  <div key={g.id} className="sm:col-span-2">
+                    <GoalForm value={editForm} onChange={setEditForm} onSubmit={saveEditGoal} onCancel={() => setEditingGoalId(null)} submitLabel="Guardar" />
+                  </div>
+                );
+              }
+              const { current, target } = goalProgress(g);
+              const pct = target > 0 ? current / target : 0;
+              const isMoney = g.metric === 'facturacion' || g.metric === 'inversion_ads';
+              const done = target > 0 && current >= target;
+              const fmt = (n) => (isMoney ? eur(n) : Number(n || 0).toLocaleString('es-ES'));
               return (
-                <div key={g.id} className="rounded-lg p-3 bg-surfaceAlt border border-border space-y-2 w-full sm:w-64">
-                  <input
-                    value={editForm.title}
-                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                    className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-sm w-full outline-none focus:border-cyan"
-                  />
-                  <select
-                    value={editForm.metric}
-                    onChange={(e) => setEditForm({ ...editForm, metric: e.target.value })}
-                    className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-full outline-none focus:border-cyan"
-                  >
-                    {GOAL_METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
-                  </select>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={editForm.period}
-                      onChange={(e) => setEditForm({ ...editForm, period: e.target.value })}
-                      className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs outline-none focus:border-cyan"
-                    >
-                      <option value="mensual">Mensual</option>
-                      <option value="semanal">Semanal</option>
-                    </select>
-                    <input
-                      type="number"
-                      value={editForm.target}
-                      onChange={(e) => setEditForm({ ...editForm, target: e.target.value })}
-                      className="bg-surface border border-border text-ink rounded-lg px-2 py-1.5 text-xs w-full outline-none focus:border-cyan"
-                    />
+                <div key={g.id} className="group rounded-lg bg-surfaceAlt border border-border p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-ink text-sm font-semibold truncate">{g.title}</div>
+                      <div className="text-muted text-[11px]">{g.period === 'semanal' ? 'Semanal' : 'Mensual'}</div>
+                    </div>
+                    <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 shrink-0">
+                      <button onClick={() => startEditGoal(g)} className="text-muted" aria-label="Editar"><Pencil size={12} /></button>
+                      <button onClick={() => removeGoal(g.id)} className="text-muted" aria-label="Borrar"><Trash2 size={12} /></button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={saveEditGoal} className="rounded-lg px-3 py-1.5 font-semibold text-xs bg-cyan text-[#00161C]">Guardar</button>
-                    <button onClick={() => setEditingGoalId(null)} className="rounded-lg px-3 py-1.5 font-semibold text-xs text-muted flex items-center gap-1"><X size={13} /> Cancelar</button>
+                  <div className="flex items-baseline justify-between mt-2 mb-1.5">
+                    <span className="text-ink font-bold text-sm">
+                      {fmt(current)} <span className="text-muted font-normal">/ {fmt(target)}</span>
+                    </span>
+                    <span className="text-xs font-bold" style={{ color: done ? 'var(--color-green)' : 'var(--color-cyan)' }}>
+                      {done ? '✓ Conseguido' : `${Math.round(pct * 100)}%`}
+                    </span>
                   </div>
+                  <ProgressBar pct={pct} color={done ? 'var(--color-green)' : 'var(--color-cyan)'} />
+                  {g.metric === 'manual' && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-muted text-[11px]">Valor actual:</span>
+                      <input
+                        type="number"
+                        value={g.manual_current ?? ''}
+                        onChange={(e) => updateGoalManual(g.id, e.target.value)}
+                        className="bg-surface border border-border text-ink rounded px-2 py-1 text-xs w-24 outline-none focus:border-cyan"
+                      />
+                    </div>
+                  )}
                 </div>
               );
-            }
+            })}
+          </div>
+        </Card>
+      </div>
 
-            return (
-              <div key={g.id} className="flex flex-col items-center gap-1.5">
-                <Ring pct={pct} label={g.title} value={`${isMoney ? eur(current) : current}/${isMoney ? eur(target) : target}`} color={completedGoal ? 'var(--color-green)' : 'var(--color-cyan)'} />
-                {completedGoal && <span className="text-green text-[10px] font-bold uppercase">Completado 🎉</span>}
-                {g.metric === 'manual' && (
-                  <input
-                    type="number"
-                    value={g.manual_current}
-                    onChange={(e) => updateGoalManual(g.id, e.target.value)}
-                    className="bg-surfaceAlt border border-border text-ink rounded px-2 py-1 text-xs w-20 text-center outline-none focus:border-cyan"
-                  />
-                )}
-                <div className="flex items-center gap-2">
-                  <button onClick={() => startEditGoal(g)} className="text-muted"><Pencil size={12} /></button>
-                  <button onClick={() => removeGoal(g.id)} className="text-muted"><Trash2 size={12} /></button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* ── Actividad ────────────────────────────────────────────── */}
+      <Card>
+        <SectionTitle icon={Activity}>Actividad reciente</SectionTitle>
+        <ActivityFeed limit={8} />
       </Card>
     </div>
   );

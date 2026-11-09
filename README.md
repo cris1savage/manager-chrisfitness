@@ -5,6 +5,24 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Dashboard rediseñado
+
+- **Ordenado por importancia, en bloques**: arriba los 4 números del mes
+  (ingresos, ventas, leads, inversión en anuncios), cada uno comparado con
+  el mismo día del mes pasado (sube/baja en %), y se pueden pulsar para ir a
+  su sección.
+- **Tu día**: el contenido de hoy con hora, formato y estado (el mismo del
+  Calendario de contenido), y se marca como publicado con un clic. Al lado,
+  la racha con los últimos 7 días a la vista.
+- **Pendientes**: tus tareas con fecha (atrasada / hoy / mañana) y las
+  renovaciones de los próximos 7 días con el nombre del cliente.
+- **Captación**: gráfica de 14 días con leyenda y totales, y el embudo del
+  mes con llamadas hechas y tasa de cierre (nuevo).
+- **Rentabilidad y objetivos**: los objetivos ahora son barras de progreso
+  (más fáciles de leer que los círculos), con su % y "Conseguido".
+- Botones rápidos arriba: + Contenido, + Lead, + Tarea.
+- Todo lo que hacía antes sigue igual (objetivos, racha, tareas, actividad).
+
 ## Menú por niveles + Calendario de contenido (vista mensual)
 
 - **Menú reorganizado por áreas del negocio**: Inicio, Contenido, Captación,
