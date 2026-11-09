@@ -5,6 +5,31 @@ datos, y acceso desde cualquier ordenador para ti y tu socia. Mismo stack que
 ya usas en `chrisfitness.online/comunidad`, así que el flujo de despliegue te
 sonará.
 
+## Panel convertido en manager de redes ("Hoy")
+
+- **Enfoque nuevo**: el panel es para redes, contenido, leads y anuncios.
+  **Facturación, Ventas y Clientes activos ya no salen en el menú** (ni
+  ingresos ni renovaciones en el inicio). No se ha borrado nada: las
+  páginas y los datos siguen ahí; para volver a mostrarlas basta con quitar
+  `hidden: true` en `NAV_GROUPS` (`lib/config.js`).
+- **Nuevo inicio "Hoy"** (diseño elegido, propuestas 4 + 7):
+  - **Lo siguiente**: la próxima publicación o tarea con hora ("en 45 min"),
+    con botón para marcarla hecha.
+  - **Tu día**: publicaciones y tareas de hoy por hora, tareas atrasadas,
+    llamadas agendadas con leads y leads sin respuesta (+3 días).
+  - **Esta semana**: piezas por día, con los días vacíos marcados en rojo.
+  - **Redes · 7 días**: seguidores nuevos, vistas, interacción, racha y
+    seguidores por red (se rellena al conectar las cuentas; hasta entonces
+    "—").
+  - **Leads y anuncios**: leads del mes, llamadas, coste por lead, CTR y
+    campañas activas con sus leads.
+  - **Mejor publicación** de la semana y **avisos** calculados con tus datos
+    (huecos en el calendario, leads parados, borradores, errores).
+- **Móvil**: barra de navegación fija abajo (Hoy, Contenido, Leads,
+  Anuncios, Más) y botones de acción rápida.
+- Fuera del inicio: objetivos, embudo, gráfica de 14 días y actividad
+  reciente (los datos siguen guardados).
+
 ## Dashboard rediseñado
 
 - **Ordenado por importancia, en bloques**: arriba los 4 números del mes

@@ -6,7 +6,16 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Calendar, CalendarDays, Megaphone, Users, FileText, LogOut, Menu, X,
   CheckSquare, UserCheck, Gift, ShieldCheck, ScrollText, ClipboardCheck, DollarSign, MessageCircle, UsersRound, Clapperboard, MessagesSquare, FolderOpen, BarChart3, PiggyBank,
+  Home, MoreHorizontal,
 } from 'lucide-react';
+
+// Barra inferior del móvil: lo que más se usa, a un toque
+const BOTTOM_NAV = [
+  { href: '/dashboard', label: 'Hoy', icon: Home },
+  { href: '/contenido', label: 'Contenido', icon: CalendarDays },
+  { href: '/contactos', label: 'Leads', icon: Users },
+  { href: '/anuncios', label: 'Anuncios', icon: Megaphone },
+];
 import { createClient } from '@/lib/supabase/client';
 
 const ICONS = {
@@ -100,8 +109,21 @@ export default function Sidebar({ groups, profile }) {
           {open ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
+      <nav aria-label="Navegación rápida" className="md:hidden fixed bottom-0 left-0 right-0 z-30 grid grid-cols-5 border-t border-border bg-bg pt-2 pb-[max(10px,env(safe-area-inset-bottom))]">
+        {BOTTOM_NAV.map(({ href, label, icon: Icon }) => {
+          const active = !open && isActive(pathname, href);
+          return (
+            <Link key={href} href={href} onClick={() => setOpen(false)} className={`flex flex-col items-center gap-1 text-[10.5px] font-semibold ${active ? 'text-cyan' : 'text-muted'}`}>
+              <Icon size={21} /> {label}
+            </Link>
+          );
+        })}
+        <button onClick={() => setOpen(!open)} className={`flex flex-col items-center gap-1 text-[10.5px] font-semibold ${open ? 'text-cyan' : 'text-muted'}`} aria-label="Más secciones">
+          <MoreHorizontal size={21} /> Más
+        </button>
+      </nav>
       {open && (
-        <div className="md:hidden fixed top-12 left-0 right-0 bottom-0 z-10 p-3 overflow-y-auto bg-bg">
+        <div className="md:hidden fixed top-12 left-0 right-0 bottom-16 z-20 p-3 overflow-y-auto bg-bg">
           <NavGroups groups={groups} pathname={pathname} onClick={() => setOpen(false)} />
           <button onClick={logout} className="w-full flex items-center gap-2 px-3 py-2.5 mt-2 text-sm text-muted border-t border-border">
             <LogOut size={15} /> Cerrar sesión ({profile?.display_name})
